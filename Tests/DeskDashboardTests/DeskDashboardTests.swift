@@ -189,3 +189,37 @@ private final class LifecycleTestModel: WidgetModel {
     //verify
     #expect(true)
 }
+
+@Test func creatingWidgetDoesNotCreateOrActivateModel() {
+    let tracker = ModelTracker()
+
+    _ = TestWidget(tracker: tracker)
+
+    #expect(tracker.makeModelCount == 0)
+    #expect(tracker.activateCount == 0)
+    #expect(tracker.deactivateCount == 0)
+}
+
+@Test func addingTwoWidgetsCreatesTwoSeparateModels() {
+    let firstTracker = ModelTracker()
+    let secondTracker = ModelTracker()
+
+    let firstWidget = TestWidget(tracker: firstTracker)
+        .id("first")
+
+    let secondWidget = TestWidget(tracker: secondTracker)
+        .id("second")
+
+    var dashboard = Dashboard()
+
+    dashboard.add(firstWidget)
+    dashboard.add(secondWidget)
+
+    #expect(firstTracker.makeModelCount == 1)
+    #expect(firstTracker.activateCount == 1)
+
+    #expect(secondTracker.makeModelCount == 1)
+    #expect(secondTracker.activateCount == 1)
+}
+
+
