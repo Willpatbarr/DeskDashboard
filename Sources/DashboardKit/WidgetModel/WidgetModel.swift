@@ -8,9 +8,11 @@
 public protocol WidgetModel: AnyObject {
     func activate()
     func deactivate()
+    func update(environment: DashboardEnvironment)
 }
 
 public extension WidgetModel {
     func activate() {}
     func deactivate() {}
+    func update(environment: DashboardEnvironment) {}
 }

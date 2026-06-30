@@ -9,4 +9,6 @@ struct AttachedWidget {
     let id: WidgetID
     let configuration: WidgetConfiguration
     let model: any WidgetModel
+    var visibility: WidgetVisibility
+    var placement: WidgetPlacement
 }
