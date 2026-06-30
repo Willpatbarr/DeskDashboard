@@ -5,12 +5,12 @@
 //  Created by William Patrick Cluff Barr on 6/26/26.
 //
 
-protocol WidgetModel: AnyObject {
+public protocol WidgetModel: AnyObject {
     func activate()
     func deactivate()
 }
 
-extension WidgetModel {
+public extension WidgetModel {
     func activate() {}
     func deactivate() {}
 }

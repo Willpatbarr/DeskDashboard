@@ -5,15 +5,27 @@ import PackageDescription
 
 let package = Package(
     name: "DeskDashboard",
+    products: [
+        .library(
+            name: "DashboardKit",
+            targets: ["DashboardKit"]
+        ),
+        .executable(
+            name: "DeskDashboard",
+            targets: ["DeskDashboard"]
+        ),
+    ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
+        .target(
+            name: "DashboardKit"
+        ),
         .executableTarget(
-            name: "DeskDashboard"
+            name: "DeskDashboard",
+            dependencies: ["DashboardKit"]
         ),
         .testTarget(
             name: "DeskDashboardTests",
-            dependencies: ["DeskDashboard"]
+            dependencies: ["DashboardKit"]
         ),
     ],
     swiftLanguageModes: [.v6]
