@@ -49,6 +49,7 @@ private final class TestWidgetModel: WidgetModel {}
 private struct TestWidget: Widget {
     var configuration = WidgetConfiguration()
     let tracker: ModelTracker
+    private var model: LifecycleTestModel?
 
     init(
         configuration: WidgetConfiguration = WidgetConfiguration(),
@@ -57,11 +58,21 @@ private struct TestWidget: Widget {
         self.configuration = configuration
         self.tracker = tracker
     }
-    
-    func makeModel(environment: DashboardEnvironment) -> LifecycleTestModel {
+
+    mutating func attach(environment: DashboardEnvironment) {
         tracker.makeModelCount += 1
         tracker.receivedEnvironment = environment
-        return LifecycleTestModel(tracker: tracker)
+        model = LifecycleTestModel(tracker: tracker)
+        model?.activate()
+    }
+
+    mutating func update(environment: DashboardEnvironment) {
+        model?.update(environment: environment)
+    }
+
+    mutating func detach() {
+        model?.deactivate()
+        model = nil
     }
 }
 
@@ -83,7 +94,7 @@ private struct HidingLayout: Layout {
 
 private struct RegionLayout: Layout {
     let name = "region"
-    let region: String
+    let region: LayoutRegion
 
     func placement(
         for widgetID: WidgetID,
@@ -134,8 +145,8 @@ private final class LifecycleTestModel: WidgetModel {
     }
 }
 
-// 1.1.a adding a widget will create and activate a model
-@Test func addingWidgetCreatesAndActivatesModel() {
+// 1.1.a adding a widget attaches and activates it
+@Test func addingWidgetAttachesAndActivatesWidget() {
     //setup
     let tracker = ModelTracker()
     let widget = TestWidget(tracker: tracker)
@@ -194,8 +205,8 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(tracker.receivedEnvironment?.refreshRate == .seconds(10))
 }
 
-// 1.4 removing a widget deactivates the model
-@Test func removingWidgetDeactivatesModel() {
+// 1.4 removing a widget detaches it
+@Test func removingWidgetDetachesWidget() {
     //setup
     let tracker = ModelTracker()
     let widget = TestWidget(tracker: tracker)
@@ -241,7 +252,7 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(tracker.deactivateCount == 0)
 }
 
-@Test func addingTwoWidgetsCreatesTwoSeparateModels() {
+@Test func addingTwoWidgetsAttachesEachWidgetIndependently() {
     let firstTracker = ModelTracker()
     let secondTracker = ModelTracker()
 
@@ -263,7 +274,7 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(secondTracker.activateCount == 1)
 }
 
-@Test func addingWidgetWithDuplicateIDReplacesAndDeactivatesOldModel() {
+@Test func addingWidgetWithDuplicateIDReplacesAndDetachesOldWidget() {
     let firstTracker = ModelTracker()
     let secondTracker = ModelTracker()
 
@@ -320,7 +331,7 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(dashboard.attachedWidgetCount == 1)
 }
 
-@Test func updatingAttachedWidgetEnvironmentsPassesNewEnvironmentToModels() {
+@Test func updatingAttachedWidgetEnvironmentsUpdatesWidgets() {
     let tracker = ModelTracker()
     let widget = TestWidget(tracker: tracker)
         .id("clock")
@@ -345,7 +356,7 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(tracker.updatedEnvironment?.refreshRate == .seconds(5))
 }
 
-@Test func applyingRefreshRateUpdatesAttachedWidgetEnvironment() {
+@Test func applyingRefreshRateUpdatesAttachedWidgets() {
     let tracker = ModelTracker()
     let widget = TestWidget(tracker: tracker)
         .id("clock")
@@ -367,7 +378,7 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(tracker.updatedEnvironment?.refreshRate == .seconds(5))
 }
 
-@Test func applyingThemeUpdatesAttachedWidgetEnvironment() {
+@Test func applyingThemeUpdatesAttachedWidgets() {
     let tracker = ModelTracker()
     let widget = TestWidget(tracker: tracker)
         .id("clock")
@@ -388,7 +399,7 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(tracker.updatedEnvironment?.theme.name == "lightDesk")
 }
 
-@Test func applyingLayoutUpdatesAttachedWidgetEnvironment() {
+@Test func applyingLayoutUpdatesAttachedWidgets() {
     let tracker = ModelTracker()
     let widget = TestWidget(tracker: tracker)
         .id("clock")
@@ -406,7 +417,7 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(tracker.updatedEnvironment?.layout.name == "sidebar")
 }
 
-@Test func applyingEnvironmentValueUpdatesAttachedWidgetEnvironment() {
+@Test func applyingEnvironmentValueUpdatesAttachedWidgets() {
     let tracker = ModelTracker()
     let widget = TestWidget(tracker: tracker)
         .id("clock")
@@ -434,7 +445,7 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(dashboard.visibility(for: WidgetID("clock")) == .visible)
 }
 
-@Test func settingWidgetVisibilityDoesNotDeactivateModel() {
+@Test func settingWidgetVisibilityDoesNotDetachWidget() {
     let tracker = ModelTracker()
     let widget = TestWidget(tracker: tracker)
         .id("music")
@@ -485,7 +496,7 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(dashboard.visibility(for: WidgetID("music")) == .hidden)
 }
 
-@Test func applyingLayoutDoesNotDeactivateHiddenWidgets() {
+@Test func applyingLayoutDoesNotDetachHiddenWidgets() {
     let tracker = ModelTracker()
     let widget = TestWidget(tracker: tracker)
         .id("music")
@@ -536,13 +547,13 @@ private final class LifecycleTestModel: WidgetModel {
 
     var dashboard = Dashboard(
         configuration: DashboardConfiguration(
-            layout: RegionLayout(region: "sidebar")
+            layout: RegionLayout(region: LayoutRegion("sidebar"))
         )
     )
 
     dashboard.add(widget)
 
-    #expect(dashboard.placement(for: WidgetID("music"))?.region == "sidebar")
+    #expect(dashboard.placement(for: WidgetID("music"))?.region == LayoutRegion("sidebar"))
     #expect(dashboard.visibility(for: WidgetID("music")) == .visible)
 }
 
@@ -553,7 +564,7 @@ private final class LifecycleTestModel: WidgetModel {
     var dashboard = Dashboard()
     dashboard.add(widget)
 
-    dashboard.applyLayout(RegionLayout(region: "sidebar"))
+    dashboard.applyLayout(RegionLayout(region: LayoutRegion("sidebar")))
 
-    #expect(dashboard.placement(for: WidgetID("music"))?.region == "sidebar")
+    #expect(dashboard.placement(for: WidgetID("music"))?.region == LayoutRegion("sidebar"))
 }

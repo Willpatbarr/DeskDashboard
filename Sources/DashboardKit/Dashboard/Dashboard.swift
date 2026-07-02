@@ -58,40 +58,37 @@ public struct Dashboard {
 
 extension Dashboard {
     public mutating func add<W: Widget>(_ widget: W) {
-        
-        //param setup
+        var widget = widget
         let widgetID = widget.configuration.id ?? WidgetID()
         let environment = makeEnvironment(
             for: widgetID,
             configuration: widget.configuration,
         )
-        let model = widget.makeModel(environment: environment)
         let placement = configuration.layout.placement(
             for: widgetID,
             configuration: widget.configuration
         )
 
-        let replacedWidget = attachedWidgets.updateValue(
-            AttachedWidget(
-                id: widgetID,
-                configuration: widget.configuration,
-                model: model,
-                visibility: placement.visibility,
-                placement: placement,
-            ),
-            forKey: widgetID
-        )
+        if var replacedWidget = attachedWidgets.removeValue(forKey: widgetID) {
+            replacedWidget.widget.detach()
+        }
 
-        replacedWidget?.model.deactivate()
-        model.activate()
+        widget.attach(environment: environment)
+
+        attachedWidgets[widgetID] = AttachedWidget(
+            id: widgetID,
+            widget: widget,
+            visibility: placement.visibility,
+            placement: placement
+        )
     }
 
     public mutating func remove(widget id: WidgetID) {
-        guard let attachedWidget = attachedWidgets.removeValue(forKey: id) else {
+        guard var attachedWidget = attachedWidgets.removeValue(forKey: id) else {
             return
         }
-        
-        attachedWidget.model.deactivate()
+
+        attachedWidget.widget.detach()
     }
 }
 
@@ -113,13 +110,18 @@ extension Dashboard {
     }
 
     mutating func updateAttachedWidgetEnvironments() {
-        for attachedWidget in attachedWidgets.values {
+        for widgetID in attachedWidgets.keys {
+            guard var attachedWidget = attachedWidgets[widgetID] else {
+                continue
+            }
+
             let environment = makeEnvironment(
                 for: attachedWidget.id,
-                configuration: attachedWidget.configuration
+                configuration: attachedWidget.widget.configuration
             )
 
-            attachedWidget.model.update(environment: environment)
+            attachedWidget.widget.update(environment: environment)
+            attachedWidgets[widgetID] = attachedWidget
         }
     }
 }
@@ -177,14 +179,18 @@ extension Dashboard {
     }
     
     mutating func updateAttachedWidgetPlacements() {
-        for attachedWidget in attachedWidgets.values {
+        for widgetID in attachedWidgets.keys {
+            guard let attachedWidget = attachedWidgets[widgetID] else {
+                continue
+            }
+
             let placement = configuration.layout.placement(
                 for: attachedWidget.id,
-                configuration: attachedWidget.configuration,
+                configuration: attachedWidget.widget.configuration,
             )
-            
-            attachedWidgets[attachedWidget.id]?.placement = placement
-            attachedWidgets[attachedWidget.id]?.visibility = placement.visibility
+
+            attachedWidgets[widgetID]?.placement = placement
+            attachedWidgets[widgetID]?.visibility = placement.visibility
         }
     }
 }

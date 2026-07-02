@@ -6,13 +6,17 @@
 //
 
 public protocol Widget {
-    associatedtype Model: WidgetModel
-
     var configuration: WidgetConfiguration { get set }
 
-    func makeModel(
-        environment: DashboardEnvironment
-    ) -> Model
+    mutating func attach(environment: DashboardEnvironment)
+    mutating func update(environment: DashboardEnvironment)
+    mutating func detach()
+}
+
+public extension Widget {
+    mutating func attach(environment: DashboardEnvironment) {}
+    mutating func update(environment: DashboardEnvironment) {}
+    mutating func detach() {}
 }
 
 public extension Widget {
