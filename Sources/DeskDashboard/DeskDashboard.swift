@@ -1,9 +1,18 @@
-// The Swift Programming Language
-// https://docs.swift.org/swift-book
+import DashboardKit
 
 @main
 struct DeskDashboard {
     static func main() {
-        print("Hello, world!")
+        var dashboard = Dashboard()
+            .theme(DarkDeskTheme())
+
+        dashboard.add(
+            ClockWidget()
+                .id("clock")
+                .title("Clock")
+                .size(.large)
+        )
+
+        print("DeskDashboard ready with \(dashboard.attachedWidgetCount) widget.")
     }
 }

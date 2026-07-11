@@ -10,6 +10,12 @@ public protocol Layout: Sendable {
         for widgetID: WidgetID,
         configuration: WidgetConfiguration
     ) -> WidgetPlacement
+
+    func placement(
+        for widgetID: WidgetID,
+        configuration: WidgetConfiguration,
+        at index: Int
+    ) -> WidgetPlacement
 }
 
 public extension Layout {
@@ -30,6 +36,17 @@ public extension Layout {
                 for: widgetID,
                 configuration: configuration,
             ),
+        )
+    }
+
+    func placement(
+        for widgetID: WidgetID,
+        configuration: WidgetConfiguration,
+        at index: Int
+    ) -> WidgetPlacement {
+        placement(
+            for: widgetID,
+            configuration: configuration
         )
     }
 }

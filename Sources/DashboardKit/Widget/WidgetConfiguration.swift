@@ -1,5 +1,5 @@
 public struct WidgetConfiguration: Equatable, Sendable {
-    public var id: WidgetID?
+    public var preferredID: WidgetID?
     public var title: String?
     public var size: WidgetSize
     public var priority: WidgetPriority
@@ -7,14 +7,14 @@ public struct WidgetConfiguration: Equatable, Sendable {
     public var refreshRate: RefreshRate?
 
     public init(
-        id: WidgetID? = nil,
+        preferredID: WidgetID? = nil,
         title: String? = nil,
         size: WidgetSize = .automatic,
         priority: WidgetPriority = .normal,
         isHidden: Bool = false,
         refreshRate: RefreshRate? = nil
     ) {
-        self.id = id
+        self.preferredID = preferredID
         self.title = title
         self.size = size
         self.priority = priority

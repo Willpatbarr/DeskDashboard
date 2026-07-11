@@ -12,6 +12,7 @@ public struct DashboardEnvironment {
     public let layout: any Layout
     public let refreshRate: RefreshRate
     public let values: [String: Any]
+    public let services: [String: any DashboardService]
 
     public init(
         dashboardID: DashboardID,
@@ -19,7 +20,8 @@ public struct DashboardEnvironment {
         theme: any Theme,
         layout: any Layout,
         refreshRate: RefreshRate,
-        values: [String: Any] = [:]
+        values: [String: Any] = [:],
+        services: [String: any DashboardService] = [:]
     ) {
         self.dashboardID = dashboardID
         self.widgetID = widgetID
@@ -27,11 +29,18 @@ public struct DashboardEnvironment {
         self.layout = layout
         self.refreshRate = refreshRate
         self.values = values
+        self.services = services
     }
 
     public func value<Value>(
         for key: EnvironmentKey<Value>
     ) -> Value? {
         values[key.name] as? Value
+    }
+
+    public func service<Service: DashboardService>(
+        for key: ServiceKey<Service>
+    ) -> Service? {
+        services[key.name] as? Service
     }
 }

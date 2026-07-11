@@ -22,7 +22,7 @@ public extension Widget {
 public extension Widget {
     func id(_ id: WidgetID) -> Self {
         var copy = self
-        copy.configuration.id = id
+        copy.configuration.preferredID = id
         return copy
     }
 

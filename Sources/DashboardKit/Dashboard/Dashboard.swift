@@ -8,12 +8,14 @@
 public struct Dashboard {
     public var configuration: DashboardConfiguration
     private var attachedWidgets: [WidgetID: AttachedWidget]
+    private var widgetOrder: [WidgetID]
 
     public init(
         configuration: DashboardConfiguration = DashboardConfiguration()
     ) {
         self.configuration = configuration
         self.attachedWidgets = [:]
+        self.widgetOrder = []
     }
 
     public func theme(_ theme: any Theme) -> Self {
@@ -43,30 +45,67 @@ public struct Dashboard {
         return copy
     }
 
+    public func service<Service: DashboardService>(
+        _ service: Service,
+        for key: ServiceKey<Service>
+    ) -> Self {
+        var copy = self
+        copy.configuration.services[key.name] = service
+        return copy
+    }
+
     public func refreshRate(_ refreshRate: RefreshRate) -> Self {
         var copy = self
         copy.configuration.refreshRate = refreshRate
         return copy
     }
 
-    var attachedWidgetCount: Int {
+    public var attachedWidgetCount: Int {
         attachedWidgets.count
+    }
+
+    public var attachedWidgetSnapshots: [AttachedWidgetSnapshot] {
+        widgetOrder.compactMap { widgetID in
+            guard let attachedWidget = attachedWidgets[widgetID] else {
+                return nil
+            }
+
+            let environment = makeEnvironment(
+                for: attachedWidget.id,
+                configuration: attachedWidget.widget.configuration
+            )
+
+            return AttachedWidgetSnapshot(
+                id: attachedWidget.id,
+                configuration: attachedWidget.widget.configuration,
+                placement: attachedWidget.placement,
+                content: renderContent(
+                    for: attachedWidget.widget,
+                    environment: environment
+                )
+            )
+        }
     }
 }
 
 // MARK: - Lifecycle
 
 extension Dashboard {
-    public mutating func add<W: Widget>(_ widget: W) {
+    @discardableResult
+    public mutating func add<W: Widget>(_ widget: W) -> WidgetID {
         var widget = widget
-        let widgetID = widget.configuration.id ?? WidgetID()
+        let widgetID = resolveWidgetID(
+            for: widget.configuration
+        )
         let environment = makeEnvironment(
             for: widgetID,
-            configuration: widget.configuration,
+            configuration: widget.configuration
         )
+        let placementIndex = widgetOrder.firstIndex(of: widgetID) ?? widgetOrder.count
         let placement = configuration.layout.placement(
             for: widgetID,
-            configuration: widget.configuration
+            configuration: widget.configuration,
+            at: placementIndex
         )
 
         if var replacedWidget = attachedWidgets.removeValue(forKey: widgetID) {
@@ -75,12 +114,17 @@ extension Dashboard {
 
         widget.attach(environment: environment)
 
+        if widgetOrder.contains(widgetID) == false {
+            widgetOrder.append(widgetID)
+        }
+
         attachedWidgets[widgetID] = AttachedWidget(
             id: widgetID,
             widget: widget,
-            visibility: placement.visibility,
             placement: placement
         )
+
+        return widgetID
     }
 
     public mutating func remove(widget id: WidgetID) {
@@ -89,6 +133,21 @@ extension Dashboard {
         }
 
         attachedWidget.widget.detach()
+        widgetOrder.removeAll { $0 == id }
+    }
+}
+
+// MARK: - Identity
+
+extension Dashboard {
+    public var widgetIDs: [WidgetID] {
+        widgetOrder
+    }
+
+    func resolveWidgetID(
+        for widgetConfiguration: WidgetConfiguration
+    ) -> WidgetID {
+        widgetConfiguration.preferredID ?? WidgetID()
     }
 }
 
@@ -105,12 +164,13 @@ extension Dashboard {
             theme: configuration.theme,
             layout: configuration.layout,
             refreshRate: widgetConfiguration.refreshRate ?? configuration.refreshRate,
-            values: configuration.environmentValues
+            values: configuration.environmentValues,
+            services: configuration.services
         )
     }
 
     mutating func updateAttachedWidgetEnvironments() {
-        for widgetID in attachedWidgets.keys {
+        for widgetID in widgetOrder {
             guard var attachedWidget = attachedWidgets[widgetID] else {
                 continue
             }
@@ -124,6 +184,17 @@ extension Dashboard {
             attachedWidgets[widgetID] = attachedWidget
         }
     }
+
+    func renderContent(
+        for widget: any Widget,
+        environment: DashboardEnvironment
+    ) -> WidgetContent? {
+        guard let renderableWidget = widget as? any RenderableWidget else {
+            return nil
+        }
+
+        return renderableWidget.render(environment: environment)
+    }
 }
 
 // MARK: - Live Configuration
@@ -131,6 +202,11 @@ extension Dashboard {
 extension Dashboard {
     public mutating func applyTheme(_ theme: any Theme) {
         configuration.theme = theme
+        if configuration.isLayoutPinned == false {
+            configuration.layout = theme.defaultLayout
+            updateAttachedWidgetPlacements()
+        }
+
         updateAttachedWidgetEnvironments()
     }
 
@@ -141,6 +217,7 @@ extension Dashboard {
 
     public mutating func applyLayout(_ layout: any Layout) {
         configuration.layout = layout
+        configuration.isLayoutPinned = true
         updateAttachedWidgetPlacements()
         updateAttachedWidgetEnvironments()
     }
@@ -152,34 +229,27 @@ extension Dashboard {
         configuration.environmentValues[key.name] = value
         updateAttachedWidgetEnvironments()
     }
-}
 
-// MARK: - Visibility
-
-extension Dashboard {
-    func visibility(for widgetID: WidgetID) -> WidgetVisibility? {
-        attachedWidgets[widgetID]?.visibility
-    }
-
-    mutating func setVisibility(
-        _ visibility: WidgetVisibility,
-        for widgetID: WidgetID
+    public mutating func applyService<Service: DashboardService>(
+        _ service: Service,
+        for key: ServiceKey<Service>
     ) {
-        attachedWidgets[widgetID]?.visibility = visibility
+        configuration.services[key.name] = service
+        updateAttachedWidgetEnvironments()
     }
 }
 
 // MARK: - Placement
 
 extension Dashboard {
-    func placement(
+    public func placement(
         for widgetID: WidgetID
     ) -> WidgetPlacement? {
         attachedWidgets[widgetID]?.placement
     }
     
     mutating func updateAttachedWidgetPlacements() {
-        for widgetID in attachedWidgets.keys {
+        for (index, widgetID) in widgetOrder.enumerated() {
             guard let attachedWidget = attachedWidgets[widgetID] else {
                 continue
             }
@@ -187,10 +257,10 @@ extension Dashboard {
             let placement = configuration.layout.placement(
                 for: attachedWidget.id,
                 configuration: attachedWidget.widget.configuration,
+                at: index
             )
 
             attachedWidgets[widgetID]?.placement = placement
-            attachedWidgets[widgetID]?.visibility = placement.visibility
         }
     }
 }
