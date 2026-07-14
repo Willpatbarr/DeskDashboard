@@ -5,6 +5,8 @@
 //  Created by William Patrick Cluff Barr on 6/26/26.
 //
 
+import Foundation
+
 public struct Dashboard {
     public var configuration: DashboardConfiguration
     private var attachedWidgets: [WidgetID: AttachedWidget]
@@ -121,7 +123,8 @@ extension Dashboard {
         attachedWidgets[widgetID] = AttachedWidget(
             id: widgetID,
             widget: widget,
-            placement: placement
+            placement: placement,
+            lastTickDate: nil
         )
 
         return widgetID
@@ -134,6 +137,59 @@ extension Dashboard {
 
         attachedWidget.widget.detach()
         widgetOrder.removeAll { $0 == id }
+    }
+}
+
+// MARK: - Ticks
+
+extension Dashboard {
+    public mutating func tick(
+        at date: Date = Date()
+    ) {
+        let tick = DashboardTick(date: date)
+
+        for widgetID in widgetOrder {
+            guard var attachedWidget = attachedWidgets[widgetID] else {
+                continue
+            }
+
+            guard shouldDeliver(
+                tick,
+                to: attachedWidget
+            ) else {
+                continue
+            }
+
+            let environment = makeEnvironment(
+                for: attachedWidget.id,
+                configuration: attachedWidget.widget.configuration
+            )
+
+            attachedWidget.widget.tick(
+                tick,
+                environment: environment
+            )
+            attachedWidget.lastTickDate = date
+            attachedWidgets[widgetID] = attachedWidget
+        }
+    }
+
+    func shouldDeliver(
+        _ tick: DashboardTick,
+        to attachedWidget: AttachedWidget
+    ) -> Bool {
+        guard attachedWidget.placement.visibility == .visible else {
+            return false
+        }
+
+        guard let lastTickDate = attachedWidget.lastTickDate else {
+            return true
+        }
+
+        let refreshRate = attachedWidget.widget.configuration.refreshRate
+            ?? configuration.refreshRate
+
+        return tick.date.timeIntervalSince(lastTickDate) >= refreshRate.seconds
     }
 }
 

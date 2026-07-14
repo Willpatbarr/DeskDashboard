@@ -10,12 +10,20 @@ public protocol Widget {
 
     mutating func attach(environment: DashboardEnvironment)
     mutating func update(environment: DashboardEnvironment)
+    mutating func tick(
+        _ tick: DashboardTick,
+        environment: DashboardEnvironment
+    )
     mutating func detach()
 }
 
 public extension Widget {
     mutating func attach(environment: DashboardEnvironment) {}
     mutating func update(environment: DashboardEnvironment) {}
+    mutating func tick(
+        _ tick: DashboardTick,
+        environment: DashboardEnvironment
+    ) {}
     mutating func detach() {}
 }
 

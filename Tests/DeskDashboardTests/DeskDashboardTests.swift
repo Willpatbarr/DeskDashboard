@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import DashboardKit
 
@@ -89,6 +90,16 @@ private struct TestWidget: Widget {
         model?.update(environment: environment)
     }
 
+    mutating func tick(
+        _ tick: DashboardTick,
+        environment: DashboardEnvironment
+    ) {
+        model?.tick(
+            tick,
+            environment: environment
+        )
+    }
+
     mutating func detach() {
         model?.deactivate()
         model = nil
@@ -162,6 +173,9 @@ private final class ModelTracker {
     var deactivateCount: Int = 0
     var updateCount: Int = 0
     var updatedEnvironment: DashboardEnvironment?
+    var tickCount: Int = 0
+    var receivedTicks: [DashboardTick] = []
+    var tickedEnvironment: DashboardEnvironment?
 }
 
 private final class LifecycleTestModel: WidgetModel {
@@ -182,6 +196,15 @@ private final class LifecycleTestModel: WidgetModel {
     func update(environment: DashboardEnvironment) {
         tracker.updateCount += 1
         tracker.updatedEnvironment = environment
+    }
+
+    func tick(
+        _ tick: DashboardTick,
+        environment: DashboardEnvironment
+    ) {
+        tracker.tickCount += 1
+        tracker.receivedTicks.append(tick)
+        tracker.tickedEnvironment = environment
     }
 }
 
@@ -302,6 +325,165 @@ private final class LifecycleTestModel: WidgetModel {
     #expect(tracker.makeModelCount == 0)
     #expect(tracker.activateCount == 0)
     #expect(tracker.deactivateCount == 0)
+}
+
+@Test func dashboardTickDeliversToAttachedWidgets() {
+    let tracker = ModelTracker()
+    let widget = TestWidget(tracker: tracker)
+        .id("clock")
+
+    let tickDate = Date(timeIntervalSinceReferenceDate: 10)
+
+    var dashboard = Dashboard()
+    dashboard.add(widget)
+
+    dashboard.tick(at: tickDate)
+
+    #expect(tracker.tickCount == 1)
+    #expect(tracker.receivedTicks == [
+        DashboardTick(date: tickDate),
+    ])
+    #expect(tracker.tickedEnvironment?.widgetID == WidgetID("clock"))
+}
+
+@Test func dashboardTickDoesNotDeliverBeforeRefreshRateElapsed() {
+    let tracker = ModelTracker()
+    let widget = TestWidget(tracker: tracker)
+        .id("weather")
+
+    var dashboard = Dashboard(
+        configuration: DashboardConfiguration(
+            refreshRate: .seconds(30)
+        )
+    )
+    dashboard.add(widget)
+
+    dashboard.tick(at: Date(timeIntervalSinceReferenceDate: 0))
+    dashboard.tick(at: Date(timeIntervalSinceReferenceDate: 1))
+
+    #expect(tracker.tickCount == 1)
+}
+
+@Test func dashboardTickDeliversWhenRefreshRateElapsed() {
+    let tracker = ModelTracker()
+    let widget = TestWidget(tracker: tracker)
+        .id("weather")
+
+    var dashboard = Dashboard(
+        configuration: DashboardConfiguration(
+            refreshRate: .seconds(30)
+        )
+    )
+    dashboard.add(widget)
+
+    dashboard.tick(at: Date(timeIntervalSinceReferenceDate: 0))
+    dashboard.tick(at: Date(timeIntervalSinceReferenceDate: 30))
+
+    #expect(tracker.tickCount == 2)
+}
+
+@Test func dashboardTickUsesPerWidgetRefreshRateOverride() {
+    let fastTracker = ModelTracker()
+    let slowTracker = ModelTracker()
+
+    let fastWidget = TestWidget(tracker: fastTracker)
+        .id("clock")
+        .refreshRate(.seconds(1))
+
+    let slowWidget = TestWidget(tracker: slowTracker)
+        .id("weather")
+        .refreshRate(.seconds(30))
+
+    var dashboard = Dashboard(
+        configuration: DashboardConfiguration(
+            refreshRate: .seconds(10)
+        )
+    )
+
+    dashboard.add(fastWidget)
+    dashboard.add(slowWidget)
+
+    dashboard.tick(at: Date(timeIntervalSinceReferenceDate: 0))
+    dashboard.tick(at: Date(timeIntervalSinceReferenceDate: 1))
+
+    #expect(fastTracker.tickCount == 2)
+    #expect(slowTracker.tickCount == 1)
+}
+
+@Test func dashboardTickDoesNotDeliverToHiddenWidgets() {
+    let tracker = ModelTracker()
+    let widget = TestWidget(tracker: tracker)
+        .id("clock")
+        .hidden()
+
+    var dashboard = Dashboard()
+    dashboard.add(widget)
+
+    dashboard.tick(at: Date(timeIntervalSinceReferenceDate: 0))
+
+    #expect(tracker.tickCount == 0)
+}
+
+@Test func dashboardRunnerStartsClockUsingDashboardRefreshRate() {
+    let clock = ManualDashboardClock()
+    let dashboard = Dashboard(
+        configuration: DashboardConfiguration(
+            refreshRate: .seconds(2)
+        )
+    )
+
+    let runner = DashboardRunner(
+        dashboard: dashboard,
+        clock: clock
+    )
+
+    runner.start()
+
+    #expect(runner.isRunning)
+    #expect(clock.isRunning)
+    #expect(clock.refreshRate == .seconds(2))
+}
+
+@Test func dashboardRunnerForwardsClockTicksToDashboard() {
+    let clock = ManualDashboardClock()
+    let tracker = ModelTracker()
+    let widget = TestWidget(tracker: tracker)
+        .id("clock")
+
+    let runner = DashboardRunner(
+        dashboard: Dashboard(),
+        clock: clock
+    )
+    runner.add(widget)
+    runner.start()
+
+    clock.advance(
+        to: Date(timeIntervalSinceReferenceDate: 0)
+    )
+
+    #expect(tracker.tickCount == 1)
+}
+
+@Test func dashboardRunnerStopPreventsFurtherClockTicks() {
+    let clock = ManualDashboardClock()
+    let tracker = ModelTracker()
+    let widget = TestWidget(tracker: tracker)
+        .id("clock")
+
+    let runner = DashboardRunner(
+        dashboard: Dashboard(),
+        clock: clock
+    )
+    runner.add(widget)
+    runner.start()
+    runner.stop()
+
+    clock.advance(
+        to: Date(timeIntervalSinceReferenceDate: 0)
+    )
+
+    #expect(runner.isRunning == false)
+    #expect(tracker.tickCount == 0)
 }
 
 @Test func addingTwoWidgetsAttachesEachWidgetIndependently() {

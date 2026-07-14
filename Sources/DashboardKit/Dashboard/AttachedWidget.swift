@@ -5,10 +5,13 @@
 //  Created by William Barr on 6/29/26.
 //
 
+import Foundation
+
 struct AttachedWidget {
     let id: WidgetID
     var widget: any Widget
     var placement: WidgetPlacement
+    var lastTickDate: Date?
 }
 
 public struct AttachedWidgetSnapshot: Equatable, Sendable {

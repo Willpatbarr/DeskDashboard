@@ -3,16 +3,18 @@ import DashboardKit
 @main
 struct DeskDashboard {
     static func main() {
-        var dashboard = Dashboard()
+        let dashboard = Dashboard()
             .theme(DarkDeskTheme())
+        let runner = DashboardRunner(dashboard: dashboard)
 
-        dashboard.add(
+        runner.add(
             ClockWidget()
                 .id("clock")
                 .title("Clock")
                 .size(.large)
+                .showSeconds()
         )
 
-        print("DeskDashboard ready with \(dashboard.attachedWidgetCount) widget.")
+        print("DeskDashboard ready with \(runner.attachedWidgetSnapshots.count) widget.")
     }
 }
