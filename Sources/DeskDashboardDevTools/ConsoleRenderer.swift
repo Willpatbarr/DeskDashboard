@@ -1,8 +1,11 @@
 import DashboardKit
 import Foundation
 
-struct ConsoleRenderer {
-    func render(
+/// Development-only renderer: draws snapshots as text tiles in the terminal.
+public struct ConsoleRenderer {
+    public init() {}
+
+    public func render(
         _ snapshots: [AttachedWidgetSnapshot]
     ) {
         var output = "\u{001B}[2J\u{001B}[H"

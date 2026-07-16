@@ -1080,3 +1080,51 @@ private final class LifecycleTestModel: WidgetModel {
         WidgetID("third"),
     ])
 }
+
+@Test func gridLayoutPacksSpannedWidgetsWithoutOverlap() {
+    var dashboard = Dashboard(
+        configuration: DashboardConfiguration(
+            layout: GridLayout(columns: 4)
+        )
+    )
+
+    dashboard.add(TestWidget().id("clock").size(.large))
+    dashboard.add(TestWidget().id("alarm").size(.medium))
+    dashboard.add(TestWidget().id("temp").size(.small))
+
+    #expect(dashboard.placement(for: WidgetID("clock"))?.gridSlot == WidgetGridSlot(
+        column: 0,
+        row: 0,
+        columnSpan: 2,
+        rowSpan: 2
+    ))
+    #expect(dashboard.placement(for: WidgetID("alarm"))?.gridSlot == WidgetGridSlot(
+        column: 2,
+        row: 0,
+        columnSpan: 2,
+        rowSpan: 1
+    ))
+    #expect(dashboard.placement(for: WidgetID("temp"))?.gridSlot == WidgetGridSlot(
+        column: 2,
+        row: 1,
+        columnSpan: 1,
+        rowSpan: 1
+    ))
+}
+
+@Test func removingWidgetRepacksRemainingPlacements() {
+    var dashboard = Dashboard(
+        configuration: DashboardConfiguration(
+            layout: GridLayout(columns: 2)
+        )
+    )
+
+    dashboard.add(TestWidget().id("first"))
+    dashboard.add(TestWidget().id("second"))
+    dashboard.add(TestWidget().id("third"))
+
+    dashboard.remove(widget: WidgetID("first"))
+
+    #expect(dashboard.placement(for: WidgetID("second"))?.gridSlot == WidgetGridSlot(column: 0, row: 0))
+    #expect(dashboard.placement(for: WidgetID("third"))?.gridSlot == WidgetGridSlot(column: 1, row: 0))
+}

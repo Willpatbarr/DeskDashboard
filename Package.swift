@@ -23,9 +23,19 @@ let package = Package(
             name: "DeskDashboardWidgets",
             dependencies: ["DashboardKit"]
         ),
+        // Development-only tooling (console + web renderers). Not part of the
+        // shipping dashboard; delete or ignore for production builds.
+        .target(
+            name: "DeskDashboardDevTools",
+            dependencies: ["DashboardKit"]
+        ),
         .executableTarget(
             name: "DeskDashboard",
-            dependencies: ["DashboardKit", "DeskDashboardWidgets"]
+            dependencies: [
+                "DashboardKit",
+                "DeskDashboardWidgets",
+                "DeskDashboardDevTools",
+            ]
         ),
         .testTarget(
             name: "DeskDashboardTests",

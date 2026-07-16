@@ -103,12 +103,6 @@ extension Dashboard {
             for: widgetID,
             configuration: widget.configuration
         )
-        let placementIndex = widgetOrder.firstIndex(of: widgetID) ?? widgetOrder.count
-        let placement = configuration.layout.placement(
-            for: widgetID,
-            configuration: widget.configuration,
-            at: placementIndex
-        )
 
         if var replacedWidget = attachedWidgets.removeValue(forKey: widgetID) {
             replacedWidget.widget.detach()
@@ -123,9 +117,16 @@ extension Dashboard {
         attachedWidgets[widgetID] = AttachedWidget(
             id: widgetID,
             widget: widget,
-            placement: placement,
+            placement: WidgetPlacement(
+                visibility: configuration.layout.visibility(
+                    for: widgetID,
+                    configuration: widget.configuration
+                )
+            ),
             lastTickDate: nil
         )
+
+        updateAttachedWidgetPlacements()
 
         return widgetID
     }
@@ -137,6 +138,7 @@ extension Dashboard {
 
         attachedWidget.widget.detach()
         widgetOrder.removeAll { $0 == id }
+        updateAttachedWidgetPlacements()
     }
 }
 
@@ -305,16 +307,23 @@ extension Dashboard {
     }
     
     mutating func updateAttachedWidgetPlacements() {
-        for (index, widgetID) in widgetOrder.enumerated() {
+        let items = widgetOrder.compactMap { widgetID -> LayoutItem? in
             guard let attachedWidget = attachedWidgets[widgetID] else {
-                continue
+                return nil
             }
 
-            let placement = configuration.layout.placement(
-                for: attachedWidget.id,
-                configuration: attachedWidget.widget.configuration,
-                at: index
+            return LayoutItem(
+                id: widgetID,
+                configuration: attachedWidget.widget.configuration
             )
+        }
+
+        let placements = configuration.layout.placements(for: items)
+
+        for widgetID in widgetOrder {
+            guard let placement = placements[widgetID] else {
+                continue
+            }
 
             attachedWidgets[widgetID]?.placement = placement
         }
