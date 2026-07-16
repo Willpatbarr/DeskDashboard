@@ -16,11 +16,18 @@ public final class DashboardRunner {
         clock.isRunning
     }
 
-    public func start() {
+    public func start(
+        onTick: ((DashboardTick) -> Void)? = nil
+    ) {
         clock.start(
             every: dashboard.configuration.refreshRate
         ) { [weak self] date in
-            self?.dashboard.tick(at: date)
+            guard let self else {
+                return
+            }
+
+            self.dashboard.tick(at: date)
+            onTick?(DashboardTick(date: date))
         }
     }
 

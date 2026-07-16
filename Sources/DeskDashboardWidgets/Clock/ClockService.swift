@@ -1,38 +1,38 @@
 import DashboardKit
 import Foundation
 
-protocol ClockService: DashboardService {
+public protocol ClockService: DashboardService {
     func currentDate() -> Date
 }
 
-enum ClockServiceKeys {
-    static let clock = ServiceKey<AnyClockService>("clock")
+public enum ClockServiceKeys {
+    public static let clock = ServiceKey<AnyClockService>("clock")
 }
 
-final class AnyClockService: ClockService {
+public final class AnyClockService: ClockService {
     private let currentDateProvider: () -> Date
 
-    init(
+    public init(
         _ service: any ClockService
     ) {
         self.currentDateProvider = service.currentDate
     }
 
-    init(
+    public init(
         currentDate: @escaping () -> Date
     ) {
         self.currentDateProvider = currentDate
     }
 
-    func currentDate() -> Date {
+    public func currentDate() -> Date {
         currentDateProvider()
     }
 }
 
-final class SystemClockService: ClockService {
-    init() {}
+public final class SystemClockService: ClockService {
+    public init() {}
 
-    func currentDate() -> Date {
+    public func currentDate() -> Date {
         Date()
     }
 }

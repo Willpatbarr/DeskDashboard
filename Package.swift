@@ -19,13 +19,17 @@ let package = Package(
         .target(
             name: "DashboardKit"
         ),
+        .target(
+            name: "DeskDashboardWidgets",
+            dependencies: ["DashboardKit"]
+        ),
         .executableTarget(
             name: "DeskDashboard",
-            dependencies: ["DashboardKit"]
+            dependencies: ["DashboardKit", "DeskDashboardWidgets"]
         ),
         .testTarget(
             name: "DeskDashboardTests",
-            dependencies: ["DashboardKit"]
+            dependencies: ["DashboardKit", "DeskDashboardWidgets"]
         ),
     ],
     swiftLanguageModes: [.v6]

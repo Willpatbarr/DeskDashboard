@@ -1,12 +1,12 @@
 import DashboardKit
 import Foundation
 
-struct ClockWidget: RenderableWidget {
-    var configuration: WidgetConfiguration
+public struct ClockWidget: RenderableWidget {
+    public var configuration: WidgetConfiguration
     private var displayOptions: ClockDisplayOptions
     private var model: ClockWidgetModel?
 
-    init(
+    public init(
         configuration: WidgetConfiguration = WidgetConfiguration(
             title: "Clock",
             size: .large,
@@ -26,7 +26,7 @@ struct ClockWidget: RenderableWidget {
         model?.displayDate
     }
 
-    mutating func attach(environment: DashboardEnvironment) {
+    public mutating func attach(environment: DashboardEnvironment) {
         let service = environment.service(for: ClockServiceKeys.clock)
             ?? AnyClockService(SystemClockService())
         let model = ClockWidgetModel(
@@ -39,11 +39,11 @@ struct ClockWidget: RenderableWidget {
         self.model = model
     }
 
-    mutating func update(environment: DashboardEnvironment) {
+    public mutating func update(environment: DashboardEnvironment) {
         model?.update(environment: environment)
     }
 
-    mutating func tick(
+    public mutating func tick(
         _ tick: DashboardTick,
         environment: DashboardEnvironment
     ) {
@@ -53,12 +53,12 @@ struct ClockWidget: RenderableWidget {
         )
     }
 
-    mutating func detach() {
+    public mutating func detach() {
         model?.deactivate()
         model = nil
     }
 
-    func render(environment: DashboardEnvironment) -> WidgetContent {
+    public func render(environment: DashboardEnvironment) -> WidgetContent {
         WidgetContent(
             title: configuration.title,
             primaryText: displayTime ?? "--:--",
@@ -77,12 +77,12 @@ struct ClockWidget: RenderableWidget {
     }
 }
 
-struct ClockDisplayOptions {
-    var showsSeconds: Bool
-    var showsDate: Bool
-    var timeZone: TimeZone
+public struct ClockDisplayOptions {
+    public var showsSeconds: Bool
+    public var showsDate: Bool
+    public var timeZone: TimeZone
 
-    init(
+    public init(
         showsSeconds: Bool = false,
         showsDate: Bool = true,
         timeZone: TimeZone = .current
@@ -94,7 +94,7 @@ struct ClockDisplayOptions {
 }
 
 extension ClockWidget {
-    func showSeconds(
+    public func showSeconds(
         _ isShown: Bool = true
     ) -> Self {
         var copy = self
@@ -102,7 +102,7 @@ extension ClockWidget {
         return copy
     }
 
-    func hideDate(
+    public func hideDate(
         _ isHidden: Bool = true
     ) -> Self {
         var copy = self
@@ -110,7 +110,7 @@ extension ClockWidget {
         return copy
     }
 
-    func timeZone(
+    public func timeZone(
         _ timeZone: TimeZone
     ) -> Self {
         var copy = self
@@ -118,7 +118,7 @@ extension ClockWidget {
         return copy
     }
 
-    func timeZone(
+    public func timeZone(
         identifier: String
     ) -> Self {
         guard let timeZone = TimeZone(identifier: identifier) else {

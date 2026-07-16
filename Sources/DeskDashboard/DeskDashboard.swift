@@ -1,4 +1,6 @@
 import DashboardKit
+import DeskDashboardWidgets
+import Foundation
 
 @main
 struct DeskDashboard {
@@ -15,6 +17,13 @@ struct DeskDashboard {
                 .showSeconds()
         )
 
-        print("DeskDashboard ready with \(runner.attachedWidgetSnapshots.count) widget.")
+        let renderer = ConsoleRenderer()
+        renderer.render(runner.attachedWidgetSnapshots)
+
+        runner.start { _ in
+            renderer.render(runner.attachedWidgetSnapshots)
+        }
+
+        RunLoop.main.run()
     }
 }
