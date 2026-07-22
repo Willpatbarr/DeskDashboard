@@ -164,8 +164,14 @@ struct DeskDashboard {
             theme: runner.dashboard.configuration.theme,
             port: port(from: CommandLine.arguments)
         )
-        registerIndoorTemperatureIngest(on: renderer, store: indoorTemperature)
-        registerNowPlayingIngest(on: renderer, store: music)
+        PushIngest.registerIndoorTemperature(
+            registerPost: renderer.registerPost,
+            store: indoorTemperature
+        )
+        PushIngest.registerNowPlaying(
+            registerPost: renderer.registerPost,
+            store: music
+        )
 
         do {
             try renderer.start()
@@ -192,116 +198,5 @@ struct DeskDashboard {
         }
 
         return value
-    }
-
-    // MARK: - Indoor temperature ingest (the SDD §12 service-push path)
-
-    /// Accepts JSON `{ "value": <number>, "unit": "C"|"F", "humidity": <number> }`,
-    /// normalizes to Celsius, stores it, logs the push, and echoes what it stored.
-    private static func registerIndoorTemperatureIngest(
-        on renderer: DevWebRenderer,
-        store: PushIndoorTemperatureService
-    ) {
-        struct Payload: Decodable {
-            var value: Double
-            var unit: String?
-            var humidity: Double?
-        }
-
-        renderer.registerPost(path: "/ingest/indoor-temperature") { body in
-            guard let payload = try? JSONDecoder().decode(Payload.self, from: body) else {
-                let received = String(decoding: body, as: UTF8.self)
-                print("[ingest] indoor-temperature <- rejected (invalid JSON); \(body.count) bytes: \(received.isEmpty ? "<empty>" : received)")
-                return DevHTTPResponse(
-                    contentType: "application/json",
-                    body: Data(#"{"error":"expected JSON {value, unit?, humidity?}"}"#.utf8)
-                )
-            }
-
-            let unit = (payload.unit ?? "C").uppercased()
-            let celsius = unit == "F"
-                ? (payload.value - 32) * 5 / 9
-                : payload.value
-
-            store.update(
-                TemperatureReading(
-                    celsius: celsius,
-                    humidity: payload.humidity,
-                    timestamp: Date()
-                )
-            )
-
-            let stored = String(format: "%.1f", celsius)
-            print("[ingest] indoor-temperature <- \(payload.value)°\(unit) => \(stored)°C")
-
-            let humidityJSON = payload.humidity.map { String($0) } ?? "null"
-            let echo = #"{"stored":"\#(stored)°C","humidity":\#(humidityJSON)}"#
-            return DevHTTPResponse(
-                contentType: "application/json",
-                body: Data(echo.utf8)
-            )
-        }
-    }
-
-    // MARK: - Now-playing ingest (the SDD §12 service-push path)
-
-    /// Accepts flat JSON
-    /// `{ "title", "artist"?, "album"?, "isPlaying"?, "elapsed"?, "duration"? }`,
-    /// stores it, logs the push, and echoes what it stored. A body with no
-    /// `title` (or `{"stopped": true}`) clears the tile to "Nothing playing".
-    private static func registerNowPlayingIngest(
-        on renderer: DevWebRenderer,
-        store: PushMusicService
-    ) {
-        struct Payload: Decodable {
-            var title: String?
-            var artist: String?
-            var album: String?
-            var isPlaying: Bool?
-            var elapsed: Double?
-            var duration: Double?
-            var stopped: Bool?
-        }
-
-        renderer.registerPost(path: "/ingest/now-playing") { body in
-            guard let payload = try? JSONDecoder().decode(Payload.self, from: body) else {
-                let received = String(decoding: body, as: UTF8.self)
-                print("[ingest] now-playing <- rejected (invalid JSON); \(body.count) bytes: \(received.isEmpty ? "<empty>" : received)")
-                return DevHTTPResponse(
-                    contentType: "application/json",
-                    body: Data(#"{"error":"expected JSON {title, artist?, album?, isPlaying?, elapsed?, duration?}"}"#.utf8)
-                )
-            }
-
-            guard payload.stopped != true, let title = payload.title, !title.isEmpty else {
-                store.update(nil)
-                print("[ingest] now-playing <- (nothing playing)")
-                return DevHTTPResponse(
-                    contentType: "application/json",
-                    body: Data(#"{"stored":"nothing playing"}"#.utf8)
-                )
-            }
-
-            store.update(
-                NowPlaying(
-                    title: title,
-                    artist: payload.artist,
-                    album: payload.album,
-                    isPlaying: payload.isPlaying ?? true,
-                    elapsed: payload.elapsed,
-                    duration: payload.duration,
-                    timestamp: Date()
-                )
-            )
-
-            let state = (payload.isPlaying ?? true) ? "playing" : "paused"
-            print("[ingest] now-playing <- \"\(title)\"\(payload.artist.map { " — \($0)" } ?? "") (\(state))")
-
-            let echo = #"{"stored":"\#(title)","isPlaying":\#(payload.isPlaying ?? true)}"#
-            return DevHTTPResponse(
-                contentType: "application/json",
-                body: Data(echo.utf8)
-            )
-        }
     }
 }

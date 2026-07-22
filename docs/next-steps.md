@@ -23,18 +23,32 @@ The end goal is a real dashboard UI on the Pi's display, replacing the dev
 renderers. This reuses the existing observer + layout machinery — the dev
 renderers already prove the shape.
 
-- [ ] **De-risk the build first.** Confirm SwiftCrossUI/SwiftOpenUI
-  cross-compiles against the **Static Linux musl SDK** used in
-  `scripts/build-pi.sh`. This is the biggest unknown — it may force a toolchain
-  change (e.g. a glibc dynamic build instead of static musl). Spike this before
-  committing to the rest.
-- [ ] Add the SwiftCrossUI/SwiftOpenUI dependency to `Package.swift`.
-- [ ] Write a real `Renderer` that maps widget snapshots → views, driven from
-  the same per-tick observer the dev renderers use
-  (`DeskDashboard.startRenderer`).
-- [ ] Map `GridLayout` / `WidgetPlacement` onto real screen geometry.
-- [ ] Drive the UI fullscreen / kiosk on the Pi display — decide framebuffer vs.
-  X / Wayland.
+- [x] **De-risk the build first.** Done — see [ui-build-spike.md](ui-build-spike.md).
+  Outcome: SwiftCrossUI builds fine on the macOS host (AppKit) but **cannot
+  cross-compile against the static musl SDK** (a Glibc-only image dep + GTK's
+  dynamic C libraries). The UI needs a **glibc build with GTK 4 on the Pi**
+  (build natively on the Pi, or cross-compile with a glibc SDK). `build-pi.sh`
+  (static musl) stays as-is for the dev `DeskDashboard` binary.
+- [x] Add the SwiftCrossUI dependency to `Package.swift`. Added as a dependency
+  of a **separate `deskdashboard-ui` product** so the musl build of
+  `DeskDashboard` never pulls it.
+- [x] Write a real `Renderer` that maps widget snapshots → views, driven from
+  the same per-tick observer the dev renderers use. Done in `DeskDashboardUI`
+  (`SwiftCrossUIRenderer` + `DashboardRootView`/`TileView`), with an entry point
+  in `DeskDashboardUIApp`. Same `render(runner.attachedWidgetSnapshots)` call the
+  dev renderers use.
+- [x] Map `GridLayout` / `WidgetGridSlot` onto screen geometry — tiles are
+  grouped into rows by `gridSlot.row`, ordered by `column`, in SwiftCrossUI
+  stacks. (Column/row *spans* aren't width-weighted yet — tiles share each row
+  evenly; a follow-up if the layout needs it.)
+- [x] Wire the `/ingest/*` push endpoints into `DeskDashboardUIApp`. Done — the
+  ingest handlers were extracted into a shared `PushIngest` (in
+  DeskDashboardDevTools) used by both the dev app and the UI app; the UI app now
+  runs the same `DevHTTPServer` on `:8642` (override `--port`). Verified
+  end-to-end: POSTs to `/ingest/now-playing` and `/ingest/indoor-temperature`
+  update the live stores. Stores are still seeded so tiles aren't empty at launch.
+- [ ] Set up the Pi build/run path for `deskdashboard-ui` (glibc + GTK 4, see the
+  spike doc) and drive it fullscreen / kiosk — decide X / Wayland.
 
 ### 2. Image affordance in `WidgetContent`
 
