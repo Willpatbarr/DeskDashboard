@@ -8,6 +8,8 @@ import SwiftCrossUI
 /// the SwiftCrossUI tiles look like the web preview.
 struct ThemePalette: Sendable {
     let background: Color
+    /// Top-to-bottom background gradient stops, or `nil` for a flat background.
+    let backgroundGradient: [Color]?
     let surface: Color
     let primary: Color
     let secondary: Color
@@ -29,6 +31,8 @@ struct ThemePalette: Sendable {
     init(theme: any Theme) {
         let colors = theme.colors
         background = Color(hex: colors.background) ?? .black
+        let stops = colors.backgroundGradient.compactMap { Color(hex: $0) }
+        backgroundGradient = stops.count >= 2 ? stops : nil
         surface = Color(hex: colors.surface) ?? Color(white: 0.1)
         primary = Color(hex: colors.primary) ?? .white
         secondary = Color(hex: colors.secondary) ?? .gray

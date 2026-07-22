@@ -31,10 +31,14 @@ do {
     print("warning: failed to start ingest server: \(error)")
 }
 
-// `--preview` shows a button that cycles through built-in theme × layout combos.
+// The layout/theme switcher (Clock, MTG, etc.) is shown by default; pass
+// `--kiosk` to hide it for the fixed Pi display. (`--preview` still works as an
+// explicit opt-in, so old launch commands keep behaving.)
+let showsSwitcher = !CommandLine.arguments.contains("--kiosk")
+    || CommandLine.arguments.contains("--preview")
 let renderer = SwiftCrossUIRenderer(
     theme: runner.dashboard.configuration.theme,
-    showsPreviewControls: CommandLine.arguments.contains("--preview")
+    showsPreviewControls: showsSwitcher
 )
 renderer.render(runner.attachedWidgetSnapshots)
 runner.start { _ in

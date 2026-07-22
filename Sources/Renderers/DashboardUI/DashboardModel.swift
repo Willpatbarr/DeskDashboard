@@ -20,10 +20,37 @@ final class DashboardModel: ObservableObject {
 
     struct Preview {
         let name: String
+        /// Short label shown in the pill selector segment.
+        let short: String
         let theme: any Theme
         /// A layout to force on every tile, or `nil` to use each widget's own.
         let layout: WidgetLayout?
+        /// When true, the whole screen is replaced by the interactive MTG mode
+        /// instead of the widget-tile grid.
+        let mtg: Bool
+
+        init(
+            name: String,
+            short: String,
+            theme: any Theme,
+            layout: WidgetLayout? = nil,
+            mtg: Bool = false
+        ) {
+            self.name = name
+            self.short = short
+            self.theme = theme
+            self.layout = layout
+            self.mtg = mtg
+        }
     }
+
+    /// The gradient-clock theme, shared by the clock and MTG previews.
+    private static let gradientTheme = DarkDeskTheme(
+        name: "Gradient",
+        colors: .gradientClock,
+        typography: .airy,
+        shape: .rounded
+    )
 
     init(
         theme: any Theme,
@@ -33,15 +60,19 @@ final class DashboardModel: ObservableObject {
         self.snapshots = snapshots
         self.showsPreviewControls = showsPreviewControls
         self.previews = [
-            Preview(name: theme.name, theme: theme, layout: nil),
-            Preview(name: "Dark · big number", theme: DarkDeskTheme(), layout: .bigNumber),
-            Preview(name: "Dark · stat", theme: DarkDeskTheme(), layout: .stat),
-            Preview(name: "Light · standard",
+            Preview(name: theme.name, short: "Real", theme: theme),
+            Preview(name: "Dark · big number", short: "Big", theme: DarkDeskTheme(), layout: .bigNumber),
+            Preview(name: "Dark · stat", short: "Stat", theme: DarkDeskTheme(), layout: .stat),
+            Preview(name: "Light · standard", short: "Light",
                     theme: DarkDeskTheme(name: "Light", colors: .light), layout: .standard),
-            Preview(name: "Light · compact",
+            Preview(name: "Light · compact", short: "Compact",
                     theme: DarkDeskTheme(name: "Light", colors: .light), layout: .compact),
-            Preview(name: "Neon · minimal",
+            Preview(name: "Neon · minimal", short: "Neon",
                     theme: DarkDeskTheme(name: "Neon", colors: .neon), layout: .minimal),
+            Preview(name: "Gradient · clock", short: "Clock",
+                    theme: Self.gradientTheme, layout: .bigNumber),
+            Preview(name: "Gradient · MTG", short: "MTG",
+                    theme: Self.gradientTheme, mtg: true),
         ]
     }
 
@@ -50,6 +81,14 @@ final class DashboardModel: ObservableObject {
     /// A layout forced on every tile for the current preview, or `nil`.
     var layoutOverride: WidgetLayout? { current.layout }
     var previewName: String { current.name }
+    /// Whether the current preview is the interactive MTG mode.
+    var isMTG: Bool { current.mtg }
+
+    /// The clock widget's latest time text, for the MTG mini-clock. Updates each
+    /// tick as fresh snapshots arrive, so the MTG clock stays live.
+    var clockTime: String {
+        snapshots.first { $0.id.rawValue == "clock" }?.content?.primaryText ?? "--:--"
+    }
 
     /// Jump straight to a preview by index (a segment tap). Out-of-range is
     /// ignored. This is the hook a real layout switcher would drive too.

@@ -24,6 +24,9 @@ public struct ThemeColors: Equatable, Sendable {
     public var accent: String
     public var text: String
     public var mutedText: String
+    /// Optional top-to-bottom background gradient stops (`#RRGGBB`). When empty,
+    /// the flat `background` color is used instead.
+    public var backgroundGradient: [String]
 
     public init(
         background: String,
@@ -32,7 +35,8 @@ public struct ThemeColors: Equatable, Sendable {
         secondary: String,
         accent: String,
         text: String,
-        mutedText: String
+        mutedText: String,
+        backgroundGradient: [String] = []
     ) {
         self.background = background
         self.surface = surface
@@ -41,6 +45,7 @@ public struct ThemeColors: Equatable, Sendable {
         self.accent = accent
         self.text = text
         self.mutedText = mutedText
+        self.backgroundGradient = backgroundGradient
     }
 
     public static let darkDesk = Self(
@@ -73,6 +78,19 @@ public struct ThemeColors: Equatable, Sendable {
         accent: "#FF3DAE",
         text: "#EAF6FF",
         mutedText: "#7E8AB0"
+    )
+
+    /// Deep-green gradient with a mint accent and translucent panels — the
+    /// "gradient clock" look (white numerals, green labels).
+    public static let gradientClock = Self(
+        background: "#0F2018",
+        surface: "#05120B47",
+        primary: "#FFFFFF",
+        secondary: "#8FD79A",
+        accent: "#8FD79A",
+        text: "#FFFFFF",
+        mutedText: "#6F9E78",
+        backgroundGradient: ["#193326", "#0F2018", "#08110D"]
     )
 }
 
@@ -107,6 +125,16 @@ public struct ThemeTypography: Equatable, Sendable {
         captionSize: 13,
         headingWeight: 700,
         bodyWeight: 500
+    )
+
+    /// Large, thin numerals with light labels — the gradient-clock aesthetic.
+    public static let airy = Self(
+        fontFamily: "SF Pro",
+        headingSize: 44,
+        bodySize: 18,
+        captionSize: 14,
+        headingWeight: 100,
+        bodyWeight: 300
     )
 }
 
@@ -149,6 +177,13 @@ public struct ThemeShape: Equatable, Sendable {
 
     public static let `default` = Self(
         cornerRadius: 8,
+        borderWidth: 1,
+        elevation: 2
+    )
+
+    /// Soft, pill-adjacent corners for the gradient-clock panels.
+    public static let rounded = Self(
+        cornerRadius: 28,
         borderWidth: 1,
         elevation: 2
     )
