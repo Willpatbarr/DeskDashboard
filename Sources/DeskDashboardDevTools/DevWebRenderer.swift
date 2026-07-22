@@ -180,11 +180,11 @@ extension DevWebRenderer {
           #status { font-size: \(typography.captionSize)px; color: var(--muted); }
           #status.live { color: var(--accent); }
           #grid {
-            display: grid; gap: var(--gap);
+            display: flex; gap: var(--gap); align-items: stretch;
             padding: 0 var(--margin) var(--margin);
-            grid-auto-rows: minmax(150px, auto);
           }
           .tile {
+            flex: 1 1 0; min-width: 0;
             position: relative; display: flex; flex-direction: column; gap: 6px;
             background: var(--surface); border-radius: var(--radius);
             border: var(--border-width) solid color-mix(in srgb, var(--secondary) 18%, transparent);
