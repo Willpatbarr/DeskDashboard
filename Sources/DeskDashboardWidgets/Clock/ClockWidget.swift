@@ -4,6 +4,7 @@ import Foundation
 public struct ClockWidget: ServiceBackedWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: ClockDisplayOptions
+    public var boundService: (any ClockService)?
     public var model: ClockWidgetModel?
 
     public init(

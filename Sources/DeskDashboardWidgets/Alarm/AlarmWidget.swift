@@ -10,6 +10,7 @@ import Foundation
 public struct AlarmWidget: ServiceBackedWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: AlarmDisplayOptions
+    public var boundService: (any AlarmService)?
     public var model: AlarmWidgetModel?
 
     public init(

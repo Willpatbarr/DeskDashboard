@@ -10,6 +10,7 @@ import Foundation
 public struct IndoorTemperatureWidget: ServiceBackedWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: IndoorTemperatureDisplayOptions
+    public var boundService: (any IndoorTemperatureService)?
     public var model: IndoorTemperatureWidgetModel?
 
     public init(

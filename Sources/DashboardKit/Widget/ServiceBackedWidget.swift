@@ -21,8 +21,13 @@ public protocol ServiceBackedWidget: RenderableWidget {
     associatedtype Model: WidgetModel
     associatedtype Service
 
-    /// The environment key this widget's service is registered under.
+    /// The environment key this widget's service is registered under (used when
+    /// no service is bound directly to the widget).
     var serviceKey: ServiceKey<Service> { get }
+
+    /// A service bound directly to this widget via `.service(_:)`. Takes
+    /// precedence over the environment. `nil` when unset.
+    var boundService: Service? { get set }
 
     /// The live model. The scaffold sets this on `attach` and clears it on
     /// `detach`; widgets don't touch it directly.
@@ -36,8 +41,24 @@ public protocol ServiceBackedWidget: RenderableWidget {
 }
 
 public extension ServiceBackedWidget {
+    /// Binds a service to this widget directly, instead of registering it on the
+    /// dashboard's environment — so the widget and its data source read together:
+    ///
+    /// ```swift
+    /// MusicWidget().title("Music").service(musicStore)
+    /// ```
+    func service(_ service: Service) -> Self {
+        var copy = self
+        copy.boundService = service
+        return copy
+    }
+
     mutating func attach(environment: DashboardEnvironment) {
-        let service = environment.service(for: serviceKey) ?? makeFallbackService()
+        // Resolution order: bound directly on the widget, else from the
+        // environment, else a local/simulated fallback.
+        let service = boundService
+            ?? environment.service(for: serviceKey)
+            ?? makeFallbackService()
         let model = makeModel(service)
         model.activate()
         self.model = model

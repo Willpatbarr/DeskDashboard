@@ -40,18 +40,20 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
     let alarms = LocalAlarmStore()
     alarms.add(Alarm(id: "demo", label: "Demo alarm", date: Date().addingTimeInterval(120)))
 
+    // Each widget carries its own service via `.service(…)`, so the data source
+    // reads right next to the widget it feeds. (Clock has none — it falls back
+    // to the system clock.) The push stores are also handed to the ingest
+    // endpoints below so external producers can overwrite them.
     let dashboard = Dashboard()
         .theme(DarkDeskTheme())
-        .service(alarms, for: AlarmServiceKeys.alarms)
-        .service(indoorTemperature, for: IndoorTemperatureServiceKeys.indoorTemperature)
-        .service(music, for: MusicServiceKeys.nowPlaying)
-        .service(OpenMeteoOutdoorService(), for: OutdoorTemperatureServiceKeys.outdoorTemperature)
         .widgets {
             ClockWidget().id("clock").title("Clock").size(.large).showSeconds()
-            AlarmWidget().id("alarm").title("Alarm")
-            IndoorTemperatureWidget().id("indoor").title("Indoor")
-            MusicWidget().id("music").title("Music").source("HomePod").showAlbum(showsAlbum)
-            OutdoorTemperatureWidget().id("outdoor").title("Outdoor").location("Rexburg, ID")
+            AlarmWidget().id("alarm").title("Alarm").service(alarms)
+            IndoorTemperatureWidget().id("indoor").title("Indoor").service(indoorTemperature)
+            MusicWidget().id("music").title("Music").source("HomePod")
+                .showAlbum(showsAlbum).service(music)
+            OutdoorTemperatureWidget().id("outdoor").title("Outdoor")
+                .location("Rexburg, ID").service(OpenMeteoOutdoorService())
         }
 
     return DeskDashboardSystem(

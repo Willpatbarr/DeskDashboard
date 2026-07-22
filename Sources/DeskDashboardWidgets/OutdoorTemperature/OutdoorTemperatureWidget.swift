@@ -13,6 +13,7 @@ import Foundation
 public struct OutdoorTemperatureWidget: ServiceBackedWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: OutdoorTemperatureDisplayOptions
+    public var boundService: (any OutdoorTemperatureService)?
     public var model: OutdoorTemperatureWidgetModel?
     private var sourceName: String?
 

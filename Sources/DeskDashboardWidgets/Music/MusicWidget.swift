@@ -12,6 +12,7 @@ import Foundation
 public struct MusicWidget: ServiceBackedWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: MusicDisplayOptions
+    public var boundService: (any MusicService)?
     public var model: MusicWidgetModel?
 
     public init(
