@@ -7,6 +7,15 @@ import Glibc
 import Musl
 #endif
 
+// glibc imports `SOCK_STREAM` as the `__socket_type` enum rather than `Int32`
+// (Darwin and musl both type it as `Int32`), so `socket()`'s type argument
+// needs an explicit conversion there.
+#if canImport(Glibc)
+private let sockStreamType = Int32(SOCK_STREAM.rawValue)
+#else
+private let sockStreamType = SOCK_STREAM
+#endif
+
 // A minimal, dependency-free HTTP server for development only. Not part of the
 // shipping dashboard — it exists so the dev web renderer and the sensor-ingest
 // endpoint have something to talk to during development.
@@ -81,7 +90,7 @@ public final class DevHTTPServer: @unchecked Sendable {
     public func start() throws {
         signal(SIGPIPE, SIG_IGN)
 
-        let fd = socket(AF_INET, SOCK_STREAM, 0)
+        let fd = socket(AF_INET, sockStreamType, 0)
         guard fd >= 0 else {
             throw DevHTTPServerError.socketFailed(errno)
         }
