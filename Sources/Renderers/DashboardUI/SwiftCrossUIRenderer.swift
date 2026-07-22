@@ -24,8 +24,11 @@ import DashboardKit
 public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable {
     private let model: DashboardModel
 
-    public init(theme: any Theme) {
-        let model = DashboardModel(theme: theme)
+    /// - Parameter showsPreviewControls: when true, the UI shows a button that
+    ///   cycles through built-in theme × layout combinations (the `--preview`
+    ///   flag) — for eyeballing configurations, not for the shipping kiosk.
+    public init(theme: any Theme, showsPreviewControls: Bool = false) {
+        let model = DashboardModel(theme: theme, showsPreviewControls: showsPreviewControls)
         self.model = model
         DashboardLaunch.model = model
     }

@@ -31,7 +31,11 @@ do {
     print("warning: failed to start ingest server: \(error)")
 }
 
-let renderer = SwiftCrossUIRenderer(theme: runner.dashboard.configuration.theme)
+// `--preview` shows a button that cycles through built-in theme × layout combos.
+let renderer = SwiftCrossUIRenderer(
+    theme: runner.dashboard.configuration.theme,
+    showsPreviewControls: CommandLine.arguments.contains("--preview")
+)
 renderer.render(runner.attachedWidgetSnapshots)
 runner.start { _ in
     renderer.render(runner.attachedWidgetSnapshots)

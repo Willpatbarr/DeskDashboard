@@ -52,6 +52,28 @@ public struct ThemeColors: Equatable, Sendable {
         text: "#F8FBFF",
         mutedText: "#A8B3C5"
     )
+
+    /// Light palette: near-white background, dark text.
+    public static let light = Self(
+        background: "#EEF1F6",
+        surface: "#FFFFFF",
+        primary: "#0B1F3A",
+        secondary: "#5B6B82",
+        accent: "#0A84FF",
+        text: "#1A2B45",
+        mutedText: "#6B7A90"
+    )
+
+    /// High-contrast neon-on-black palette.
+    public static let neon = Self(
+        background: "#04050A",
+        surface: "#0C0F1F",
+        primary: "#F7F9FF",
+        secondary: "#9A7BFF",
+        accent: "#FF3DAE",
+        text: "#EAF6FF",
+        mutedText: "#7E8AB0"
+    )
 }
 
 public struct ThemeTypography: Equatable, Sendable {

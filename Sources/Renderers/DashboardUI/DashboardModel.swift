@@ -9,13 +9,50 @@ import SwiftCrossUI
 /// call — same input (`[AttachedWidgetSnapshot]`), different sink.
 final class DashboardModel: ObservableObject {
     @Published var snapshots: [AttachedWidgetSnapshot]
-    let palette: ThemePalette
-    let themeName: String
+    /// Index into `previews`; advanced by `nextPreview()` (the toggle button).
+    @Published private(set) var previewIndex = 0
 
-    init(theme: any Theme, snapshots: [AttachedWidgetSnapshot] = []) {
-        self.palette = ThemePalette(theme: theme)
-        self.themeName = theme.name
+    /// Whether to show the preview toggle button (the `--preview` flag).
+    let showsPreviewControls: Bool
+    /// Curated theme × layout combinations to cycle through. Index 0 is the
+    /// real configuration (the composition's theme, each widget's own layout).
+    let previews: [Preview]
+
+    struct Preview {
+        let name: String
+        let theme: any Theme
+        /// A layout to force on every tile, or `nil` to use each widget's own.
+        let layout: WidgetLayout?
+    }
+
+    init(
+        theme: any Theme,
+        snapshots: [AttachedWidgetSnapshot] = [],
+        showsPreviewControls: Bool = false
+    ) {
         self.snapshots = snapshots
+        self.showsPreviewControls = showsPreviewControls
+        self.previews = [
+            Preview(name: theme.name, theme: theme, layout: nil),
+            Preview(name: "Dark · big number", theme: DarkDeskTheme(), layout: .bigNumber),
+            Preview(name: "Dark · stat", theme: DarkDeskTheme(), layout: .stat),
+            Preview(name: "Light · standard",
+                    theme: DarkDeskTheme(name: "Light", colors: .light), layout: .standard),
+            Preview(name: "Light · compact",
+                    theme: DarkDeskTheme(name: "Light", colors: .light), layout: .compact),
+            Preview(name: "Neon · minimal",
+                    theme: DarkDeskTheme(name: "Neon", colors: .neon), layout: .minimal),
+        ]
+    }
+
+    private var current: Preview { previews[previewIndex] }
+    var palette: ThemePalette { ThemePalette(theme: current.theme) }
+    /// A layout forced on every tile for the current preview, or `nil`.
+    var layoutOverride: WidgetLayout? { current.layout }
+    var previewName: String { current.name }
+
+    func nextPreview() {
+        previewIndex = (previewIndex + 1) % previews.count
     }
 }
 

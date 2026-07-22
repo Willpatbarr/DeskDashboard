@@ -9,6 +9,9 @@ import SwiftCrossUI
 struct TileView: View {
     let snapshot: AttachedWidgetSnapshot
     let palette: ThemePalette
+    /// When set (preview mode), forces this layout on every tile; otherwise the
+    /// widget's own `configuration.layout` is used.
+    var layoutOverride: WidgetLayout? = nil
 
     /// Semantic content for the layout: real content when present, otherwise the
     /// configured title + a placeholder so an unrendered tile isn't blank.
@@ -23,7 +26,8 @@ struct TileView: View {
     }
 
     var body: some View {
-        interpret(snapshot.configuration.layout.makeView(content))
+        let layout = layoutOverride ?? snapshot.configuration.layout
+        return interpret(layout.makeView(content))
             .padding(palette.tilePadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(palette.surface)

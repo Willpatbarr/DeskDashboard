@@ -16,7 +16,11 @@ struct DashboardRootView: View {
             header
             HStack(spacing: model.palette.widgetGap) {
                 ForEach(tiles, id: \.id.rawValue) { snapshot in
-                    TileView(snapshot: snapshot, palette: model.palette)
+                    TileView(
+                        snapshot: snapshot,
+                        palette: model.palette,
+                        layoutOverride: model.layoutOverride
+                    )
                 }
             }
             .padding(model.palette.sectionMargin)
@@ -28,10 +32,15 @@ struct DashboardRootView: View {
 
     private var header: some View {
         HStack {
-            Text("DeskDashboard · \(model.themeName)")
+            Text("DeskDashboard · \(model.previewName)")
                 .font(.system(size: model.palette.captionSize, weight: model.palette.bodyWeight))
                 .foregroundColor(model.palette.secondary)
             Spacer(minLength: 0)
+            if model.showsPreviewControls {
+                Button("Next layout ›") {
+                    model.nextPreview()
+                }
+            }
         }
         .padding(model.palette.sectionMargin)
     }
