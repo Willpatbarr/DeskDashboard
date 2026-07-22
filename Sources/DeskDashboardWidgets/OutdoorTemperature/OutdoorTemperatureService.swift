@@ -38,36 +38,14 @@ public struct OutdoorConditions: Equatable, Sendable {
 
 /// Source of outdoor conditions. The concrete implementation is swappable: a
 /// simulated source for development and an Open-Meteo client for production.
-public protocol OutdoorTemperatureService: DashboardService {
+public protocol OutdoorTemperatureService: AnyObject {
     func currentConditions() -> OutdoorConditions?
 }
 
 public enum OutdoorTemperatureServiceKeys {
-    public static let outdoorTemperature = ServiceKey<AnyOutdoorTemperatureService>(
+    public static let outdoorTemperature = ServiceKey<any OutdoorTemperatureService>(
         "outdoorTemperature"
     )
-}
-
-// MARK: - Type-erased wrapper
-
-public final class AnyOutdoorTemperatureService: OutdoorTemperatureService {
-    private let conditionsProvider: () -> OutdoorConditions?
-
-    public init(
-        _ service: any OutdoorTemperatureService
-    ) {
-        self.conditionsProvider = service.currentConditions
-    }
-
-    public init(
-        currentConditions: @escaping () -> OutdoorConditions?
-    ) {
-        self.conditionsProvider = currentConditions
-    }
-
-    public func currentConditions() -> OutdoorConditions? {
-        conditionsProvider()
-    }
 }
 
 // MARK: - Open-Meteo source (production)

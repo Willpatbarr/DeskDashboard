@@ -47,7 +47,7 @@ public struct Dashboard {
         return copy
     }
 
-    public func service<Service: DashboardService>(
+    public func service<Service>(
         _ service: Service,
         for key: ServiceKey<Service>
     ) -> Self {
@@ -288,7 +288,7 @@ extension Dashboard {
         updateAttachedWidgetEnvironments()
     }
 
-    public mutating func applyService<Service: DashboardService>(
+    public mutating func applyService<Service>(
         _ service: Service,
         for key: ServiceKey<Service>
     ) {

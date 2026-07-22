@@ -50,7 +50,7 @@ public struct MusicWidget: RenderableWidget {
 
     public mutating func attach(environment: DashboardEnvironment) {
         let service = environment.service(for: MusicServiceKeys.nowPlaying)
-            ?? AnyMusicService(SimulatedMusicService())
+            ?? SimulatedMusicService()
         let model = MusicWidgetModel(
             service: service,
             displayOptions: displayOptions

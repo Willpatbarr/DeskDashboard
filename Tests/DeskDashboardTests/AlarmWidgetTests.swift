@@ -21,7 +21,7 @@ private func makeDashboard(
     alarms: [Alarm]
 ) -> Dashboard {
     Dashboard().service(
-        AnyAlarmService(LocalAlarmStore(alarms: alarms)),
+        LocalAlarmStore(alarms: alarms),
         for: AlarmServiceKeys.alarms
     )
 }

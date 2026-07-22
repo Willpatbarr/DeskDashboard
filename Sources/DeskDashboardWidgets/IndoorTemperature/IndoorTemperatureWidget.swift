@@ -40,7 +40,7 @@ public struct IndoorTemperatureWidget: RenderableWidget {
 
     public mutating func attach(environment: DashboardEnvironment) {
         let service = environment.service(for: IndoorTemperatureServiceKeys.indoorTemperature)
-            ?? AnyIndoorTemperatureService(SimulatedTemperatureService())
+            ?? SimulatedTemperatureService()
         let model = IndoorTemperatureWidgetModel(
             service: service,
             displayOptions: displayOptions

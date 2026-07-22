@@ -31,36 +31,14 @@ public struct TemperatureReading: Equatable, Sendable {
 /// swappable: a simulated source for development, and later a plain HTTP/file
 /// client fed by an Apple-side HomeKit producer reading the HomePod. Nothing
 /// here imports HomeKit, so the service runs on any platform (incl. the Pi).
-public protocol IndoorTemperatureService: DashboardService {
+public protocol IndoorTemperatureService: AnyObject {
     func currentReading() -> TemperatureReading?
 }
 
 public enum IndoorTemperatureServiceKeys {
-    public static let indoorTemperature = ServiceKey<AnyIndoorTemperatureService>(
+    public static let indoorTemperature = ServiceKey<any IndoorTemperatureService>(
         "indoorTemperature"
     )
-}
-
-// MARK: - Type-erased wrapper
-
-public final class AnyIndoorTemperatureService: IndoorTemperatureService {
-    private let readingProvider: () -> TemperatureReading?
-
-    public init(
-        _ service: any IndoorTemperatureService
-    ) {
-        self.readingProvider = service.currentReading
-    }
-
-    public init(
-        currentReading: @escaping () -> TemperatureReading?
-    ) {
-        self.readingProvider = currentReading
-    }
-
-    public func currentReading() -> TemperatureReading? {
-        readingProvider()
-    }
 }
 
 // MARK: - Push source (production: fed by the /ingest endpoint)

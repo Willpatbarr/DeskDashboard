@@ -9,7 +9,7 @@ private func makeDashboard(
     conditions: OutdoorConditions?
 ) -> Dashboard {
     Dashboard().service(
-        AnyOutdoorTemperatureService(currentConditions: { conditions }),
+        StubOutdoorTemperatureService(currentConditions: { conditions }),
         for: OutdoorTemperatureServiceKeys.outdoorTemperature
     )
 }

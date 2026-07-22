@@ -28,7 +28,7 @@ public struct ClockWidget: RenderableWidget {
 
     public mutating func attach(environment: DashboardEnvironment) {
         let service = environment.service(for: ClockServiceKeys.clock)
-            ?? AnyClockService(SystemClockService())
+            ?? SystemClockService()
         let model = ClockWidgetModel(
             service: service,
             displayOptions: displayOptions,

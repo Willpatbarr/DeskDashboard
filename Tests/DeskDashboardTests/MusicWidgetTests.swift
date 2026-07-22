@@ -9,7 +9,7 @@ private func makeDashboard(
     nowPlaying: NowPlaying?
 ) -> Dashboard {
     Dashboard().service(
-        AnyMusicService(nowPlaying: { nowPlaying }),
+        StubMusicService(nowPlaying: { nowPlaying }),
         for: MusicServiceKeys.nowPlaying
     )
 }
@@ -213,7 +213,7 @@ private func snapshotContent(
     let clock = ManualDashboardClock()
     let store = PushMusicService()
     let dashboard = Dashboard().service(
-        AnyMusicService(store),
+        store,
         for: MusicServiceKeys.nowPlaying
     )
     let runner = DashboardRunner(dashboard: dashboard, clock: clock)

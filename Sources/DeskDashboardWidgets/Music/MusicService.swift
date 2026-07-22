@@ -45,34 +45,12 @@ public struct NowPlaying: Equatable, Sendable {
 /// Source of now-playing data. The concrete implementation is deliberately
 /// swappable: a simulated source for development, and a push source fed by an
 /// external producer reading the HomePod / Apple Music / system MediaRemote.
-public protocol MusicService: DashboardService {
+public protocol MusicService: AnyObject {
     func nowPlaying() -> NowPlaying?      // nil = nothing playing
 }
 
 public enum MusicServiceKeys {
-    public static let nowPlaying = ServiceKey<AnyMusicService>("nowPlaying")
-}
-
-// MARK: - Type-erased wrapper
-
-public final class AnyMusicService: MusicService {
-    private let nowPlayingProvider: () -> NowPlaying?
-
-    public init(
-        _ service: any MusicService
-    ) {
-        self.nowPlayingProvider = service.nowPlaying
-    }
-
-    public init(
-        nowPlaying: @escaping () -> NowPlaying?
-    ) {
-        self.nowPlayingProvider = nowPlaying
-    }
-
-    public func nowPlaying() -> NowPlaying? {
-        nowPlayingProvider()
-    }
+    public static let nowPlaying = ServiceKey<any MusicService>("nowPlaying")
 }
 
 // MARK: - Push source (production: fed by the /ingest endpoint)

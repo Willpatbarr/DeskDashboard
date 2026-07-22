@@ -44,7 +44,7 @@ public struct OutdoorTemperatureWidget: RenderableWidget {
 
     public mutating func attach(environment: DashboardEnvironment) {
         let service = environment.service(for: OutdoorTemperatureServiceKeys.outdoorTemperature)
-            ?? AnyOutdoorTemperatureService(SimulatedOutdoorService())
+            ?? SimulatedOutdoorService()
         let model = OutdoorTemperatureWidgetModel(
             service: service,
             displayOptions: displayOptions

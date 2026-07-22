@@ -48,19 +48,19 @@ struct DeskDashboard {
         Dashboard()
             .theme(DarkDeskTheme())
             .service(
-                AnyAlarmService(makeAlarmStore()),
+                makeAlarmStore(),
                 for: AlarmServiceKeys.alarms
             )
             .service(
-                AnyIndoorTemperatureService(indoorTemperature),
+                indoorTemperature,
                 for: IndoorTemperatureServiceKeys.indoorTemperature
             )
             .service(
-                AnyMusicService(music),
+                music,
                 for: MusicServiceKeys.nowPlaying
             )
             .service(
-                AnyOutdoorTemperatureService(OpenMeteoOutdoorService()),
+                OpenMeteoOutdoorService(),
                 for: OutdoorTemperatureServiceKeys.outdoorTemperature
             )
     }

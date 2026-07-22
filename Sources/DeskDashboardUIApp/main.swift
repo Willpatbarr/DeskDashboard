@@ -53,14 +53,14 @@ let theme = DarkDeskTheme()
 
 let dashboard = Dashboard()
     .theme(theme)
-    .service(AnyAlarmService(alarms), for: AlarmServiceKeys.alarms)
+    .service(alarms, for: AlarmServiceKeys.alarms)
     .service(
-        AnyIndoorTemperatureService(indoorTemperature),
+        indoorTemperature,
         for: IndoorTemperatureServiceKeys.indoorTemperature
     )
-    .service(AnyMusicService(music), for: MusicServiceKeys.nowPlaying)
+    .service(music, for: MusicServiceKeys.nowPlaying)
     .service(
-        AnyOutdoorTemperatureService(OpenMeteoOutdoorService()),
+        OpenMeteoOutdoorService(),
         for: OutdoorTemperatureServiceKeys.outdoorTemperature
     )
 

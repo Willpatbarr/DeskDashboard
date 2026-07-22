@@ -5,7 +5,7 @@ public struct DashboardConfiguration {
     public var isLayoutPinned: Bool
     public var refreshRate: RefreshRate
     public var environmentValues: [String: Any]
-    public var services: [String: any DashboardService]
+    public var services: [String: Any]
 
     public init(
         id: DashboardID = DashboardID(),
@@ -14,7 +14,7 @@ public struct DashboardConfiguration {
         isLayoutPinned: Bool = false,
         refreshRate: RefreshRate = .seconds(1),
         environmentValues: [String: Any] = [:],
-        services: [String: any DashboardService] = [:]
+        services: [String: Any] = [:]
     ) {
         self.id = id
         self.theme = theme

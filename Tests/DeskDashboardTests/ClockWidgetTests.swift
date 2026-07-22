@@ -32,7 +32,7 @@ private func makeDashboard(
     currentDate: @escaping () -> Date = { fixedDate }
 ) -> Dashboard {
     Dashboard().service(
-        AnyClockService(currentDate: currentDate),
+        StubClockService(currentDate: currentDate),
         for: ClockServiceKeys.clock
     )
 }

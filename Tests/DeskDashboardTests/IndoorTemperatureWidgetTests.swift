@@ -9,7 +9,7 @@ private func makeDashboard(
     reading: TemperatureReading?
 ) -> Dashboard {
     Dashboard().service(
-        AnyIndoorTemperatureService(currentReading: { reading }),
+        StubIndoorTemperatureService(currentReading: { reading }),
         for: IndoorTemperatureServiceKeys.indoorTemperature
     )
 }
@@ -105,7 +105,7 @@ private func snapshotContent(
     var celsius = 20.0
     var readingTimestamp = baseDate
     let dashboard = Dashboard().service(
-        AnyIndoorTemperatureService(currentReading: {
+        StubIndoorTemperatureService(currentReading: {
             TemperatureReading(celsius: celsius, humidity: 40, timestamp: readingTimestamp)
         }),
         for: IndoorTemperatureServiceKeys.indoorTemperature

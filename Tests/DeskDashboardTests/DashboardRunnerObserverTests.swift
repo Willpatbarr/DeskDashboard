@@ -27,7 +27,7 @@ import DeskDashboardWidgets
     let fixedDate = Date(timeIntervalSince1970: 1_752_598_845)
     let clock = ManualDashboardClock()
     let dashboard = Dashboard().service(
-        AnyClockService(currentDate: { fixedDate }),
+        StubClockService(currentDate: { fixedDate }),
         for: ClockServiceKeys.clock
     )
     let runner = DashboardRunner(

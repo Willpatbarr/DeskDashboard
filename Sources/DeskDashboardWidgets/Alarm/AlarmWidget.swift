@@ -40,7 +40,7 @@ public struct AlarmWidget: RenderableWidget {
 
     public mutating func attach(environment: DashboardEnvironment) {
         let service = environment.service(for: AlarmServiceKeys.alarms)
-            ?? AnyAlarmService(LocalAlarmStore())
+            ?? LocalAlarmStore()
         let model = AlarmWidgetModel(
             service: service,
             displayOptions: displayOptions

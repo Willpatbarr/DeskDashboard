@@ -49,7 +49,7 @@ import Testing
 
 private final class TestWidgetModel: WidgetModel {}
 
-private final class TestDashboardService: DashboardService {
+private final class TestDashboardService {
     let name: String
 
     init(name: String) {

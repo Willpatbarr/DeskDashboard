@@ -29,34 +29,12 @@ public struct Alarm: Equatable, Sendable {
 
 // MARK: - Service contract
 
-public protocol AlarmService: DashboardService {
+public protocol AlarmService: AnyObject {
     func alarms() -> [Alarm]
 }
 
 public enum AlarmServiceKeys {
-    public static let alarms = ServiceKey<AnyAlarmService>("alarms")
-}
-
-// MARK: - Type-erased wrapper
-
-public final class AnyAlarmService: AlarmService {
-    private let alarmsProvider: () -> [Alarm]
-
-    public init(
-        _ service: any AlarmService
-    ) {
-        self.alarmsProvider = service.alarms
-    }
-
-    public init(
-        alarms: @escaping () -> [Alarm]
-    ) {
-        self.alarmsProvider = alarms
-    }
-
-    public func alarms() -> [Alarm] {
-        alarmsProvider()
-    }
+    public static let alarms = ServiceKey<any AlarmService>("alarms")
 }
 
 // MARK: - In-memory store
