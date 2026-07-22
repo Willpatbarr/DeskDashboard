@@ -31,6 +31,14 @@ public final class DevWebRenderer: @unchecked Sendable {
         }
     }
 
+    /// Register a POST ingest endpoint (e.g. a sensor pushing readings).
+    public func registerPost(
+        path: String,
+        handler: @escaping (Data) -> DevHTTPResponse
+    ) {
+        server.registerPost(path: path, handler: handler)
+    }
+
     public func start() throws {
         try server.start()
         print("DeskDashboard dev renderer: http://127.0.0.1:\(server.port)")

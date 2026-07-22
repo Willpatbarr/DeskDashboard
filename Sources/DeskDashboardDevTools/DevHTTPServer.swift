@@ -6,7 +6,8 @@ import Glibc
 #endif
 
 /// Development-only HTTP server: a minimal, dependency-free socket server
-/// bound to loopback, just capable enough to serve the dev web renderer.
+/// bound to all interfaces so LAN devices (e.g. a phone running a Shortcut)
+/// can reach it, just capable enough to serve the dev web renderer.
 public struct DevHTTPResponse {
     public var contentType: String
     public var body: Data
@@ -31,6 +32,7 @@ public final class DevHTTPServer: @unchecked Sendable {
 
     private let lock = NSLock()
     private var routes: [String: () -> DevHTTPResponse] = [:]
+    private var postRoutes: [String: (Data) -> DevHTTPResponse] = [:]
     private var serverSocket: Int32 = -1
     private var isListening = false
 
@@ -47,6 +49,17 @@ public final class DevHTTPServer: @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         routes[path] = handler
+    }
+
+    /// Register a handler for POST requests to `path`; it receives the raw
+    /// request body.
+    public func registerPost(
+        path: String,
+        handler: @escaping (Data) -> DevHTTPResponse
+    ) {
+        lock.lock()
+        defer { lock.unlock() }
+        postRoutes[path] = handler
     }
 
     public func start() throws {
@@ -69,9 +82,8 @@ public final class DevHTTPServer: @unchecked Sendable {
         var address = sockaddr_in()
         address.sin_family = sa_family_t(AF_INET)
         address.sin_port = port.bigEndian
-        address.sin_addr = in_addr(
-            s_addr: in_addr_t(UInt32(0x7F00_0001).bigEndian)
-        )
+        // INADDR_ANY (0.0.0.0): listen on all interfaces so LAN clients connect.
+        address.sin_addr = in_addr(s_addr: in_addr_t(0))
 
         let bindResult = withUnsafePointer(to: &address) { pointer in
             pointer.withMemoryRebound(to: sockaddr.self, capacity: 1) {
@@ -123,13 +135,23 @@ public final class DevHTTPServer: @unchecked Sendable {
 
             let client = accept(socket, nil, nil)
             guard client >= 0 else {
-                if errno == EINTR {
+                // A failed accept (interrupted syscall, aborted/probed
+                // connection) must not kill the server — keep listening
+                // as long as we haven't been explicitly stopped.
+                lock.lock()
+                let stillListening = isListening
+                lock.unlock()
+                if stillListening {
                     continue
                 }
                 return
             }
 
-            respond(to: client)
+            // Handle each connection on its own thread so a slow or
+            // misbehaving client can't block or corrupt the accept loop.
+            Thread.detachNewThread { [weak self] in
+                self?.respond(to: client)
+            }
         }
     }
 
@@ -138,16 +160,22 @@ public final class DevHTTPServer: @unchecked Sendable {
     ) {
         defer { close(client) }
 
-        var buffer = [UInt8](repeating: 0, count: 4096)
-        let byteCount = read(client, &buffer, buffer.count)
-        guard byteCount > 0 else {
+        // Read until the end of the request headers (blank line) so a request
+        // split across several TCP segments is assembled fully, not truncated.
+        var raw = Data()
+        var chunk = [UInt8](repeating: 0, count: 4096)
+        while raw.range(of: Data([13, 10, 13, 10])) == nil, raw.count < 65_536 {
+            let byteCount = read(client, &chunk, chunk.count)
+            guard byteCount > 0 else {
+                break
+            }
+            raw.append(contentsOf: chunk[0..<byteCount])
+        }
+        guard !raw.isEmpty else {
             return
         }
 
-        let request = String(
-            decoding: buffer.prefix(byteCount),
-            as: UTF8.self
-        )
+        let request = String(decoding: raw, as: UTF8.self)
         let requestLine = request
             .split(separator: "\r\n", maxSplits: 1)
             .first ?? ""
@@ -155,31 +183,68 @@ public final class DevHTTPServer: @unchecked Sendable {
         guard parts.count >= 2 else {
             return
         }
+        let method = String(parts[0])
         let path = String(parts[1].split(separator: "?").first ?? "/")
-
-        lock.lock()
-        let handler = routes[path]
-        lock.unlock()
 
         let head: String
         let body: Data
-        if let handler {
-            let response = handler()
-            body = response.body
-            head = "HTTP/1.1 200 OK\r\n"
-                + "Content-Type: \(response.contentType)\r\n"
-                + "Content-Length: \(body.count)\r\n"
-                + "Cache-Control: no-store\r\n"
-                + "Connection: close\r\n\r\n"
+
+        if method == "POST" {
+            lock.lock()
+            let handler = postRoutes[path]
+            lock.unlock()
+
+            // Body is everything after the blank line separating headers.
+            // (Dev-only: assumes small bodies that arrive in one read.)
+            let requestBody: Data
+            if let separator = raw.range(of: Data([13, 10, 13, 10])) {
+                requestBody = raw.subdata(in: separator.upperBound..<raw.endIndex)
+            } else {
+                requestBody = Data()
+            }
+
+            if let handler {
+                let response = handler(requestBody)
+                body = response.body
+                head = ok(contentType: response.contentType, length: body.count)
+            } else {
+                (head, body) = notFound()
+            }
         } else {
-            body = Data("Not found".utf8)
-            head = "HTTP/1.1 404 Not Found\r\n"
-                + "Content-Type: text/plain\r\n"
-                + "Content-Length: \(body.count)\r\n"
-                + "Connection: close\r\n\r\n"
+            lock.lock()
+            let handler = routes[path]
+            lock.unlock()
+
+            if let handler {
+                let response = handler()
+                body = response.body
+                head = ok(contentType: response.contentType, length: body.count)
+            } else {
+                (head, body) = notFound()
+            }
         }
 
         send(Data(head.utf8) + body, to: client)
+    }
+
+    private func ok(
+        contentType: String,
+        length: Int
+    ) -> String {
+        "HTTP/1.1 200 OK\r\n"
+            + "Content-Type: \(contentType)\r\n"
+            + "Content-Length: \(length)\r\n"
+            + "Cache-Control: no-store\r\n"
+            + "Connection: close\r\n\r\n"
+    }
+
+    private func notFound() -> (String, Data) {
+        let body = Data("Not found".utf8)
+        let head = "HTTP/1.1 404 Not Found\r\n"
+            + "Content-Type: text/plain\r\n"
+            + "Content-Length: \(body.count)\r\n"
+            + "Connection: close\r\n\r\n"
+        return (head, body)
     }
 
     private func send(
