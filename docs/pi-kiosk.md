@@ -28,8 +28,10 @@ sudo bash scripts/install-kiosk-pi.sh
 
 This installs `cage` and writes `/etc/systemd/system/deskdashboard-ui.service`
 (runs as your user, on `tty1`, `Restart=always` but rate-limited to 3 starts /
-60 s so a failure can't flash the display forever). It does **not** enable,
-start, or reboot — on purpose.
+60 s so a failure can't flash the display forever). cage runs with `-d` so it
+negotiates decorations away and GTK4 drops its titlebar/headerbar — otherwise
+the app shows a grey window bar, since SwiftCrossUI has no way to undecorate the
+window itself. It does **not** enable, start, or reboot — on purpose.
 
 > **Do NOT `systemctl start` this from the desktop or over SSH while the desktop
 > is running.** `cage` is a compositor and needs the display to itself; started

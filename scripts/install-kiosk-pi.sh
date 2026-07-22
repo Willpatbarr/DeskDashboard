@@ -66,7 +66,7 @@ StandardError=journal
 TTYReset=yes
 TTYVHangup=yes
 Environment=XDG_RUNTIME_DIR=/run/user/$RUN_UID
-ExecStart=$CAGE -- $BIN
+ExecStart=$CAGE -d -- $BIN
 Restart=always
 RestartSec=3
 
