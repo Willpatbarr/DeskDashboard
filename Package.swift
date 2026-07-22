@@ -53,13 +53,19 @@ let package = Package(
             name: "DeskDashboardDevTools",
             dependencies: ["DashboardKit", "DeskDashboardWidgets", "DashboardIngest"]
         ),
+        // The one declarative definition of the appliance (widgets + services +
+        // seed data + ingest wiring), shared by both executables. No SwiftCrossUI,
+        // so the static-musl product can use it.
+        .target(
+            name: "DeskDashboardComposition",
+            dependencies: ["DashboardKit", "DeskDashboardWidgets", "DashboardIngest"]
+        ),
         .executableTarget(
             name: "DeskDashboard",
             dependencies: [
                 "DashboardKit",
-                "DeskDashboardWidgets",
                 "DeskDashboardDevTools",
-                "DashboardIngest",
+                "DeskDashboardComposition",
             ]
         ),
         // The real UI: maps widget snapshots -> SwiftCrossUI views, driven from
@@ -79,9 +85,8 @@ let package = Package(
         .executableTarget(
             name: "DeskDashboardUIApp",
             dependencies: [
-                "DashboardKit",
-                "DeskDashboardWidgets",
                 "DeskDashboardUI",
+                "DeskDashboardComposition",
                 "DashboardIngest",
             ]
         ),
