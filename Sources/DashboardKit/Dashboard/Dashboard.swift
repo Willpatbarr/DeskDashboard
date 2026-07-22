@@ -20,21 +20,20 @@ public struct Dashboard {
         self.widgetOrder = []
     }
 
+    // Declarative builders return a configured copy without touching attached
+    // widgets; the `apply*` twins share the same config mutation (via `setTheme`
+    // /`setLayout`) but also refresh attached widgets in place. Config logic
+    // lives in one place; only the "refresh now" behavior differs.
+
     public func theme(_ theme: any Theme) -> Self {
         var copy = self
-        copy.configuration.theme = theme
-
-        if copy.configuration.isLayoutPinned == false {
-            copy.configuration.layout = theme.defaultLayout
-        }
-
+        copy.setTheme(theme)
         return copy
     }
 
     public func layout(_ layout: any Layout) -> Self {
         var copy = self
-        copy.configuration.layout = layout
-        copy.configuration.isLayoutPinned = true
+        copy.setLayout(layout)
         return copy
     }
 
@@ -258,13 +257,29 @@ extension Dashboard {
 // MARK: - Live Configuration
 
 extension Dashboard {
-    public mutating func applyTheme(_ theme: any Theme) {
+    /// Shared config mutation for `theme(_:)` / `applyTheme(_:)`: sets the theme
+    /// and, unless the layout has been explicitly pinned, adopts the theme's
+    /// default layout.
+    private mutating func setTheme(_ theme: any Theme) {
         configuration.theme = theme
         if configuration.isLayoutPinned == false {
             configuration.layout = theme.defaultLayout
+        }
+    }
+
+    /// Shared config mutation for `layout(_:)` / `applyLayout(_:)`: pins an
+    /// explicit layout so a later theme change won't override it.
+    private mutating func setLayout(_ layout: any Layout) {
+        configuration.layout = layout
+        configuration.isLayoutPinned = true
+    }
+
+    public mutating func applyTheme(_ theme: any Theme) {
+        let adoptsThemeLayout = configuration.isLayoutPinned == false
+        setTheme(theme)
+        if adoptsThemeLayout {
             updateAttachedWidgetPlacements()
         }
-
         updateAttachedWidgetEnvironments()
     }
 
@@ -274,8 +289,7 @@ extension Dashboard {
     }
 
     public mutating func applyLayout(_ layout: any Layout) {
-        configuration.layout = layout
-        configuration.isLayoutPinned = true
+        setLayout(layout)
         updateAttachedWidgetPlacements()
         updateAttachedWidgetEnvironments()
     }

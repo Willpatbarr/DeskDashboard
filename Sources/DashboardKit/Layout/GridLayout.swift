@@ -10,32 +10,6 @@ public struct GridLayout: Layout, Sendable {
         self.columns = max(1, columns)
     }
 
-    public func placement(
-        for widgetID: WidgetID,
-        configuration: WidgetConfiguration,
-        at index: Int
-    ) -> WidgetPlacement {
-        let span = gridSpan(for: configuration.size)
-        let columnSpan = min(span.columnSpan, columns)
-        let rowSpan = span.rowSpan
-        let baseColumn = index % columns
-        let column = min(baseColumn, columns - columnSpan)
-        let row = index / columns
-
-        return WidgetPlacement(
-            visibility: visibility(
-                for: widgetID,
-                configuration: configuration
-            ),
-            gridSlot: WidgetGridSlot(
-                column: column,
-                row: row,
-                columnSpan: columnSpan,
-                rowSpan: rowSpan
-            )
-        )
-    }
-
     /// First-fit occupancy packing: each widget takes the top-most,
     /// left-most slot its span fits into, so spanned widgets never overlap.
     public func placements(
