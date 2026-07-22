@@ -4,16 +4,21 @@ _Status as of 2026-07-22. Companion to [widget-progress.md](widget-progress.md).
 
 ## Where we are
 
-The **dev testing platform is complete**. All five MVP widgets (SDD §16) run
-end-to-end with live data, cross-compiled to a static musl aarch64 binary on the
-Raspberry Pi, driven through the `Service → WidgetModel → Widget` pipeline with
-zero changes to DashboardKit core. 116 tests pass. Rendering currently goes
-through the two **dev** renderers (`ConsoleRenderer` + `DevWebRenderer` on
-`:8642`) — both are development tooling, not the product.
+**The appliance is live.** The real SwiftCrossUI UI (`deskdashboard-ui`) runs
+fullscreen and borderless on the Pi's display under `cage`, auto-starts at boot
+via systemd, and survives reboot/crash — verified on hardware 2026-07-22. All
+five MVP widgets render in a single inline row with live data (music + indoor
+push in over `:8642`), driven through the `Service → WidgetModel → Widget`
+pipeline with zero changes to DashboardKit core. 116 tests pass.
 
-The engine and data plumbing are effectively done. What remains is turning this
-from "runs and serves an HTML debug page" into the actual appliance: a real UI
-on the Pi's physical display, with the hardening to run unattended.
+Build/deploy split (see [ui-build-spike.md](ui-build-spike.md)): the dev
+`DeskDashboard` binary still cross-compiles to static musl via
+[build-pi.sh](../scripts/build-pi.sh); the GTK UI is a separate `deskdashboard-ui`
+product built natively on the Pi (glibc + GTK 4) via
+[build-ui-pi.sh](../scripts/build-ui-pi.sh). Kiosk setup: [pi-kiosk.md](pi-kiosk.md).
+
+What's left is polish (release build, Music album art) and defensive hardening —
+the core product is done.
 
 ## Remaining work
 
