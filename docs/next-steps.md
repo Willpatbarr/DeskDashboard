@@ -49,11 +49,14 @@ renderers already prove the shape.
   update the live stores. Stores are still seeded so tiles aren't empty at launch.
 - [x] Set up the Pi build/run path for `deskdashboard-ui` (glibc + GTK 4).
   [`scripts/build-ui-pi.sh`](../scripts/build-ui-pi.sh) builds it natively on the
-  Pi; full procedure in [pi-ui-deploy.md](pi-ui-deploy.md). **Not yet run on
-  hardware** — the first Pi build is the verification.
-- [ ] Drive it fullscreen / kiosk (SwiftCrossUI has no in-app fullscreen API —
-  use a kiosk compositor like `cage`, or WM fullscreen; decide X / Wayland) and
-  auto-start at boot (folds into the systemd unit below).
+  Pi; full procedure in [pi-ui-deploy.md](pi-ui-deploy.md). **Verified on hardware
+  2026-07-22** — builds and runs on the Pi with all five tiles live, music +
+  indoor pushing in over `:8642`. Two glibc fixes were needed along the way
+  (`SOCK_STREAM` → `Int32`; a low-memory build to avoid OOM — the script now caps
+  jobs by RAM and silences swift-backtrace noise).
+- [~] Drive it fullscreen / kiosk + auto-start (see §3). Tooling written
+  ([`scripts/install-kiosk-pi.sh`](../scripts/install-kiosk-pi.sh), runs the UI
+  under `cage` via systemd); **not yet verified on hardware**.
 
 ### 2. Image affordance in `WidgetContent`
 
@@ -63,8 +66,12 @@ renderers already prove the shape.
 
 ### 3. Pi appliance hardening
 
-- [ ] **systemd auto-start unit** so the dashboard survives reboot / crash /
-  terminal-close. Not yet set up (the Pi currently just stays on).
+- [~] **systemd auto-start + kiosk unit** so the dashboard survives reboot /
+  crash and comes up fullscreen. Tooling done:
+  [`scripts/install-kiosk-pi.sh`](../scripts/install-kiosk-pi.sh) installs `cage`
+  + a `Restart=always` systemd service on `tty1`; procedure + rollback in
+  [pi-kiosk.md](pi-kiosk.md). **Not yet run on hardware** — needs the boot-to-
+  console switch + reboot to verify.
 - [ ] **Linux timer robustness** — if the tick loop ever freezes under
   `RunLoop.main.run()` on Linux, switch `TimerDashboardClock` to a GCD
   `DispatchSourceTimer`. Not yet hit, but a known Linux caveat.
