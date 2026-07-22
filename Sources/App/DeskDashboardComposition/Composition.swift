@@ -53,6 +53,7 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
                 .title("Clock")
                 .size(.large)
                 .showSeconds()
+                .layout(.bigNumber)
             AlarmWidget()
                 .id("alarm")
                 .title("Alarm")

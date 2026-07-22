@@ -5,6 +5,9 @@ public struct WidgetConfiguration: Equatable, Sendable {
     public var priority: WidgetPriority
     public var isHidden: Bool
     public var refreshRate: RefreshRate?
+    /// Which prebuilt tile layout this widget renders with. Renderers that
+    /// interpret `WidgetView` (currently the SwiftCrossUI UI) use this.
+    public var layout: WidgetLayout
 
     public init(
         preferredID: WidgetID? = nil,
@@ -12,7 +15,8 @@ public struct WidgetConfiguration: Equatable, Sendable {
         size: WidgetSize = .automatic,
         priority: WidgetPriority = .normal,
         isHidden: Bool = false,
-        refreshRate: RefreshRate? = nil
+        refreshRate: RefreshRate? = nil,
+        layout: WidgetLayout = .standard
     ) {
         self.preferredID = preferredID
         self.title = title
@@ -20,5 +24,6 @@ public struct WidgetConfiguration: Equatable, Sendable {
         self.priority = priority
         self.isHidden = isHidden
         self.refreshRate = refreshRate
+        self.layout = layout
     }
 }

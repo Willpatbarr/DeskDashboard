@@ -67,4 +67,12 @@ public extension Widget {
         copy.configuration.refreshRate = refreshRate
         return copy
     }
+
+    /// Chooses the prebuilt tile layout this widget renders with (default
+    /// `.standard`). Swappable per widget: `ClockWidget().layout(.bigNumber)`.
+    func layout(_ layout: WidgetLayout) -> Self {
+        var copy = self
+        copy.configuration.layout = layout
+        return copy
+    }
 }
