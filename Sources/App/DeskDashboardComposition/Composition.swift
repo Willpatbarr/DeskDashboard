@@ -1,5 +1,6 @@
-import DashboardIngest
+import DashboardHTTPServer
 import DashboardKit
+import DeskDashboardIngest
 import DeskDashboardWidgets
 import Foundation
 
@@ -47,13 +48,29 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
     let dashboard = Dashboard()
         .theme(DarkDeskTheme())
         .widgets {
-            ClockWidget().id("clock").title("Clock").size(.large).showSeconds()
-            AlarmWidget().id("alarm").title("Alarm").service(alarms)
-            IndoorTemperatureWidget().id("indoor").title("Indoor").service(indoorTemperature)
-            MusicWidget().id("music").title("Music").source("HomePod")
+            ClockWidget()
+                .id("clock")
+                .title("Clock")
+                .size(.large)
+                .showSeconds()
+            AlarmWidget()
+                .id("alarm")
+                .title("Alarm")
+                .service(alarms)
+            IndoorTemperatureWidget()
+                .id("indoor")
+                .title("Indoor")
+                .service(indoorTemperature)
+            MusicWidget()
+                .id("music")
+                .title("Music")
+                .source("HomePod")
                 .showAlbum(showsAlbum).service(music)
-            OutdoorTemperatureWidget().id("outdoor").title("Outdoor")
-                .location("Rexburg, ID").service(OpenMeteoOutdoorService())
+            OutdoorTemperatureWidget()
+                .id("outdoor")
+                .title("Outdoor")
+                .location("Rexburg, ID")
+                .service(OpenMeteoOutdoorService())
         }
 
     return DeskDashboardSystem(
@@ -64,7 +81,7 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
 }
 
 /// Registers both sensor-push ingest endpoints against a server's `registerPost`
-/// hook (works with `DevWebRenderer.registerPost` or a bare `DevHTTPServer`).
+/// hook (works with `DevWebRenderer.registerPost` or a bare `HTTPServer`).
 public func registerPushIngest(
     on registerPost: PushIngest.RegisterPost,
     indoorTemperature: PushIndoorTemperatureService,

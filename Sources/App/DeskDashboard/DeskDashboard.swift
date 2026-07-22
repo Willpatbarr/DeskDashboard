@@ -1,7 +1,7 @@
-import DashboardIngest
+import DashboardDevRenderers
+import DashboardHTTPServer
 import DashboardKit
 import DeskDashboardComposition
-import DeskDashboardDevTools
 import Foundation
 
 // DeskDashboard executable — development front-end. Composes the appliance from

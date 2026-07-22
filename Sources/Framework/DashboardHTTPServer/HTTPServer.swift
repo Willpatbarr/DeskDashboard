@@ -23,7 +23,7 @@ private let sockStreamType = SOCK_STREAM
 // MARK: - Response
 
 /// A response body + content type returned by a route handler.
-public struct DevHTTPResponse {
+public struct HTTPResponse {
     public var contentType: String
     public var body: Data
 
@@ -38,7 +38,7 @@ public struct DevHTTPResponse {
 
 // MARK: - Errors
 
-public enum DevHTTPServerError: Error {
+public enum HTTPServerError: Error {
     case socketFailed(Int32)
     case bindFailed(Int32)
     case listenFailed(Int32)
@@ -48,12 +48,12 @@ public enum DevHTTPServerError: Error {
 
 /// Dependency-free socket server bound to all interfaces (INADDR_ANY) so LAN
 /// devices — e.g. a phone running a Shortcut — can reach it.
-public final class DevHTTPServer: @unchecked Sendable {
+public final class HTTPServer: @unchecked Sendable {
     public let port: UInt16
 
     private let lock = NSLock()
-    private var routes: [String: () -> DevHTTPResponse] = [:]
-    private var postRoutes: [String: (Data) -> DevHTTPResponse] = [:]
+    private var routes: [String: () -> HTTPResponse] = [:]
+    private var postRoutes: [String: (Data) -> HTTPResponse] = [:]
     private var serverSocket: Int32 = -1
     private var isListening = false
 
@@ -67,7 +67,7 @@ public final class DevHTTPServer: @unchecked Sendable {
 
     public func register(
         path: String,
-        handler: @escaping () -> DevHTTPResponse
+        handler: @escaping () -> HTTPResponse
     ) {
         lock.lock()
         defer { lock.unlock() }
@@ -78,7 +78,7 @@ public final class DevHTTPServer: @unchecked Sendable {
     /// request body.
     public func registerPost(
         path: String,
-        handler: @escaping (Data) -> DevHTTPResponse
+        handler: @escaping (Data) -> HTTPResponse
     ) {
         lock.lock()
         defer { lock.unlock() }
@@ -92,7 +92,7 @@ public final class DevHTTPServer: @unchecked Sendable {
 
         let fd = socket(AF_INET, sockStreamType, 0)
         guard fd >= 0 else {
-            throw DevHTTPServerError.socketFailed(errno)
+            throw HTTPServerError.socketFailed(errno)
         }
 
         var reuse: Int32 = 1
@@ -117,12 +117,12 @@ public final class DevHTTPServer: @unchecked Sendable {
         }
         guard bindResult == 0 else {
             close(fd)
-            throw DevHTTPServerError.bindFailed(errno)
+            throw HTTPServerError.bindFailed(errno)
         }
 
         guard listen(fd, 16) == 0 else {
             close(fd)
-            throw DevHTTPServerError.listenFailed(errno)
+            throw HTTPServerError.listenFailed(errno)
         }
 
         lock.lock()

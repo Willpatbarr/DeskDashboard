@@ -1,7 +1,7 @@
-import DashboardIngest
+import DashboardHTTPServer
 import DashboardKit
+import DashboardUI
 import DeskDashboardComposition
-import DeskDashboardUI
 import Foundation
 
 // DeskDashboard UI executable — the real SwiftCrossUI dashboard on the Pi's
@@ -15,7 +15,7 @@ let runner = system.runner
 
 // Sensor-push ingest on :8642 (override with --port), same endpoints the
 // producers already POST to.
-let ingestServer = DevHTTPServer(port: parsePort(CommandLine.arguments))
+let ingestServer = HTTPServer(port: parsePort(CommandLine.arguments))
 registerPushIngest(
     on: ingestServer.registerPost,
     indoorTemperature: system.indoorTemperature,

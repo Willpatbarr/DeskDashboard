@@ -1,3 +1,4 @@
+import DashboardHTTPServer
 import DeskDashboardWidgets
 import Foundation
 
@@ -6,11 +7,11 @@ import Foundation
 ///
 /// Registration is parameterized over a `registerPost` hook rather than a
 /// concrete server, so callers can pass either `DevWebRenderer.registerPost` or
-/// `DevHTTPServer.registerPost`.
+/// `HTTPServer.registerPost`.
 public enum PushIngest {
     /// `(path, handler)` — matches both `DevWebRenderer.registerPost(path:handler:)`
-    /// and `DevHTTPServer.registerPost(path:handler:)`.
-    public typealias RegisterPost = (String, @escaping (Data) -> DevHTTPResponse) -> Void
+    /// and `HTTPServer.registerPost(path:handler:)`.
+    public typealias RegisterPost = (String, @escaping (Data) -> HTTPResponse) -> Void
 
     // MARK: - Indoor temperature (`/ingest/indoor-temperature`)
 
@@ -30,7 +31,7 @@ public enum PushIngest {
             guard let payload = try? JSONDecoder().decode(Payload.self, from: body) else {
                 let received = String(decoding: body, as: UTF8.self)
                 print("[ingest] indoor-temperature <- rejected (invalid JSON); \(body.count) bytes: \(received.isEmpty ? "<empty>" : received)")
-                return DevHTTPResponse(
+                return HTTPResponse(
                     contentType: "application/json",
                     body: Data(#"{"error":"expected JSON {value, unit?, humidity?}"}"#.utf8)
                 )
@@ -54,7 +55,7 @@ public enum PushIngest {
 
             let humidityJSON = payload.humidity.map { String($0) } ?? "null"
             let echo = #"{"stored":"\#(stored)°C","humidity":\#(humidityJSON)}"#
-            return DevHTTPResponse(
+            return HTTPResponse(
                 contentType: "application/json",
                 body: Data(echo.utf8)
             )
@@ -85,7 +86,7 @@ public enum PushIngest {
             guard let payload = try? JSONDecoder().decode(Payload.self, from: body) else {
                 let received = String(decoding: body, as: UTF8.self)
                 print("[ingest] now-playing <- rejected (invalid JSON); \(body.count) bytes: \(received.isEmpty ? "<empty>" : received)")
-                return DevHTTPResponse(
+                return HTTPResponse(
                     contentType: "application/json",
                     body: Data(#"{"error":"expected JSON {title, artist?, album?, isPlaying?, elapsed?, duration?}"}"#.utf8)
                 )
@@ -94,7 +95,7 @@ public enum PushIngest {
             guard payload.stopped != true, let title = payload.title, !title.isEmpty else {
                 store.update(nil)
                 print("[ingest] now-playing <- (nothing playing)")
-                return DevHTTPResponse(
+                return HTTPResponse(
                     contentType: "application/json",
                     body: Data(#"{"stored":"nothing playing"}"#.utf8)
                 )
@@ -116,7 +117,7 @@ public enum PushIngest {
             print("[ingest] now-playing <- \"\(title)\"\(payload.artist.map { " — \($0)" } ?? "") (\(state))")
 
             let echo = #"{"stored":"\#(title)","isPlaying":\#(payload.isPlaying ?? true)}"#
-            return DevHTTPResponse(
+            return HTTPResponse(
                 contentType: "application/json",
                 body: Data(echo.utf8)
             )

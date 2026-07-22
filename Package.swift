@@ -3,10 +3,16 @@
 
 import PackageDescription
 
+// Sources/ is grouped into three layers:
+//   Framework/  — the reusable dashboard engine + infra (no app/renderer specifics)
+//   Renderers/  — reusable backends that render any dashboard's snapshots
+//   App/        — everything specific to *this* dashboard (widgets, services,
+//                 ingest, composition, executables). Delete App/ and Framework +
+//                 Renderers still stand as a usable framework.
 let package = Package(
     name: "DeskDashboard",
-    // SwiftCrossUI (via DeskDashboardUI) requires macOS 10.15+; raise the floor
-    // so the UI target resolves. DashboardKit itself stays platform-neutral.
+    // SwiftCrossUI (via DashboardUI) requires macOS 10.15+; raise the floor so
+    // the UI target resolves. DashboardKit itself stays platform-neutral.
     platforms: [.macOS(.v13)],
     products: [
         .library(
@@ -34,61 +40,81 @@ let package = Package(
         ),
     ],
     targets: [
+        // ─────────────────────────── Framework ───────────────────────────
+        // The reusable dashboard engine: Dashboard/Widget/WidgetModel, the
+        // ServiceKey + environment plumbing, layout, theme, the DashboardBuilder
+        // DSL, and the DashboardRenderer + ServiceBackedWidget protocols.
         .target(
-            name: "DashboardKit"
+            name: "DashboardKit",
+            path: "Sources/Framework/DashboardKit"
         ),
+        // Dependency-free socket HTTP server. Reusable infra used by the web
+        // renderer and by the app's ingest endpoints.
+        .target(
+            name: "DashboardHTTPServer",
+            path: "Sources/Framework/DashboardHTTPServer"
+        ),
+
+        // ─────────────────────────── Renderers ───────────────────────────
+        // Reusable — each renders any dashboard's [AttachedWidgetSnapshot].
+        .target(
+            name: "DashboardDevRenderers",
+            dependencies: ["DashboardKit", "DashboardHTTPServer"],
+            path: "Sources/Renderers/DashboardDevRenderers"
+        ),
+        .target(
+            name: "DashboardUI",
+            dependencies: [
+                "DashboardKit",
+                .product(name: "SwiftCrossUI", package: "swift-cross-ui"),
+                .product(name: "DefaultBackend", package: "swift-cross-ui"),
+            ],
+            path: "Sources/Renderers/DashboardUI"
+        ),
+
+        // ────────────────────────────── App ──────────────────────────────
+        // Everything specific to this dashboard.
         .target(
             name: "DeskDashboardWidgets",
-            dependencies: ["DashboardKit"]
+            dependencies: ["DashboardKit"],
+            path: "Sources/App/DeskDashboardWidgets"
         ),
-        // Sensor-push ingest: the dependency-free HTTP server + the shared
-        // `/ingest/*` endpoint registration. A real (non-dev) component — both
-        // the dev app and the real UI app feed their push widgets through it.
+        // App-specific /ingest/* endpoints that know about this app's push stores.
         .target(
-            name: "DashboardIngest",
-            dependencies: ["DashboardKit", "DeskDashboardWidgets"]
-        ),
-        // Development-only renderers (console + web).
-        .target(
-            name: "DeskDashboardDevTools",
-            dependencies: ["DashboardKit", "DeskDashboardWidgets", "DashboardIngest"]
+            name: "DeskDashboardIngest",
+            dependencies: ["DashboardKit", "DashboardHTTPServer", "DeskDashboardWidgets"],
+            path: "Sources/App/DeskDashboardIngest"
         ),
         // The one declarative definition of the appliance (widgets + services +
-        // seed data + ingest wiring), shared by both executables. No SwiftCrossUI,
-        // so the static-musl product can use it.
+        // seed data + ingest wiring). No SwiftCrossUI, so the musl product can use it.
         .target(
             name: "DeskDashboardComposition",
-            dependencies: ["DashboardKit", "DeskDashboardWidgets", "DashboardIngest"]
+            dependencies: [
+                "DashboardKit",
+                "DeskDashboardWidgets",
+                "DeskDashboardIngest",
+                "DashboardHTTPServer",
+            ],
+            path: "Sources/App/DeskDashboardComposition"
         ),
         .executableTarget(
             name: "DeskDashboard",
             dependencies: [
                 "DashboardKit",
-                "DeskDashboardDevTools",
+                "DashboardDevRenderers",
+                "DashboardHTTPServer",
                 "DeskDashboardComposition",
-            ]
+            ],
+            path: "Sources/App/DeskDashboard"
         ),
-        // The real UI: maps widget snapshots -> SwiftCrossUI views, driven from
-        // the same per-tick observer the dev renderers use. Reuses DashboardKit
-        // with zero changes to core (the LEGO Test). Uses DefaultBackend
-        // (AppKit on macOS, GTK on Linux/Pi).
-        .target(
-            name: "DeskDashboardUI",
-            dependencies: [
-                "DashboardKit",
-                .product(name: "SwiftCrossUI", package: "swift-cross-ui"),
-                .product(name: "DefaultBackend", package: "swift-cross-ui"),
-            ]
-        ),
-        // Application entry point for the real UI. Composes the dashboard
-        // (widgets + services) and drives the SwiftCrossUI renderer.
         .executableTarget(
             name: "DeskDashboardUIApp",
             dependencies: [
-                "DeskDashboardUI",
+                "DashboardUI",
+                "DashboardHTTPServer",
                 "DeskDashboardComposition",
-                "DashboardIngest",
-            ]
+            ],
+            path: "Sources/App/DeskDashboardUIApp"
         ),
         .testTarget(
             name: "DeskDashboardTests",

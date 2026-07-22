@@ -1,4 +1,4 @@
-import DashboardIngest
+import DashboardHTTPServer
 import DashboardKit
 import Foundation
 
@@ -9,7 +9,7 @@ import Foundation
 /// and lays widgets out from their GridLayout slots, so theme and layout become
 /// visible during development without a real UI stack.
 public final class DevWebRenderer: DashboardRenderer, @unchecked Sendable {
-    private let server: DevHTTPServer
+    private let server: HTTPServer
     private let lock = NSLock()
     private var payloadJSON = Data(#"{"tiles":[]}"#.utf8)
 
@@ -17,17 +17,17 @@ public final class DevWebRenderer: DashboardRenderer, @unchecked Sendable {
         theme: any Theme,
         port: UInt16 = 8642
     ) {
-        self.server = DevHTTPServer(port: port)
+        self.server = HTTPServer(port: port)
 
         let page = Data(Self.page(for: theme).utf8)
         server.register(path: "/") {
-            DevHTTPResponse(
+            HTTPResponse(
                 contentType: "text/html; charset=utf-8",
                 body: page
             )
         }
         server.register(path: "/snapshots") { [weak self] in
-            DevHTTPResponse(
+            HTTPResponse(
                 contentType: "application/json",
                 body: self?.currentPayloadJSON() ?? Data(#"{"tiles":[]}"#.utf8)
             )
@@ -37,7 +37,7 @@ public final class DevWebRenderer: DashboardRenderer, @unchecked Sendable {
     /// Register a POST ingest endpoint (e.g. a sensor pushing readings).
     public func registerPost(
         path: String,
-        handler: @escaping (Data) -> DevHTTPResponse
+        handler: @escaping (Data) -> HTTPResponse
     ) {
         server.registerPost(path: path, handler: handler)
     }
