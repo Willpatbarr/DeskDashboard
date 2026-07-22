@@ -47,8 +47,13 @@ renderers already prove the shape.
   runs the same `DevHTTPServer` on `:8642` (override `--port`). Verified
   end-to-end: POSTs to `/ingest/now-playing` and `/ingest/indoor-temperature`
   update the live stores. Stores are still seeded so tiles aren't empty at launch.
-- [ ] Set up the Pi build/run path for `deskdashboard-ui` (glibc + GTK 4, see the
-  spike doc) and drive it fullscreen / kiosk — decide X / Wayland.
+- [x] Set up the Pi build/run path for `deskdashboard-ui` (glibc + GTK 4).
+  [`scripts/build-ui-pi.sh`](../scripts/build-ui-pi.sh) builds it natively on the
+  Pi; full procedure in [pi-ui-deploy.md](pi-ui-deploy.md). **Not yet run on
+  hardware** — the first Pi build is the verification.
+- [ ] Drive it fullscreen / kiosk (SwiftCrossUI has no in-app fullscreen API —
+  use a kiosk compositor like `cage`, or WM fullscreen; decide X / Wayland) and
+  auto-start at boot (folds into the systemd unit below).
 
 ### 2. Image affordance in `WidgetContent`
 
