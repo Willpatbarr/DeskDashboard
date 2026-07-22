@@ -19,18 +19,20 @@ let package = Package(
             name: "DashboardKit",
             targets: ["DashboardKit"]
         ),
+        // Development front-end: renders the dashboard as console text or a web
+        // debug page. No GUI deps, so this is the one `scripts/build-pi.sh`
+        // cross-compiles to a static-musl Pi binary.
         .executable(
-            name: "DeskDashboard",
-            targets: ["DeskDashboard"]
+            name: "deskdashboard-dev",
+            targets: ["DeskDashboardDevApp"]
         ),
-        // The real SwiftCrossUI dashboard UI. A SEPARATE product from
-        // `DeskDashboard` on purpose: `scripts/build-pi.sh` builds
-        // `--product DeskDashboard` against the static musl SDK, and SwiftCrossUI
-        // can't cross-compile there (GTK + a Glibc-only image dep). Keeping the
-        // UI in its own product means the musl build never pulls SwiftCrossUI.
+        // The real graphical dashboard (SwiftCrossUI). A SEPARATE product from
+        // the dev one on purpose: SwiftCrossUI can't cross-compile to static musl
+        // (GTK + a Glibc-only image dep), so only the dev product goes through
+        // build-pi.sh; this one is built natively on the Pi (build-ui-pi.sh).
         .executable(
             name: "deskdashboard-ui",
-            targets: ["DeskDashboardUIApp"]
+            targets: ["DeskDashboardApp"]
         ),
     ],
     dependencies: [
@@ -97,24 +99,26 @@ let package = Package(
             ],
             path: "Sources/App/DeskDashboardComposition"
         ),
+        // Dev front-end (console/web renderers).
         .executableTarget(
-            name: "DeskDashboard",
+            name: "DeskDashboardDevApp",
             dependencies: [
                 "DashboardKit",
                 "DashboardDevRenderers",
                 "DashboardHTTPServer",
                 "DeskDashboardComposition",
             ],
-            path: "Sources/App/DeskDashboard"
+            path: "Sources/App/DeskDashboardDevApp"
         ),
+        // Real graphical app (SwiftCrossUI UI).
         .executableTarget(
-            name: "DeskDashboardUIApp",
+            name: "DeskDashboardApp",
             dependencies: [
                 "DashboardUI",
                 "DashboardHTTPServer",
                 "DeskDashboardComposition",
             ],
-            path: "Sources/App/DeskDashboardUIApp"
+            path: "Sources/App/DeskDashboardApp"
         ),
         .testTarget(
             name: "DeskDashboardTests",

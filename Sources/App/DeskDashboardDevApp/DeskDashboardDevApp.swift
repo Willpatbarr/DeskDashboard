@@ -4,12 +4,14 @@ import DashboardKit
 import DeskDashboardComposition
 import Foundation
 
-// DeskDashboard executable — development front-end. Composes the appliance from
-// the shared `DeskDashboardComposition` (single source of truth for widgets,
-// services, and ingest) and drives a dev renderer: the console renderer with
-// `--console`, otherwise the web renderer on :8642 (override with `--port`).
+// The DEVELOPMENT executable (product `deskdashboard-dev`). Composes the same
+// appliance as the real app (via `DeskDashboardComposition`) but renders it with
+// the dev tools — the console renderer (`--console`) or the web debug page on
+// :8642 (`--port` to override). No GUI deps, so this is what cross-compiles to
+// the static-musl Pi binary via scripts/build-pi.sh. For the real graphical
+// dashboard, see the `DeskDashboardApp` target (product `deskdashboard-ui`).
 @main
-struct DeskDashboard {
+struct DeskDashboardDevApp {
     static func main() {
         let system = makeDeskDashboardSystem()
         let runner = system.runner

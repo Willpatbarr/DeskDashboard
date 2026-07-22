@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cross-compile the DeskDashboard executable for the Raspberry Pi from a Mac:
+# Cross-compile the DeskDashboard DEV executable (deskdashboard-dev) for the Pi:
 # a fully-static aarch64 Linux (musl) binary that needs no Swift or libraries on
 # the Pi. Prints the binary path when done.
 #
@@ -65,13 +65,13 @@ fi
 echo "toolchain: $TOOLCHAIN"
 echo "target:    $TARGET  ($CONFIG)"
 cd "$REPO_ROOT"
-"$SWIFT" build --product DeskDashboard --swift-sdk "$TARGET" -c "$CONFIG"
+"$SWIFT" build --product deskdashboard-dev --swift-sdk "$TARGET" -c "$CONFIG"
 
-BIN="$REPO_ROOT/.build/$TARGET/$CONFIG/DeskDashboard"
+BIN="$REPO_ROOT/.build/$TARGET/$CONFIG/deskdashboard-dev"
 echo
 echo "built: $BIN"
 file "$BIN"
 echo
 echo "To deploy: serve it from here and pull it on the Pi, e.g."
 echo "  (mac) cd \"$(dirname "$BIN")\" && python3 -m http.server 8000"
-echo "  (pi)  curl -O http://<this-mac-ip>:8000/DeskDashboard && chmod +x DeskDashboard && ./DeskDashboard --port 8642"
+echo "  (pi)  curl -O http://<this-mac-ip>:8000/deskdashboard-dev && chmod +x deskdashboard-dev && ./deskdashboard-dev --port 8642"

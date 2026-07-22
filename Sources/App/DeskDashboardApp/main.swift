@@ -4,11 +4,13 @@ import DashboardUI
 import DeskDashboardComposition
 import Foundation
 
-// DeskDashboard UI executable — the real SwiftCrossUI dashboard on the Pi's
-// display. Composes the appliance from the shared `DeskDashboardComposition`
-// (same widgets/services/ingest as the dev app) and drives `SwiftCrossUIRenderer`
-// from the same per-tick observer. Album is dropped from the Music tile so its
-// subtitle fits the narrower inline layout.
+// The REAL executable (product `deskdashboard-ui`): the graphical SwiftCrossUI
+// dashboard that runs fullscreen on the Pi's display. Composes the same appliance
+// as the dev app (via `DeskDashboardComposition`) but drives the real
+// `SwiftCrossUIRenderer` from the same per-tick observer. Album is dropped from
+// the Music tile so its subtitle fits the narrower inline layout. For the
+// text/web development front-end, see `DeskDashboardDevApp` (product
+// `deskdashboard-dev`).
 
 let system = makeDeskDashboardSystem(showsAlbum: false)
 let runner = system.runner
