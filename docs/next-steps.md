@@ -54,9 +54,8 @@ renderers already prove the shape.
   indoor pushing in over `:8642`. Two glibc fixes were needed along the way
   (`SOCK_STREAM` → `Int32`; a low-memory build to avoid OOM — the script now caps
   jobs by RAM and silences swift-backtrace noise).
-- [~] Drive it fullscreen / kiosk + auto-start (see §3). Tooling written
-  ([`scripts/install-kiosk-pi.sh`](../scripts/install-kiosk-pi.sh), runs the UI
-  under `cage` via systemd); **not yet verified on hardware**.
+- [x] Drive it fullscreen / kiosk + auto-start (see §3). **Verified on hardware
+  2026-07-22** — boots straight to the fullscreen dashboard under `cage`.
 
 ### 2. Image affordance in `WidgetContent`
 
@@ -66,12 +65,13 @@ renderers already prove the shape.
 
 ### 3. Pi appliance hardening
 
-- [~] **systemd auto-start + kiosk unit** so the dashboard survives reboot /
-  crash and comes up fullscreen. Tooling done:
+- [x] **systemd auto-start + kiosk unit** so the dashboard survives reboot /
+  crash and comes up fullscreen. **Done + verified on hardware 2026-07-22**:
   [`scripts/install-kiosk-pi.sh`](../scripts/install-kiosk-pi.sh) installs `cage`
-  + a `Restart=always` systemd service on `tty1`; procedure + rollback in
-  [pi-kiosk.md](pi-kiosk.md). **Not yet run on hardware** — needs the boot-to-
-  console switch + reboot to verify.
+  + a rate-limited `Restart=always` service on `tty1`; procedure + rollback in
+  [pi-kiosk.md](pi-kiosk.md). Must boot to console first (cage needs the display
+  to itself) — the doc has the safe order. Currently runs the **debug** binary;
+  a `release` rebuild is a nice-to-have for the permanent fixture.
 - [ ] **Linux timer robustness** — if the tick loop ever freezes under
   `RunLoop.main.run()` on Linux, switch `TimerDashboardClock` to a GCD
   `DispatchSourceTimer`. Not yet hit, but a known Linux caveat.
