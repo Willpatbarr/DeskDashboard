@@ -14,13 +14,38 @@
 #   sudo apt update && sudo apt install -y libgtk-4-dev clang pkg-config
 #   (a Swift toolchain must already be installed and on PATH)
 #
+# Building SwiftCrossUI + swift-syntax macros is memory-hungry. On a Pi this can
+# exhaust RAM and hard-crash the box (OOM), with peak usage at the end (optimize
+# + link). To avoid that, this script caps compiler parallelism based on RAM
+# (~2 GB/job) and silences the swift-backtrace mprotect warnings. A `release`
+# build is much heavier than `debug`; use `CONFIG=debug` for a lower-memory first
+# build.
+#
 # Override behavior with env vars:
-#   CONFIG=debug   build debug instead of release
+#   CONFIG=debug   build debug instead of release (lighter; recommended first)
+#   JOBS=N         force N parallel compiler jobs (default: RAM-based, >=1)
 set -euo pipefail
+
+# Silence "unable to protect path to swift-backtrace ... disabling backtracing"
+# noise (harmless; the crash backtracer can't mprotect under memory pressure).
+export SWIFT_BACKTRACE="${SWIFT_BACKTRACE:-enable=no}"
 
 CONFIG="${CONFIG:-release}"
 PRODUCT="deskdashboard-ui"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+# Pick a safe job count: ~2 GB of RAM per compiler job, capped at core count,
+# floor of 1. Override with JOBS=N.
+compute_jobs() {
+    if [ -n "${JOBS:-}" ]; then echo "$JOBS"; return; fi
+    local cores mem_kb mem_jobs
+    cores="$(nproc 2>/dev/null || echo 1)"
+    mem_kb="$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)"
+    mem_jobs=$(( mem_kb / 2000000 ))          # ~2 GB per job
+    [ "$mem_jobs" -lt 1 ] && mem_jobs=1
+    if [ "$mem_jobs" -lt "$cores" ]; then echo "$mem_jobs"; else echo "$cores"; fi
+}
+JOBS="$(compute_jobs)"
 
 fail() { echo "error: $*" >&2; exit 1; }
 
@@ -46,11 +71,11 @@ fi
 
 echo "swift:     $(command -v swift)  ($(swift --version 2>/dev/null | head -1))"
 echo "gtk4:      $(pkg-config --modversion gtk4)"
-echo "product:   $PRODUCT  ($CONFIG)"
+echo "product:   $PRODUCT  ($CONFIG, -j $JOBS)"
 
 # --- Build -----------------------------------------------------------------
 cd "$REPO_ROOT"
-swift build --product "$PRODUCT" -c "$CONFIG"
+swift build --product "$PRODUCT" -c "$CONFIG" -j "$JOBS"
 
 BIN="$REPO_ROOT/.build/$CONFIG/$PRODUCT"
 echo
