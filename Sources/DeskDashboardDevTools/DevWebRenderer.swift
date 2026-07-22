@@ -1,3 +1,4 @@
+import DashboardIngest
 import DashboardKit
 import Foundation
 

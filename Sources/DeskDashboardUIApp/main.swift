@@ -1,5 +1,5 @@
+import DashboardIngest
 import DashboardKit
-import DeskDashboardDevTools
 import DeskDashboardUI
 import DeskDashboardWidgets
 import Foundation

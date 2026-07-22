@@ -41,12 +41,17 @@ let package = Package(
             name: "DeskDashboardWidgets",
             dependencies: ["DashboardKit"]
         ),
-        // Dev renderers (console + web) plus the dependency-free HTTP server and
-        // the shared sensor-push ingest endpoints (`PushIngest`). The renderers
-        // are development-only, but the HTTP ingest is reused by the real UI app.
+        // Sensor-push ingest: the dependency-free HTTP server + the shared
+        // `/ingest/*` endpoint registration. A real (non-dev) component — both
+        // the dev app and the real UI app feed their push widgets through it.
+        .target(
+            name: "DashboardIngest",
+            dependencies: ["DashboardKit", "DeskDashboardWidgets"]
+        ),
+        // Development-only renderers (console + web).
         .target(
             name: "DeskDashboardDevTools",
-            dependencies: ["DashboardKit", "DeskDashboardWidgets"]
+            dependencies: ["DashboardKit", "DeskDashboardWidgets", "DashboardIngest"]
         ),
         .executableTarget(
             name: "DeskDashboard",
@@ -54,6 +59,7 @@ let package = Package(
                 "DashboardKit",
                 "DeskDashboardWidgets",
                 "DeskDashboardDevTools",
+                "DashboardIngest",
             ]
         ),
         // The real UI: maps widget snapshots -> SwiftCrossUI views, driven from
@@ -76,7 +82,7 @@ let package = Package(
                 "DashboardKit",
                 "DeskDashboardWidgets",
                 "DeskDashboardUI",
-                "DeskDashboardDevTools",
+                "DashboardIngest",
             ]
         ),
         .testTarget(
