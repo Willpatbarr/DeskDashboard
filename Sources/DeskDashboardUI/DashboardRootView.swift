@@ -14,19 +14,13 @@ struct DashboardRootView: View {
     var body: some View {
         VStack(spacing: 0) {
             header
-            ScrollView {
-                VStack(spacing: model.palette.widgetGap) {
-                    ForEach(rows, id: \.id) { row in
-                        HStack(spacing: model.palette.widgetGap) {
-                            ForEach(row.tiles, id: \.id.rawValue) { snapshot in
-                                TileView(snapshot: snapshot, palette: model.palette)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
+            HStack(spacing: model.palette.widgetGap) {
+                ForEach(tiles, id: \.id.rawValue) { snapshot in
+                    TileView(snapshot: snapshot, palette: model.palette)
                 }
-                .padding(model.palette.sectionMargin)
             }
+            .padding(model.palette.sectionMargin)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(model.palette.background)
@@ -42,30 +36,21 @@ struct DashboardRootView: View {
         .padding(model.palette.sectionMargin)
     }
 
-    // MARK: - Grid mapping
+    // MARK: - Tile ordering
 
-    private struct GridRow {
-        let id: Int
-        let tiles: [AttachedWidgetSnapshot]
-    }
-
-    /// Visible snapshots grouped into rows by grid slot, each row ordered by
-    /// column. Widgets with no grid slot fall into row 0, column 0.
-    private var rows: [GridRow] {
-        let visible = model.snapshots.filter {
-            $0.placement.visibility == .visible
-        }
-        let grouped = Dictionary(grouping: visible) {
-            $0.placement.gridSlot?.row ?? 0
-        }
-        return grouped.keys.sorted().map { row in
-            GridRow(
-                id: row,
-                tiles: grouped[row, default: []].sorted {
-                    ($0.placement.gridSlot?.column ?? 0)
-                        < ($1.placement.gridSlot?.column ?? 0)
+    /// Visible tiles laid out in a single inline row, ordered by their grid slot
+    /// (row-major) so the arrangement stays stable across ticks. All tiles share
+    /// the row width evenly (`TileView` expands to fill).
+    private var tiles: [AttachedWidgetSnapshot] {
+        model.snapshots
+            .filter { $0.placement.visibility == .visible }
+            .sorted {
+                let l = $0.placement.gridSlot
+                let r = $1.placement.gridSlot
+                if (l?.row ?? 0) != (r?.row ?? 0) {
+                    return (l?.row ?? 0) < (r?.row ?? 0)
                 }
-            )
-        }
+                return (l?.column ?? 0) < (r?.column ?? 0)
+            }
     }
 }

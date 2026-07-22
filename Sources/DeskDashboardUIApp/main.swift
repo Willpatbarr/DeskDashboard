@@ -69,7 +69,8 @@ let runner = DashboardRunner(dashboard: dashboard)
 runner.add(ClockWidget().id("clock").title("Clock").size(.large).showSeconds())
 runner.add(AlarmWidget().id("alarm").title("Alarm"))
 runner.add(IndoorTemperatureWidget().id("indoor").title("Indoor"))
-runner.add(MusicWidget().id("music").title("Music").source("HomePod"))
+// Album dropped so the subtitle (just the artist) fits the narrower inline tile.
+runner.add(MusicWidget().id("music").title("Music").source("HomePod").showAlbum(false))
 runner.add(
     OutdoorTemperatureWidget().id("outdoor").title("Outdoor").location("Rexburg, ID")
 )
