@@ -115,7 +115,8 @@ struct DeskDashboard {
 
         renderer.registerPost(path: "/ingest/indoor-temperature") { body in
             guard let payload = try? JSONDecoder().decode(Payload.self, from: body) else {
-                print("[ingest] indoor-temperature <- rejected (invalid JSON body)")
+                let received = String(decoding: body, as: UTF8.self)
+                print("[ingest] indoor-temperature <- rejected (invalid JSON); \(body.count) bytes: \(received.isEmpty ? "<empty>" : received)")
                 return DevHTTPResponse(
                     contentType: "application/json",
                     body: Data(#"{"error":"expected JSON {value, unit?, humidity?}"}"#.utf8)

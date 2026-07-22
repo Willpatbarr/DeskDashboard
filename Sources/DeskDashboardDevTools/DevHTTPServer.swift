@@ -179,6 +179,14 @@ public final class DevHTTPServer: @unchecked Sendable {
         if let headerEnd = raw.range(of: Data([13, 10, 13, 10])) {
             let headerText = String(decoding: raw[raw.startIndex..<headerEnd.lowerBound], as: UTF8.self)
             let contentLength = Self.contentLength(in: headerText)
+
+            // Many HTTP clients (incl. iOS URLSession) send "Expect: 100-continue"
+            // and withhold the body until the server acknowledges. Send the
+            // interim response so the body actually arrives.
+            if contentLength > 0, headerText.lowercased().contains("expect: 100-continue") {
+                send(Data("HTTP/1.1 100 Continue\r\n\r\n".utf8), to: client)
+            }
+
             var bodyReceived = raw.distance(from: headerEnd.upperBound, to: raw.endIndex)
             while bodyReceived < contentLength, raw.count < 1_048_576 {
                 let byteCount = read(client, &chunk, chunk.count)
