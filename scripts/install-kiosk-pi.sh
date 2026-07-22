@@ -50,6 +50,10 @@ cat > "$UNIT" <<UNITEOF
 Description=DeskDashboard kiosk (cage + $SERVICE)
 After=systemd-user-sessions.service getty@tty1.service
 Conflicts=getty@tty1.service
+# Bound the restarts: if it fails 3x in 60s, give up instead of flashing the
+# display forever. (systemd's default 5/10s is too loose to catch a ~5s loop.)
+StartLimitIntervalSec=60
+StartLimitBurst=3
 
 [Service]
 Type=simple
@@ -71,29 +75,28 @@ WantedBy=multi-user.target
 UNITEOF
 
 systemctl daemon-reload
-systemctl enable "$SERVICE.service"
 
 cat <<DONE
 
-Installed and enabled $SERVICE.service
+Installed $SERVICE.service (NOT enabled or started yet — on purpose).
   user:   $RUN_USER (uid $RUN_UID)
   binary: $BIN
   cage:   $CAGE
 
-Two manual steps remain (they replace the desktop with the kiosk, so do them
-when you're ready):
+cage needs the display to ITSELF, so you must switch to console boot BEFORE
+enabling it. Do NOT 'systemctl start' it from the desktop or over SSH while the
+desktop is running — cage will fight the desktop for the screen and flap.
 
-  1. Boot to console (frees tty1/the display from the desktop):
-       sudo raspi-config nonint do_boot_behaviour B2   # Console Autologin
-  2. Reboot:
-       sudo reboot
+Order (all recoverable — console mode keeps SSH + a text login):
+  1. sudo raspi-config nonint do_boot_behaviour B2   # boot to console (frees the display)
+  2. sudo systemctl enable $SERVICE                  # start it on the next boot
+  3. sudo reboot                                      # comes up fullscreen
 
-After reboot the dashboard should come up fullscreen and restart itself if it
-crashes. Logs: journalctl -u $SERVICE -b
-Test without rebooting (stops the desktop!): sudo systemctl start $SERVICE
+Check after reboot:  journalctl -u $SERVICE -b
+                     systemctl status $SERVICE
 
 Roll back to the normal desktop:
   sudo systemctl disable --now $SERVICE
-  sudo raspi-config nonint do_boot_behaviour B4        # Desktop Autologin
+  sudo raspi-config nonint do_boot_behaviour B4       # Desktop Autologin
   sudo reboot
 DONE
