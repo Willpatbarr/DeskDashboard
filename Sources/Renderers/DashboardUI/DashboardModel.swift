@@ -51,8 +51,11 @@ final class DashboardModel: ObservableObject {
     var layoutOverride: WidgetLayout? { current.layout }
     var previewName: String { current.name }
 
-    func nextPreview() {
-        previewIndex = (previewIndex + 1) % previews.count
+    /// Jump straight to a preview by index (a segment tap). Out-of-range is
+    /// ignored. This is the hook a real layout switcher would drive too.
+    func select(_ index: Int) {
+        guard previews.indices.contains(index) else { return }
+        previewIndex = index
     }
 }
 

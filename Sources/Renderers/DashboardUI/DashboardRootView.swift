@@ -37,12 +37,35 @@ struct DashboardRootView: View {
                 .foregroundColor(model.palette.secondary)
             Spacer(minLength: 0)
             if model.showsPreviewControls {
-                Button("Next layout ›") {
-                    model.nextPreview()
-                }
+                previewBar
             }
         }
         .padding(model.palette.sectionMargin)
+    }
+
+    /// A segmented bar: one numbered segment per preview, the active one filled
+    /// with the accent. Tap any segment to jump straight to it — the reusable
+    /// hook for layout switching.
+    private var previewBar: some View {
+        HStack(spacing: 4) {
+            ForEach(Array(model.previews.enumerated()), id: \.offset) { item in
+                segment(item.offset)
+            }
+        }
+    }
+
+    private func segment(_ index: Int) -> some View {
+        let selected = index == model.previewIndex
+        return Text("\(index + 1)")
+            .font(.system(size: model.palette.captionSize, weight: .bold))
+            .foregroundColor(selected ? model.palette.background : model.palette.secondary)
+            .padding(6)
+            .frame(width: 34)
+            .background(selected ? model.palette.accent : model.palette.surface)
+            .cornerRadius(6)
+            .onTapGesture {
+                model.select(index)
+            }
     }
 
     // MARK: - Tile ordering
