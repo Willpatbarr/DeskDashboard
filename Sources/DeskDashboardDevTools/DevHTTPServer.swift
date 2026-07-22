@@ -160,8 +160,9 @@ public final class DevHTTPServer: @unchecked Sendable {
     ) {
         defer { close(client) }
 
-        // Read until the end of the request headers (blank line) so a request
-        // split across several TCP segments is assembled fully, not truncated.
+        // Read until the end of the request headers (blank line), then keep
+        // reading until the full Content-Length body has arrived — the body
+        // often lands in a later TCP segment than the headers.
         var raw = Data()
         var chunk = [UInt8](repeating: 0, count: 4096)
         while raw.range(of: Data([13, 10, 13, 10])) == nil, raw.count < 65_536 {
@@ -173,6 +174,20 @@ public final class DevHTTPServer: @unchecked Sendable {
         }
         guard !raw.isEmpty else {
             return
+        }
+
+        if let headerEnd = raw.range(of: Data([13, 10, 13, 10])) {
+            let headerText = String(decoding: raw[raw.startIndex..<headerEnd.lowerBound], as: UTF8.self)
+            let contentLength = Self.contentLength(in: headerText)
+            var bodyReceived = raw.distance(from: headerEnd.upperBound, to: raw.endIndex)
+            while bodyReceived < contentLength, raw.count < 1_048_576 {
+                let byteCount = read(client, &chunk, chunk.count)
+                guard byteCount > 0 else {
+                    break
+                }
+                raw.append(contentsOf: chunk[0..<byteCount])
+                bodyReceived += byteCount
+            }
         }
 
         let request = String(decoding: raw, as: UTF8.self)
@@ -225,6 +240,20 @@ public final class DevHTTPServer: @unchecked Sendable {
         }
 
         send(Data(head.utf8) + body, to: client)
+    }
+
+    private static func contentLength(
+        in headerText: String
+    ) -> Int {
+        for line in headerText.split(separator: "\r\n") {
+            let parts = line.split(separator: ":", maxSplits: 1)
+            guard parts.count == 2,
+                  parts[0].trimmingCharacters(in: .whitespaces).lowercased() == "content-length" else {
+                continue
+            }
+            return Int(parts[1].trimmingCharacters(in: .whitespaces)) ?? 0
+        }
+        return 0
     }
 
     private func ok(
