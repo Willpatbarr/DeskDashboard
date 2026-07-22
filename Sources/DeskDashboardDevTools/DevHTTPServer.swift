@@ -1,8 +1,10 @@
 import Foundation
 #if canImport(Darwin)
 import Darwin
-#else
+#elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Musl)
+import Musl
 #endif
 
 // A minimal, dependency-free HTTP server for development only. Not part of the
