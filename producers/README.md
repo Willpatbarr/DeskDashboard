@@ -59,6 +59,21 @@ says `stopped`/"nothing playing" with music actually playing, run
 `~/.local/bin/atvscript --id <id> playing` directly — a traceback there means
 the pyatv/Python version problem above.
 
+## Bringing the whole system up from the mini
+
+[`scripts/start-dashboard.sh`](../scripts/start-dashboard.sh) is a one-command
+"bring it up" for the mini: it kickstarts the local producer LaunchAgents and
+then `ssh`es to the Pi to restart the kiosk service (`deskdashboard-ui`) that
+runs the UI. Run it in your mini login session:
+
+```bash
+bash scripts/start-dashboard.sh            # PI_HOST / SERVICE overridable via env
+```
+
+It checks key-based SSH first and prints the `ssh-keygen`/`ssh-copy-id` steps if
+that isn't set up yet, and warns if a producer is still POSTing to `localhost`
+instead of the Pi. Requires the Pi kiosk service (`scripts/install-kiosk-pi.sh`).
+
 ## Files
 
 - `now-playing-push.py` — one-shot poller: `atvscript` → flat JSON → POST.
