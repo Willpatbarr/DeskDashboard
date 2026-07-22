@@ -1,7 +1,7 @@
 import DashboardKit
 import Foundation
 
-final class ClockWidgetModel: WidgetModel {
+public final class ClockWidgetModel: WidgetModel {
     private let service: any ClockService
     private let formatter: DateFormatter
     private let displayOptions: ClockDisplayOptions
@@ -22,15 +22,15 @@ final class ClockWidgetModel: WidgetModel {
         self.formatter.timeZone = timeZone
     }
 
-    func activate() {
+    public func activate() {
         refresh()
     }
 
-    func update(environment: DashboardEnvironment) {
+    public func update(environment: DashboardEnvironment) {
         refresh()
     }
 
-    func tick(
+    public func tick(
         _ tick: DashboardTick,
         environment: DashboardEnvironment
     ) {

@@ -4,7 +4,7 @@ import Foundation
 // Outdoor Temperature — the TRANSFORM layer of the pipeline. Turns a raw
 // `OutdoorConditions` into display-ready strings (unit conversion, condition,
 // staleness). Owned privately by the widget (AD-003).
-final class OutdoorTemperatureWidgetModel: WidgetModel {
+public final class OutdoorTemperatureWidgetModel: WidgetModel {
     /// A reading older than this is treated as stale (the weather fetch went
     /// quiet). Outdoor refreshes every ~10 min, so this is a few missed cycles.
     static let stalenessThreshold: TimeInterval = 1800
@@ -26,11 +26,11 @@ final class OutdoorTemperatureWidgetModel: WidgetModel {
 
     // MARK: - WidgetModel lifecycle
 
-    func activate() {
+    public func activate() {
         refresh(at: Date())
     }
 
-    func tick(
+    public func tick(
         _ tick: DashboardTick,
         environment: DashboardEnvironment
     ) {

@@ -4,7 +4,7 @@ import Foundation
 // Indoor Temperature — the TRANSFORM layer of the pipeline. Turns a raw
 // `TemperatureReading` into display-ready strings (unit conversion, humidity,
 // staleness). Owned privately by the widget (AD-003).
-final class IndoorTemperatureWidgetModel: WidgetModel {
+public final class IndoorTemperatureWidgetModel: WidgetModel {
     /// A reading older than this is treated as stale (the remote producer went
     /// quiet). Indoor updates every 30s, so ~4 missed cycles.
     static let stalenessThreshold: TimeInterval = 150
@@ -26,11 +26,11 @@ final class IndoorTemperatureWidgetModel: WidgetModel {
 
     // MARK: - WidgetModel lifecycle
 
-    func activate() {
+    public func activate() {
         refresh(at: Date())
     }
 
-    func tick(
+    public func tick(
         _ tick: DashboardTick,
         environment: DashboardEnvironment
     ) {

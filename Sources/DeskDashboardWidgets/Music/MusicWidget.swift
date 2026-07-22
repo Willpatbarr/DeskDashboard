@@ -9,10 +9,10 @@ import Foundation
 
 // MARK: - Widget
 
-public struct MusicWidget: RenderableWidget {
+public struct MusicWidget: ServiceBackedWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: MusicDisplayOptions
-    private var model: MusicWidgetModel?
+    public var model: MusicWidgetModel?
 
     public init(
         configuration: WidgetConfiguration = WidgetConfiguration(
@@ -46,32 +46,16 @@ public struct MusicWidget: RenderableWidget {
         model?.hasTrack ?? false
     }
 
-    // MARK: - Lifecycle
+    // MARK: - Service-backed lifecycle
 
-    public mutating func attach(environment: DashboardEnvironment) {
-        let service = environment.service(for: MusicServiceKeys.nowPlaying)
-            ?? SimulatedMusicService()
-        let model = MusicWidgetModel(
-            service: service,
-            displayOptions: displayOptions
-        )
+    public var serviceKey: ServiceKey<any MusicService> { MusicServiceKeys.nowPlaying }
 
-        model.activate()
-        self.model = model
+    public func makeModel(_ service: any MusicService) -> MusicWidgetModel {
+        MusicWidgetModel(service: service, displayOptions: displayOptions)
     }
 
-    public mutating func tick(
-        _ tick: DashboardTick,
-        environment: DashboardEnvironment
-    ) {
-        model?.tick(
-            tick,
-            environment: environment
-        )
-    }
-
-    public mutating func detach() {
-        model = nil
+    public func makeFallbackService() -> any MusicService {
+        SimulatedMusicService()
     }
 
     // MARK: - Rendering

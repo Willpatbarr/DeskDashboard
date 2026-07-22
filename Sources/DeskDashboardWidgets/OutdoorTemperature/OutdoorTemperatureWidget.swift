@@ -10,10 +10,10 @@ import Foundation
 
 // MARK: - Widget
 
-public struct OutdoorTemperatureWidget: RenderableWidget {
+public struct OutdoorTemperatureWidget: ServiceBackedWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: OutdoorTemperatureDisplayOptions
-    private var model: OutdoorTemperatureWidgetModel?
+    public var model: OutdoorTemperatureWidgetModel?
     private var sourceName: String?
 
     public init(
@@ -40,32 +40,18 @@ public struct OutdoorTemperatureWidget: RenderableWidget {
         model?.isStale ?? false
     }
 
-    // MARK: - Lifecycle
+    // MARK: - Service-backed lifecycle
 
-    public mutating func attach(environment: DashboardEnvironment) {
-        let service = environment.service(for: OutdoorTemperatureServiceKeys.outdoorTemperature)
-            ?? SimulatedOutdoorService()
-        let model = OutdoorTemperatureWidgetModel(
-            service: service,
-            displayOptions: displayOptions
-        )
-
-        model.activate()
-        self.model = model
+    public var serviceKey: ServiceKey<any OutdoorTemperatureService> {
+        OutdoorTemperatureServiceKeys.outdoorTemperature
     }
 
-    public mutating func tick(
-        _ tick: DashboardTick,
-        environment: DashboardEnvironment
-    ) {
-        model?.tick(
-            tick,
-            environment: environment
-        )
+    public func makeModel(_ service: any OutdoorTemperatureService) -> OutdoorTemperatureWidgetModel {
+        OutdoorTemperatureWidgetModel(service: service, displayOptions: displayOptions)
     }
 
-    public mutating func detach() {
-        model = nil
+    public func makeFallbackService() -> any OutdoorTemperatureService {
+        SimulatedOutdoorService()
     }
 
     // MARK: - Rendering

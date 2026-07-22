@@ -1,10 +1,10 @@
 import DashboardKit
 import Foundation
 
-public struct ClockWidget: RenderableWidget {
+public struct ClockWidget: ServiceBackedWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: ClockDisplayOptions
-    private var model: ClockWidgetModel?
+    public var model: ClockWidgetModel?
 
     public init(
         configuration: WidgetConfiguration = WidgetConfiguration(
@@ -26,36 +26,18 @@ public struct ClockWidget: RenderableWidget {
         model?.displayDate
     }
 
-    public mutating func attach(environment: DashboardEnvironment) {
-        let service = environment.service(for: ClockServiceKeys.clock)
-            ?? SystemClockService()
-        let model = ClockWidgetModel(
+    public var serviceKey: ServiceKey<any ClockService> { ClockServiceKeys.clock }
+
+    public func makeModel(_ service: any ClockService) -> ClockWidgetModel {
+        ClockWidgetModel(
             service: service,
             displayOptions: displayOptions,
             timeZone: displayOptions.timeZone
         )
-
-        model.activate()
-        self.model = model
     }
 
-    public mutating func update(environment: DashboardEnvironment) {
-        model?.update(environment: environment)
-    }
-
-    public mutating func tick(
-        _ tick: DashboardTick,
-        environment: DashboardEnvironment
-    ) {
-        model?.tick(
-            tick,
-            environment: environment
-        )
-    }
-
-    public mutating func detach() {
-        model?.deactivate()
-        model = nil
+    public func makeFallbackService() -> any ClockService {
+        SystemClockService()
     }
 
     public func render(environment: DashboardEnvironment) -> WidgetContent {

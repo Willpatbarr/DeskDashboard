@@ -7,10 +7,10 @@ import Foundation
 
 // MARK: - Widget
 
-public struct IndoorTemperatureWidget: RenderableWidget {
+public struct IndoorTemperatureWidget: ServiceBackedWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: IndoorTemperatureDisplayOptions
-    private var model: IndoorTemperatureWidgetModel?
+    public var model: IndoorTemperatureWidgetModel?
 
     public init(
         configuration: WidgetConfiguration = WidgetConfiguration(
@@ -36,32 +36,18 @@ public struct IndoorTemperatureWidget: RenderableWidget {
         model?.isStale ?? false
     }
 
-    // MARK: - Lifecycle
+    // MARK: - Service-backed lifecycle
 
-    public mutating func attach(environment: DashboardEnvironment) {
-        let service = environment.service(for: IndoorTemperatureServiceKeys.indoorTemperature)
-            ?? SimulatedTemperatureService()
-        let model = IndoorTemperatureWidgetModel(
-            service: service,
-            displayOptions: displayOptions
-        )
-
-        model.activate()
-        self.model = model
+    public var serviceKey: ServiceKey<any IndoorTemperatureService> {
+        IndoorTemperatureServiceKeys.indoorTemperature
     }
 
-    public mutating func tick(
-        _ tick: DashboardTick,
-        environment: DashboardEnvironment
-    ) {
-        model?.tick(
-            tick,
-            environment: environment
-        )
+    public func makeModel(_ service: any IndoorTemperatureService) -> IndoorTemperatureWidgetModel {
+        IndoorTemperatureWidgetModel(service: service, displayOptions: displayOptions)
     }
 
-    public mutating func detach() {
-        model = nil
+    public func makeFallbackService() -> any IndoorTemperatureService {
+        SimulatedTemperatureService()
     }
 
     // MARK: - Rendering

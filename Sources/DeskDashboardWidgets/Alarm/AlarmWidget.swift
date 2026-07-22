@@ -7,10 +7,10 @@ import Foundation
 
 // MARK: - Widget
 
-public struct AlarmWidget: RenderableWidget {
+public struct AlarmWidget: ServiceBackedWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: AlarmDisplayOptions
-    private var model: AlarmWidgetModel?
+    public var model: AlarmWidgetModel?
 
     public init(
         configuration: WidgetConfiguration = WidgetConfiguration(
@@ -36,32 +36,16 @@ public struct AlarmWidget: RenderableWidget {
         model?.isFiring ?? false
     }
 
-    // MARK: - Lifecycle
+    // MARK: - Service-backed lifecycle
 
-    public mutating func attach(environment: DashboardEnvironment) {
-        let service = environment.service(for: AlarmServiceKeys.alarms)
-            ?? LocalAlarmStore()
-        let model = AlarmWidgetModel(
-            service: service,
-            displayOptions: displayOptions
-        )
+    public var serviceKey: ServiceKey<any AlarmService> { AlarmServiceKeys.alarms }
 
-        model.activate()
-        self.model = model
+    public func makeModel(_ service: any AlarmService) -> AlarmWidgetModel {
+        AlarmWidgetModel(service: service, displayOptions: displayOptions)
     }
 
-    public mutating func tick(
-        _ tick: DashboardTick,
-        environment: DashboardEnvironment
-    ) {
-        model?.tick(
-            tick,
-            environment: environment
-        )
-    }
-
-    public mutating func detach() {
-        model = nil
+    public func makeFallbackService() -> any AlarmService {
+        LocalAlarmStore()
     }
 
     // MARK: - Rendering

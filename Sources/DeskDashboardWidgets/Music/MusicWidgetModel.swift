@@ -5,7 +5,7 @@ import Foundation
 // into display-ready strings, advancing the track position live between pushes
 // ("clock provides rhythm, model provides judgement", SDD §12). Owned privately
 // by the widget (AD-003).
-final class MusicWidgetModel: WidgetModel {
+public final class MusicWidgetModel: WidgetModel {
     private let service: any MusicService
     private let displayOptions: MusicDisplayOptions
 
@@ -25,11 +25,11 @@ final class MusicWidgetModel: WidgetModel {
 
     // MARK: - WidgetModel lifecycle
 
-    func activate() {
+    public func activate() {
         refresh(at: Date())
     }
 
-    func tick(
+    public func tick(
         _ tick: DashboardTick,
         environment: DashboardEnvironment
     ) {
