@@ -1,6 +1,13 @@
 import DashboardKit
 import Foundation
 
+// Alarm — the DATA layer of the widget's Service -> WidgetModel -> Widget
+// pipeline. Alarms are one-shot, Date-based; recurrence is deliberately
+// deferred (SDD §5.2 "leave a TODO").
+
+// MARK: - Alarm
+
+/// A single one-shot alarm. `date` is the absolute fire time.
 public struct Alarm: Equatable, Sendable {
     public var id: String
     public var label: String?
@@ -20,6 +27,8 @@ public struct Alarm: Equatable, Sendable {
     }
 }
 
+// MARK: - Service contract
+
 public protocol AlarmService: DashboardService {
     func alarms() -> [Alarm]
 }
@@ -27,6 +36,8 @@ public protocol AlarmService: DashboardService {
 public enum AlarmServiceKeys {
     public static let alarms = ServiceKey<AnyAlarmService>("alarms")
 }
+
+// MARK: - Type-erased wrapper
 
 public final class AnyAlarmService: AlarmService {
     private let alarmsProvider: () -> [Alarm]
@@ -48,6 +59,9 @@ public final class AnyAlarmService: AlarmService {
     }
 }
 
+// MARK: - In-memory store
+
+/// The MVP alarm store: holds alarms in memory (no persistence yet).
 public final class LocalAlarmStore: AlarmService {
     private var storedAlarms: [Alarm]
 

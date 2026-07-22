@@ -1,6 +1,12 @@
 import DashboardKit
 import Foundation
 
+// Indoor Temperature — the DATA layer of the widget's
+// Service -> WidgetModel -> Widget pipeline. Several interchangeable sources
+// conform to `IndoorTemperatureService`; the widget never cares which one.
+
+// MARK: - Reading
+
 /// A single indoor climate reading. Temperature is stored canonically in
 /// Celsius; the widget converts for display.
 public struct TemperatureReading: Equatable, Sendable {
@@ -19,6 +25,8 @@ public struct TemperatureReading: Equatable, Sendable {
     }
 }
 
+// MARK: - Service contract
+
 /// Source of indoor climate data. The concrete implementation is deliberately
 /// swappable: a simulated source for development, and later a plain HTTP/file
 /// client fed by an Apple-side HomeKit producer reading the HomePod. Nothing
@@ -32,6 +40,8 @@ public enum IndoorTemperatureServiceKeys {
         "indoorTemperature"
     )
 }
+
+// MARK: - Type-erased wrapper
 
 public final class AnyIndoorTemperatureService: IndoorTemperatureService {
     private let readingProvider: () -> TemperatureReading?
@@ -52,6 +62,8 @@ public final class AnyIndoorTemperatureService: IndoorTemperatureService {
         readingProvider()
     }
 }
+
+// MARK: - Push source (production: fed by the /ingest endpoint)
 
 /// Push-backed source: holds the most recent reading pushed in from outside
 /// (e.g. an Apple-side HomeKit producer POSTing the HomePod's value). Thread
@@ -80,6 +92,8 @@ public final class PushIndoorTemperatureService: IndoorTemperatureService, @unch
         return latest
     }
 }
+
+// MARK: - Simulated source (dev only)
 
 /// Development-only source: gentle sine-wave drift around a base temperature so
 /// the dev renderer shows a plausibly changing reading with no hardware.

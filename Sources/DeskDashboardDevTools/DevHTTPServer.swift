@@ -5,9 +5,13 @@ import Darwin
 import Glibc
 #endif
 
-/// Development-only HTTP server: a minimal, dependency-free socket server
-/// bound to all interfaces so LAN devices (e.g. a phone running a Shortcut)
-/// can reach it, just capable enough to serve the dev web renderer.
+// A minimal, dependency-free HTTP server for development only. Not part of the
+// shipping dashboard — it exists so the dev web renderer and the sensor-ingest
+// endpoint have something to talk to during development.
+
+// MARK: - Response
+
+/// A response body + content type returned by a route handler.
 public struct DevHTTPResponse {
     public var contentType: String
     public var body: Data
@@ -21,12 +25,18 @@ public struct DevHTTPResponse {
     }
 }
 
+// MARK: - Errors
+
 public enum DevHTTPServerError: Error {
     case socketFailed(Int32)
     case bindFailed(Int32)
     case listenFailed(Int32)
 }
 
+// MARK: - Server
+
+/// Dependency-free socket server bound to all interfaces (INADDR_ANY) so LAN
+/// devices — e.g. a phone running a Shortcut — can reach it.
 public final class DevHTTPServer: @unchecked Sendable {
     public let port: UInt16
 
@@ -41,6 +51,8 @@ public final class DevHTTPServer: @unchecked Sendable {
     ) {
         self.port = port
     }
+
+    // MARK: - Route registration
 
     public func register(
         path: String,
@@ -61,6 +73,8 @@ public final class DevHTTPServer: @unchecked Sendable {
         defer { lock.unlock() }
         postRoutes[path] = handler
     }
+
+    // MARK: - Lifecycle
 
     public func start() throws {
         signal(SIGPIPE, SIG_IGN)
@@ -122,6 +136,8 @@ public final class DevHTTPServer: @unchecked Sendable {
         }
     }
 
+    // MARK: - Accept loop
+
     private func acceptLoop() {
         while true {
             lock.lock()
@@ -154,6 +170,8 @@ public final class DevHTTPServer: @unchecked Sendable {
             }
         }
     }
+
+    // MARK: - Request handling
 
     private func respond(
         to client: Int32
@@ -249,6 +267,8 @@ public final class DevHTTPServer: @unchecked Sendable {
 
         send(Data(head.utf8) + body, to: client)
     }
+
+    // MARK: - Helpers
 
     private static func contentLength(
         in headerText: String

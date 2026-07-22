@@ -1,6 +1,12 @@
 import DashboardKit
 import Foundation
 
+// Indoor Temperature — the DISPLAY layer of the pipeline. An inert tile until
+// attached; activates its private model on attach, ticks it (throttled to 30s
+// by its refresh rate), and renders the model's state into WidgetContent.
+
+// MARK: - Widget
+
 public struct IndoorTemperatureWidget: RenderableWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: IndoorTemperatureDisplayOptions
@@ -30,6 +36,8 @@ public struct IndoorTemperatureWidget: RenderableWidget {
         model?.isStale ?? false
     }
 
+    // MARK: - Lifecycle
+
     public mutating func attach(environment: DashboardEnvironment) {
         let service = environment.service(for: IndoorTemperatureServiceKeys.indoorTemperature)
             ?? AnyIndoorTemperatureService(SimulatedTemperatureService())
@@ -56,6 +64,8 @@ public struct IndoorTemperatureWidget: RenderableWidget {
         model = nil
     }
 
+    // MARK: - Rendering
+
     public func render(environment: DashboardEnvironment) -> WidgetContent {
         WidgetContent(
             title: configuration.title,
@@ -71,6 +81,8 @@ public struct IndoorTemperatureWidget: RenderableWidget {
         )
     }
 }
+
+// MARK: - Display options
 
 public struct IndoorTemperatureDisplayOptions {
     public enum Unit {
@@ -89,6 +101,8 @@ public struct IndoorTemperatureDisplayOptions {
         self.showsHumidity = showsHumidity
     }
 }
+
+// MARK: - Modifiers (composition over configuration)
 
 extension IndoorTemperatureWidget {
     public func fahrenheit(

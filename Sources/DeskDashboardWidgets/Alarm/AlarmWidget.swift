@@ -1,6 +1,12 @@
 import DashboardKit
 import Foundation
 
+// Alarm — the DISPLAY layer. Inert until attached; renders the model's chosen
+// alarm as next-time / countdown, or a "Ringing!" state (which is the first
+// real use of WidgetContent.accessoryText, carrying the "RINGING" badge).
+
+// MARK: - Widget
+
 public struct AlarmWidget: RenderableWidget {
     public var configuration: WidgetConfiguration
     private var displayOptions: AlarmDisplayOptions
@@ -30,6 +36,8 @@ public struct AlarmWidget: RenderableWidget {
         model?.isFiring ?? false
     }
 
+    // MARK: - Lifecycle
+
     public mutating func attach(environment: DashboardEnvironment) {
         let service = environment.service(for: AlarmServiceKeys.alarms)
             ?? AnyAlarmService(LocalAlarmStore())
@@ -55,6 +63,8 @@ public struct AlarmWidget: RenderableWidget {
     public mutating func detach() {
         model = nil
     }
+
+    // MARK: - Rendering
 
     public func render(environment: DashboardEnvironment) -> WidgetContent {
         var metadata: [WidgetContentMetadata] = []
@@ -85,6 +95,8 @@ public struct AlarmWidget: RenderableWidget {
     }
 }
 
+// MARK: - Display options
+
 public struct AlarmDisplayOptions {
     public var usesTwentyFourHour: Bool
     public var timeZone: TimeZone
@@ -97,6 +109,8 @@ public struct AlarmDisplayOptions {
         self.timeZone = timeZone
     }
 }
+
+// MARK: - Modifiers (composition over configuration)
 
 extension AlarmWidget {
     public func twentyFourHour(

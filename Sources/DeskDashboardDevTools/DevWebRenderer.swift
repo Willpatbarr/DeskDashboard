@@ -1,10 +1,12 @@
 import DashboardKit
 import Foundation
 
+// MARK: - Renderer
+
 /// Development-only renderer: serves the dashboard as a live-updating web page
-/// on loopback. The page is styled from the active Theme's tokens and lays
-/// widgets out from their GridLayout slots, so theme and layout become visible
-/// during development without a real UI stack.
+/// over the local network. The page is styled from the active Theme's tokens
+/// and lays widgets out from their GridLayout slots, so theme and layout become
+/// visible during development without a real UI stack.
 public final class DevWebRenderer: @unchecked Sendable {
     private let server: DevHTTPServer
     private let lock = NSLock()
@@ -70,6 +72,8 @@ public final class DevWebRenderer: @unchecked Sendable {
     }
 }
 
+// MARK: - Payload encoding (snapshot -> JSON the page polls)
+
 private struct DevTilePayload: Encodable {
     var tiles: [DevTile]
 }
@@ -110,6 +114,8 @@ private struct DevTile: Encodable {
         rowSpan = snapshot.placement.gridSlot?.rowSpan
     }
 }
+
+// MARK: - HTML page (theme tokens -> CSS, grid slots -> CSS Grid)
 
 extension DevWebRenderer {
     private static func cssEasing(

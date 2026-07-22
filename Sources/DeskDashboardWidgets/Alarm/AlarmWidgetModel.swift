@@ -1,7 +1,11 @@
 import DashboardKit
 import Foundation
 
+// Alarm — the TRANSFORM layer. Each tick it decides which alarm matters now
+// (soonest enabled, upcoming or currently firing) and formats it for display.
+// This is the "clock provides rhythm, model provides judgement" rule (SDD §12).
 final class AlarmWidgetModel: WidgetModel {
+    /// How long an alarm counts as "firing" after its fire time.
     static let firingWindow: TimeInterval = 60
 
     private let service: any AlarmService
@@ -25,6 +29,8 @@ final class AlarmWidgetModel: WidgetModel {
         self.formatter.timeZone = displayOptions.timeZone
     }
 
+    // MARK: - WidgetModel lifecycle
+
     func activate() {
         refresh(at: Date())
     }
@@ -35,6 +41,8 @@ final class AlarmWidgetModel: WidgetModel {
     ) {
         refresh(at: tick.date)
     }
+
+    // MARK: - Choosing & formatting the active alarm
 
     func refresh(
         at date: Date
@@ -64,6 +72,8 @@ final class AlarmWidgetModel: WidgetModel {
             ? nil
             : countdownText(until: alarm.date.timeIntervalSince(date))
     }
+
+    // MARK: - Countdown helper
 
     private func countdownText(
         until interval: TimeInterval

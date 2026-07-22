@@ -23,6 +23,8 @@ public struct ConsoleRenderer {
         print(output, terminator: "")
     }
 
+    // MARK: - Box-drawing a single tile
+
     private func tile(
         for content: WidgetContent
     ) -> String {

@@ -3,8 +3,14 @@ import DeskDashboardDevTools
 import DeskDashboardWidgets
 import Foundation
 
+// DeskDashboard executable — the APPLICATION layer. Composes the dashboard
+// (widgets + their services), picks a dev renderer, and drives it from the
+// runner's per-tick observer. All framework logic lives in DashboardKit.
 @main
 struct DeskDashboard {
+
+    // MARK: - Entry point
+
     static func main() {
         let alarmStore = LocalAlarmStore()
         alarmStore.add(
@@ -25,6 +31,20 @@ struct DeskDashboard {
             )
         )
 
+        // Push-backed now-playing: seeded with a demo track so the tile isn't
+        // empty, then overwritten by POSTs to /ingest/now-playing.
+        let music = PushMusicService(
+            initialNowPlaying: NowPlaying(
+                title: "Nightcall",
+                artist: "Kavinsky",
+                album: "OutRun",
+                isPlaying: true,
+                elapsed: 42,
+                duration: 258,
+                timestamp: Date()
+            )
+        )
+
         let dashboard = Dashboard()
             .theme(DarkDeskTheme())
             .service(
@@ -34,6 +54,10 @@ struct DeskDashboard {
             .service(
                 AnyIndoorTemperatureService(indoorTemperature),
                 for: IndoorTemperatureServiceKeys.indoorTemperature
+            )
+            .service(
+                AnyMusicService(music),
+                for: MusicServiceKeys.nowPlaying
             )
         let runner = DashboardRunner(dashboard: dashboard)
 
@@ -54,6 +78,12 @@ struct DeskDashboard {
                 .id("indoor")
                 .title("Indoor")
         )
+        runner.add(
+            MusicWidget()
+                .id("music")
+                .title("Music")
+                .source("HomePod")
+        )
 
         // Both renderers are development tooling (DeskDashboardDevTools);
         // the real UI arrives with the SwiftOpenUI layer.
@@ -72,6 +102,10 @@ struct DeskDashboard {
                 on: renderer,
                 store: indoorTemperature
             )
+            registerNowPlayingIngest(
+                on: renderer,
+                store: music
+            )
 
             do {
                 try renderer.start()
@@ -89,6 +123,8 @@ struct DeskDashboard {
         RunLoop.main.run()
     }
 
+    // MARK: - Arguments
+
     private static func port(
         from arguments: [String]
     ) -> UInt16 {
@@ -100,6 +136,8 @@ struct DeskDashboard {
 
         return value
     }
+
+    // MARK: - Indoor temperature ingest (the SDD §12 service-push path)
 
     /// Accepts JSON `{ "value": <number>, "unit": "C"|"F", "humidity": <number> }`,
     /// normalizes to Celsius, stores it, logs the push, and echoes what it stored.
@@ -141,6 +179,68 @@ struct DeskDashboard {
 
             let humidityJSON = payload.humidity.map { String($0) } ?? "null"
             let echo = #"{"stored":"\#(stored)°C","humidity":\#(humidityJSON)}"#
+            return DevHTTPResponse(
+                contentType: "application/json",
+                body: Data(echo.utf8)
+            )
+        }
+    }
+
+    // MARK: - Now-playing ingest (the SDD §12 service-push path)
+
+    /// Accepts flat JSON
+    /// `{ "title", "artist"?, "album"?, "isPlaying"?, "elapsed"?, "duration"? }`,
+    /// stores it, logs the push, and echoes what it stored. A body with no
+    /// `title` (or `{"stopped": true}`) clears the tile to "Nothing playing".
+    private static func registerNowPlayingIngest(
+        on renderer: DevWebRenderer,
+        store: PushMusicService
+    ) {
+        struct Payload: Decodable {
+            var title: String?
+            var artist: String?
+            var album: String?
+            var isPlaying: Bool?
+            var elapsed: Double?
+            var duration: Double?
+            var stopped: Bool?
+        }
+
+        renderer.registerPost(path: "/ingest/now-playing") { body in
+            guard let payload = try? JSONDecoder().decode(Payload.self, from: body) else {
+                let received = String(decoding: body, as: UTF8.self)
+                print("[ingest] now-playing <- rejected (invalid JSON); \(body.count) bytes: \(received.isEmpty ? "<empty>" : received)")
+                return DevHTTPResponse(
+                    contentType: "application/json",
+                    body: Data(#"{"error":"expected JSON {title, artist?, album?, isPlaying?, elapsed?, duration?}"}"#.utf8)
+                )
+            }
+
+            guard payload.stopped != true, let title = payload.title, !title.isEmpty else {
+                store.update(nil)
+                print("[ingest] now-playing <- (nothing playing)")
+                return DevHTTPResponse(
+                    contentType: "application/json",
+                    body: Data(#"{"stored":"nothing playing"}"#.utf8)
+                )
+            }
+
+            store.update(
+                NowPlaying(
+                    title: title,
+                    artist: payload.artist,
+                    album: payload.album,
+                    isPlaying: payload.isPlaying ?? true,
+                    elapsed: payload.elapsed,
+                    duration: payload.duration,
+                    timestamp: Date()
+                )
+            )
+
+            let state = (payload.isPlaying ?? true) ? "playing" : "paused"
+            print("[ingest] now-playing <- \"\(title)\"\(payload.artist.map { " — \($0)" } ?? "") (\(state))")
+
+            let echo = #"{"stored":"\#(title)","isPlaying":\#(payload.isPlaying ?? true)}"#
             return DevHTTPResponse(
                 contentType: "application/json",
                 body: Data(echo.utf8)
