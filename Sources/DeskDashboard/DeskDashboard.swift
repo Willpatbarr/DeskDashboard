@@ -59,6 +59,10 @@ struct DeskDashboard {
                 AnyMusicService(music),
                 for: MusicServiceKeys.nowPlaying
             )
+            .service(
+                AnyOutdoorTemperatureService(OpenMeteoOutdoorService()),
+                for: OutdoorTemperatureServiceKeys.outdoorTemperature
+            )
         let runner = DashboardRunner(dashboard: dashboard)
 
         runner.add(
@@ -83,6 +87,12 @@ struct DeskDashboard {
                 .id("music")
                 .title("Music")
                 .source("HomePod")
+        )
+        runner.add(
+            OutdoorTemperatureWidget()
+                .id("outdoor")
+                .title("Outdoor")
+                .location("Rexburg, ID")
         )
 
         // Both renderers are development tooling (DeskDashboardDevTools);
