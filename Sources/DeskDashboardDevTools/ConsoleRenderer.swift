@@ -2,7 +2,7 @@ import DashboardKit
 import Foundation
 
 /// Development-only renderer: draws snapshots as text tiles in the terminal.
-public struct ConsoleRenderer {
+public struct ConsoleRenderer: DashboardRenderer {
     public init() {}
 
     public func render(

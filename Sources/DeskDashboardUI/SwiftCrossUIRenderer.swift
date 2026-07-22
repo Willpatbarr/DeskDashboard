@@ -21,7 +21,7 @@ import DashboardKit
 ///   which is where SwiftCrossUI state must be mutated. On Linux this depends on
 ///   the tick source being serviced by the GTK loop — see the `DispatchSourceTimer`
 ///   caveat in the docs if ticks ever stall on the Pi.
-public final class SwiftCrossUIRenderer: @unchecked Sendable {
+public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable {
     private let model: DashboardModel
 
     public init(theme: any Theme) {

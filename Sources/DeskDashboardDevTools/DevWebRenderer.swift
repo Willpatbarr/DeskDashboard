@@ -7,7 +7,7 @@ import Foundation
 /// over the local network. The page is styled from the active Theme's tokens
 /// and lays widgets out from their GridLayout slots, so theme and layout become
 /// visible during development without a real UI stack.
-public final class DevWebRenderer: @unchecked Sendable {
+public final class DevWebRenderer: DashboardRenderer, @unchecked Sendable {
     private let server: DevHTTPServer
     private let lock = NSLock()
     private var payloadJSON = Data(#"{"tiles":[]}"#.utf8)
