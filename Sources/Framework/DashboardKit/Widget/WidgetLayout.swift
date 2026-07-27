@@ -19,6 +19,10 @@ public enum WidgetLayout: Sendable, Equatable {
     case compact
     /// Just the value, nothing else.
     case minimal
+    /// Media/now-playing: title label, the primary value at *supporting* size
+    /// (not the big primary role) so long song titles fit, a caption subline,
+    /// and any badge. Good for the Music tile.
+    case mediaCompact
 
     public func makeView(_ content: WidgetContent) -> WidgetView {
         switch self {
@@ -27,6 +31,7 @@ public enum WidgetLayout: Sendable, Equatable {
         case .stat: Self.makeStat(content)
         case .compact: Self.makeCompact(content)
         case .minimal: Self.makeMinimal(content)
+        case .mediaCompact: Self.makeMediaCompact(content)
         }
     }
 
@@ -102,6 +107,22 @@ public enum WidgetLayout: Sendable, Equatable {
 
     private static func makeMinimal(_ content: WidgetContent) -> WidgetView {
         .stack(.vertical, spacing: 0, [.text(content.primaryText, role: .hero)])
+    }
+
+    private static func makeMediaCompact(_ content: WidgetContent) -> WidgetView {
+        var children: [WidgetView] = []
+        if let title = content.title {
+            children.append(.text(title, role: .title))
+        }
+        // Primary at the smaller `.secondary` size so a long song title fits.
+        children.append(.text(content.primaryText, role: .secondary))
+        if let secondary = content.secondaryText {
+            children.append(.text(secondary, role: .caption))
+        }
+        if let accessory = content.accessoryText {
+            children.append(.badge(accessory))
+        }
+        return .stack(.vertical, spacing: 4, children)
     }
 
     /// "Label: value · Label: value" — the metadata footer, or nil if empty.

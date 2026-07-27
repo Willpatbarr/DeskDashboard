@@ -136,6 +136,17 @@ public struct ThemeTypography: Equatable, Sendable {
         headingWeight: 100,
         bodyWeight: 300
     )
+
+    /// Like `airy`, but the supporting text (body/caption) is a notch larger for
+    /// legibility on the curated board.
+    public static let airyLegible = Self(
+        fontFamily: "SF Pro",
+        headingSize: 46,
+        bodySize: 24,
+        captionSize: 18,
+        headingWeight: 100,
+        bodyWeight: 300
+    )
 }
 
 public struct ThemeSpacing: Equatable, Sendable {

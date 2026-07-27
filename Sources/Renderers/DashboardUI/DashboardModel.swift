@@ -25,22 +25,30 @@ final class DashboardModel: ObservableObject {
         let theme: any Theme
         /// A layout to force on every tile, or `nil` to use each widget's own.
         let layout: WidgetLayout?
-        /// When true, the whole screen is replaced by the interactive MTG mode
-        /// instead of the widget-tile grid.
-        let mtg: Bool
+        /// A dedicated full-screen mode that replaces the widget-tile grid, or
+        /// `nil` for the ordinary tile layout.
+        let screen: Screen?
+
+        /// Full-screen modes that swap out the normal tile grid.
+        enum Screen: Equatable {
+            /// Interactive Magic: The Gathering life/turn tracker.
+            case mtg
+            /// Curated four-tile board (clock, music, indoor, outdoor).
+            case board
+        }
 
         init(
             name: String,
             short: String,
             theme: any Theme,
             layout: WidgetLayout? = nil,
-            mtg: Bool = false
+            screen: Screen? = nil
         ) {
             self.name = name
             self.short = short
             self.theme = theme
             self.layout = layout
-            self.mtg = mtg
+            self.screen = screen
         }
     }
 
@@ -49,6 +57,15 @@ final class DashboardModel: ObservableObject {
         name: "Gradient",
         colors: .gradientClock,
         typography: .airy,
+        shape: .rounded
+    )
+
+    /// The curated-board theme: gradient-clock colors, larger supporting text,
+    /// rounded corners.
+    private static let boardTheme = DarkDeskTheme(
+        name: "Green Board",
+        colors: .gradientClock,
+        typography: .airyLegible,
         shape: .rounded
     )
 
@@ -72,7 +89,9 @@ final class DashboardModel: ObservableObject {
             Preview(name: "Gradient · clock", short: "Clock",
                     theme: Self.gradientTheme, layout: .bigNumber),
             Preview(name: "Gradient · MTG", short: "MTG",
-                    theme: Self.gradientTheme, mtg: true),
+                    theme: Self.gradientTheme, screen: .mtg),
+            Preview(name: "Green · board", short: "Board",
+                    theme: Self.boardTheme, screen: .board),
         ]
     }
 
@@ -82,7 +101,9 @@ final class DashboardModel: ObservableObject {
     var layoutOverride: WidgetLayout? { current.layout }
     var previewName: String { current.name }
     /// Whether the current preview is the interactive MTG mode.
-    var isMTG: Bool { current.mtg }
+    var isMTG: Bool { current.screen == .mtg }
+    /// Whether the current preview is the curated four-tile board.
+    var isBoard: Bool { current.screen == .board }
 
     /// The clock widget's latest time text, for the MTG mini-clock. Updates each
     /// tick as fresh snapshots arrive, so the MTG clock stays live.

@@ -27,6 +27,10 @@ struct DashboardRootView: View {
             MTGModeView(palette: model.palette, time: model.clockTime)
                 .padding(model.palette.sectionMargin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if model.isBoard {
+            CuratedGreenView(palette: model.palette, snapshots: model.snapshots)
+                .padding(model.palette.sectionMargin)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             HStack(spacing: model.palette.widgetGap) {
                 ForEach(tiles, id: \.id.rawValue) { snapshot in
