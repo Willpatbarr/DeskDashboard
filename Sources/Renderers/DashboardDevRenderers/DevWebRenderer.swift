@@ -131,6 +131,46 @@ extension DevWebRenderer {
         }
     }
 
+    /// A reference size rendered as a viewport-relative CSS length, so the page
+    /// scales like the native UI does: uniformly, off whichever of the browser
+    /// window's dimensions is the tighter fit, clamped to the theme's scale
+    /// bounds.
+    ///
+    /// `min(Xvw, Yvh)` is the CSS equivalent of
+    /// `min(width / refWidth, height / refHeight) * size`, and the `clamp()`
+    /// bounds mirror `ThemeMetrics.minimumScale`/`maximumScale`.
+    private static func responsive(
+        _ size: Double,
+        _ metrics: ThemeMetrics
+    ) -> String {
+        let reference = metrics.referenceViewport
+        guard size > 0, reference.width > 0, reference.height > 0 else {
+            return "\(px(size))"
+        }
+
+        let vw = size / reference.width * 100
+        let vh = size / reference.height * 100
+        return """
+        clamp(\(px(size * metrics.minimumScale)), \
+        min(\(round(vw))vw, \(round(vh))vh), \
+        \(px(size * metrics.maximumScale)))
+        """
+    }
+
+    /// Trims a computed size to 3 decimals and appends `px` (CSS chokes on
+    /// Swift's full `Double` description for some values).
+    private static func px(
+        _ value: Double
+    ) -> String {
+        "\(round(value))px"
+    }
+
+    private static func round(
+        _ value: Double
+    ) -> String {
+        String(format: "%.3f", value)
+    }
+
     private static func page(
         for theme: any Theme
     ) -> String {
@@ -138,6 +178,7 @@ extension DevWebRenderer {
         let typography = theme.typography
         let spacing = theme.spacing
         let shape = theme.shape
+        let metrics = theme.metrics
         let animation = theme.animation
 
         return """
@@ -156,11 +197,19 @@ extension DevWebRenderer {
             --accent: \(colors.accent);
             --text: \(colors.text);
             --muted: \(colors.mutedText);
-            --gap: \(spacing.widgetGap)px;
-            --pad: \(spacing.tilePadding)px;
-            --margin: \(spacing.sectionMargin)px;
-            --radius: \(shape.cornerRadius)px;
-            --border-width: \(shape.borderWidth)px;
+            /* Sizes are the theme's reference values (authored at
+               \(round(metrics.referenceViewport.width))×\(round(metrics.referenceViewport.height)))
+               expressed relative to the window, so resizing the browser scales
+               the whole page the way a different screen scales the native UI. */
+            --gap: \(responsive(spacing.widgetGap, metrics));
+            --pad: \(responsive(spacing.tilePadding, metrics));
+            --margin: \(responsive(spacing.sectionMargin, metrics));
+            --radius: \(responsive(shape.cornerRadius, metrics));
+            --border-width: \(px(shape.borderWidth));
+            --fs-hero: \(responsive(typography.headingSize * 2, metrics));
+            --fs-heading: \(responsive(typography.headingSize, metrics));
+            --fs-body: \(responsive(typography.bodySize, metrics));
+            --fs-caption: \(responsive(typography.captionSize, metrics));
             --transition: \(animation.transitionDuration)s \(cssEasing(animation.easing));
           }
           * { box-sizing: border-box; }
@@ -173,12 +222,12 @@ extension DevWebRenderer {
             padding: var(--margin) var(--margin) calc(var(--margin) / 2);
           }
           header h1 {
-            margin: 0; font-size: \(typography.captionSize)px;
+            margin: 0; font-size: var(--fs-caption);
             font-weight: \(typography.bodyWeight); color: var(--secondary);
             text-transform: uppercase; letter-spacing: .12em;
           }
           header h1 span { color: var(--muted); text-transform: none; letter-spacing: 0; }
-          #status { font-size: \(typography.captionSize)px; color: var(--muted); }
+          #status { font-size: var(--fs-caption); color: var(--muted); }
           #status.live { color: var(--accent); }
           #grid {
             display: flex; gap: var(--gap); align-items: stretch;
@@ -186,34 +235,37 @@ extension DevWebRenderer {
           }
           .tile {
             flex: 1 1 0; min-width: 0;
-            position: relative; display: flex; flex-direction: column; gap: 6px;
+            position: relative; display: flex; flex-direction: column;
+            gap: calc(var(--gap) * .5);
             background: var(--surface); border-radius: var(--radius);
             border: var(--border-width) solid color-mix(in srgb, var(--secondary) 18%, transparent);
             padding: var(--pad); transition: all var(--transition);
             container-type: inline-size; overflow: hidden;
           }
           .tile .title {
-            font-size: \(typography.captionSize)px; font-weight: \(typography.bodyWeight);
+            font-size: var(--fs-caption); font-weight: \(typography.bodyWeight);
             color: var(--secondary); text-transform: uppercase; letter-spacing: .1em;
           }
           .tile .primary {
-            font-size: min(\(typography.headingSize * 2)px, 15cqw);
+            /* Window-scaled hero size, still capped by the tile's own width so a
+               long value can't overflow a narrow tile. */
+            font-size: min(var(--fs-hero), 15cqw);
             font-weight: \(typography.headingWeight);
             color: var(--primary); line-height: 1.1;
             font-variant-numeric: tabular-nums; white-space: nowrap;
           }
           .tile .secondary {
-            font-size: \(typography.bodySize)px; font-weight: \(typography.bodyWeight);
+            font-size: var(--fs-body); font-weight: \(typography.bodyWeight);
             color: var(--text);
           }
           .tile .meta {
-            margin-top: auto; font-size: \(typography.captionSize)px; color: var(--muted);
+            margin-top: auto; font-size: var(--fs-caption); color: var(--muted);
           }
           .tile .badge {
             position: absolute; top: var(--pad); right: var(--pad);
             background: var(--accent); color: var(--background);
-            font-size: \(typography.captionSize)px; font-weight: 700;
-            padding: 3px 10px; border-radius: 999px;
+            font-size: var(--fs-caption); font-weight: 700;
+            padding: calc(var(--pad) * .2) calc(var(--pad) * .6); border-radius: 999px;
             animation: pulse 1s infinite var(--transition);
           }
           @keyframes pulse { 50% { opacity: .45; } }

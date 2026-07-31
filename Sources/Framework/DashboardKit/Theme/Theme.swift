@@ -5,6 +5,8 @@ public protocol Theme: Sendable {
     var spacing: ThemeSpacing { get }
     var shape: ThemeShape { get }
     var animation: ThemeAnimation { get }
+    /// How the theme's size tokens scale to the screen — see `ThemeMetrics`.
+    var metrics: ThemeMetrics { get }
     var defaultLayout: any Layout { get }
 }
 
@@ -14,6 +16,37 @@ public extension Theme {
     var spacing: ThemeSpacing { .default }
     var shape: ThemeShape { .default }
     var animation: ThemeAnimation { .default }
+    var metrics: ThemeMetrics { .default }
+}
+
+public extension Theme {
+    /// The theme's size tokens resolved for a concrete viewport: typography,
+    /// spacing and shape scaled by `metrics.scale(for:)`.
+    ///
+    /// This is the single place renderers go to turn reference sizes into real
+    /// ones, so the native UI and the dev web page agree on what "a heading"
+    /// means on a given screen.
+    func sizes(
+        for viewport: Viewport
+    ) -> ThemeSizes {
+        let scale = metrics.scale(for: viewport)
+        return ThemeSizes(
+            scale: scale,
+            typography: typography.scaled(by: scale),
+            spacing: spacing.scaled(by: scale),
+            shape: shape.scaled(by: scale)
+        )
+    }
+}
+
+/// A theme's size tokens after being scaled for one particular viewport.
+public struct ThemeSizes: Equatable, Sendable {
+    /// The multiplier already applied to everything below. Views with a one-off
+    /// size of their own multiply by this to stay in proportion.
+    public let scale: Double
+    public let typography: ThemeTypography
+    public let spacing: ThemeSpacing
+    public let shape: ThemeShape
 }
 
 public struct ThemeColors: Equatable, Sendable {
@@ -94,6 +127,9 @@ public struct ThemeColors: Equatable, Sendable {
     )
 }
 
+/// Type tokens. The sizes are *reference* sizes, authored at
+/// `ThemeMetrics.referenceViewport`, not fixed pixel values — renderers scale
+/// them to the screen via `Theme.sizes(for:)`.
 public struct ThemeTypography: Equatable, Sendable {
     public var fontFamily: String
     public var headingSize: Double
@@ -147,6 +183,18 @@ public struct ThemeTypography: Equatable, Sendable {
         headingWeight: 100,
         bodyWeight: 300
     )
+
+    /// Every size multiplied by `scale`. Weights and the font family are
+    /// screen-independent, so they pass through untouched.
+    public func scaled(
+        by scale: Double
+    ) -> Self {
+        var copy = self
+        copy.headingSize *= scale
+        copy.bodySize *= scale
+        copy.captionSize *= scale
+        return copy
+    }
 }
 
 public struct ThemeSpacing: Equatable, Sendable {
@@ -169,6 +217,18 @@ public struct ThemeSpacing: Equatable, Sendable {
         tilePadding: 16,
         sectionMargin: 20
     )
+
+    /// Every gap multiplied by `scale`, so whitespace keeps its proportion to the
+    /// type instead of crowding it on a big screen.
+    public func scaled(
+        by scale: Double
+    ) -> Self {
+        Self(
+            widgetGap: widgetGap * scale,
+            tilePadding: tilePadding * scale,
+            sectionMargin: sectionMargin * scale
+        )
+    }
 }
 
 public struct ThemeShape: Equatable, Sendable {
@@ -198,6 +258,19 @@ public struct ThemeShape: Equatable, Sendable {
         borderWidth: 1,
         elevation: 2
     )
+
+    /// Corner radius multiplied by `scale`. `borderWidth` and `elevation` stay
+    /// put — a hairline border and a shadow depth read the same at any screen
+    /// size, and scaling them just makes borders muddy.
+    public func scaled(
+        by scale: Double
+    ) -> Self {
+        Self(
+            cornerRadius: cornerRadius * scale,
+            borderWidth: borderWidth,
+            elevation: elevation
+        )
+    }
 }
 
 public struct ThemeAnimation: Equatable, Sendable {

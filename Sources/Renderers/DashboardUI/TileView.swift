@@ -60,16 +60,19 @@ struct TileView: View {
         case let .stack(axis, spacing, children):
             let views = children.map(interpret)
             let indexed = Array(views.enumerated())
+            // Layout spacings are authored against the theme's reference canvas
+            // like every other size, so scale them with the palette.
+            let gap = Int((spacing * palette.scale).rounded())
             switch axis {
             case .vertical:
                 return AnyView(
-                    VStack(alignment: .leading, spacing: Int(spacing)) {
+                    VStack(alignment: .leading, spacing: gap) {
                         ForEach(indexed, id: \.offset) { $0.element }
                     }
                 )
             case .horizontal:
                 return AnyView(
-                    HStack(spacing: Int(spacing)) {
+                    HStack(spacing: gap) {
                         ForEach(indexed, id: \.offset) { $0.element }
                     }
                 )

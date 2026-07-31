@@ -1,11 +1,18 @@
 import DashboardKit
 import SwiftCrossUI
 
-/// Resolves a DashboardKit `Theme`'s tokens into SwiftCrossUI-native values.
+/// Resolves a DashboardKit `Theme`'s tokens into SwiftCrossUI-native values for
+/// one concrete viewport.
 ///
 /// The dev web renderer turns theme tokens into CSS variables; this is the
 /// real-UI equivalent — the same tokens, resolved to `Color`/`Font`/spacing so
 /// the SwiftCrossUI tiles look like the web preview.
+///
+/// Size tokens are *not* copied through verbatim: the theme's sizes are authored
+/// at `ThemeMetrics.referenceViewport`, and every size here has been scaled by
+/// `scale` for the viewport passed in. Build a fresh palette whenever the window
+/// size changes (`DashboardRootView` does this from a `GeometryReader`) and the
+/// dashboard keeps the same proportions on any screen.
 struct ThemePalette: Sendable {
     let background: Color
     /// Top-to-bottom background gradient stops, or `nil` for a flat background.
@@ -28,7 +35,17 @@ struct ThemePalette: Sendable {
     let headingWeight: Font.Weight
     let bodyWeight: Font.Weight
 
-    init(theme: any Theme) {
+    /// The viewport-derived multiplier already baked into every size above.
+    /// Views with a one-off size or gap of their own multiply by this to stay in
+    /// proportion with the rest of the board.
+    let scale: Double
+
+    /// - Parameter viewport: the window size to resolve sizes for. Defaults to
+    ///   the theme's reference canvas, i.e. sizes exactly as authored.
+    init(theme: any Theme, viewport: Viewport = .reference) {
+        let sizes = theme.sizes(for: viewport)
+        scale = sizes.scale
+
         let colors = theme.colors
         background = Color(hex: colors.background) ?? .black
         let stops = colors.backgroundGradient.compactMap { Color(hex: $0) }
@@ -40,13 +57,13 @@ struct ThemePalette: Sendable {
         text = Color(hex: colors.text) ?? .white
         muted = Color(hex: colors.mutedText) ?? .gray
 
-        let spacing = theme.spacing
+        let spacing = sizes.spacing
         widgetGap = Int(spacing.widgetGap.rounded())
         tilePadding = Int(spacing.tilePadding.rounded())
         sectionMargin = Int(spacing.sectionMargin.rounded())
-        cornerRadius = theme.shape.cornerRadius
+        cornerRadius = sizes.shape.cornerRadius
 
-        let typography = theme.typography
+        let typography = sizes.typography
         headingSize = typography.headingSize
         bodySize = typography.bodySize
         captionSize = typography.captionSize

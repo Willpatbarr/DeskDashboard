@@ -56,7 +56,7 @@ struct CuratedGreenView: View {
     /// by hand so the time is minute-precision. Roles mirror `TileView.style`
     /// so it matches the other tiles visually.
     private var clockTile: some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: Int((2 * palette.scale).rounded())) {
             Text("CLOCK")
                 .font(.system(size: palette.captionSize, weight: palette.bodyWeight))
                 .foregroundColor(palette.secondary)

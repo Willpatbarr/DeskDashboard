@@ -5,6 +5,7 @@ public struct DarkDeskTheme: Theme, Sendable {
     public let spacing: ThemeSpacing
     public let shape: ThemeShape
     public let animation: ThemeAnimation
+    public let metrics: ThemeMetrics
     public let defaultLayout: any Layout
 
     public init(
@@ -14,6 +15,7 @@ public struct DarkDeskTheme: Theme, Sendable {
         spacing: ThemeSpacing = .default,
         shape: ThemeShape = .default,
         animation: ThemeAnimation = .default,
+        metrics: ThemeMetrics = .default,
         defaultLayout: any Layout = GridLayout()
     ) {
         self.name = name
@@ -22,6 +24,7 @@ public struct DarkDeskTheme: Theme, Sendable {
         self.spacing = spacing
         self.shape = shape
         self.animation = animation
+        self.metrics = metrics
         self.defaultLayout = defaultLayout
     }
 }

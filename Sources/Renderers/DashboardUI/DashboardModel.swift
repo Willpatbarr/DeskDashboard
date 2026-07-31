@@ -96,7 +96,13 @@ final class DashboardModel: ObservableObject {
     }
 
     private var current: Preview { previews[previewIndex] }
-    var palette: ThemePalette { ThemePalette(theme: current.theme) }
+
+    /// The current preview's theme resolved for a window of `viewport` size —
+    /// colors as authored, sizes scaled to the screen. Called from the root
+    /// view's `GeometryReader`, so it re-resolves whenever the window resizes.
+    func palette(for viewport: Viewport) -> ThemePalette {
+        ThemePalette(theme: current.theme, viewport: viewport)
+    }
     /// A layout forced on every tile for the current preview, or `nil`.
     var layoutOverride: WidgetLayout? { current.layout }
     var previewName: String { current.name }

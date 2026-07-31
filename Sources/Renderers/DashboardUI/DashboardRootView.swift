@@ -7,70 +7,81 @@ import SwiftCrossUI
 ///
 /// The model is read once into `@State`; its `@Published` snapshots drive
 /// re-renders as the observer ticks.
+///
+/// A `GeometryReader` wraps the whole board so the theme's size tokens can be
+/// resolved against the *actual* window size. Nothing below sizes itself in raw
+/// points: every font, gap and radius comes from the palette built here, so the
+/// same dashboard fills a 1024×600 Pi panel and a 4K TV the same way.
 struct DashboardRootView: View {
     @State private var model = DashboardLaunch.model
         ?? DashboardModel(theme: DarkDeskTheme())
 
     var body: some View {
-        VStack(spacing: 0) {
-            header
-            content
+        GeometryReader { proxy in
+            let palette = model.palette(
+                for: Viewport(width: proxy.size.width, height: proxy.size.height)
+            )
+
+            VStack(spacing: 0) {
+                header(palette)
+                content(palette)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .background(background(palette))
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(background)
     }
 
     /// The screen below the header: the interactive MTG mode, or the widget-tile
     /// grid for every other preview.
-    @ViewBuilder private var content: some View {
+    @ViewBuilder private func content(_ palette: ThemePalette) -> some View {
         if model.isMTG {
-            MTGModeView(palette: model.palette, time: model.clockTime)
-                .padding(model.palette.sectionMargin)
+            MTGModeView(palette: palette, time: model.clockTime)
+                .padding(palette.sectionMargin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if model.isBoard {
-            CuratedGreenView(palette: model.palette, snapshots: model.snapshots)
-                .padding(model.palette.sectionMargin)
+            CuratedGreenView(palette: palette, snapshots: model.snapshots)
+                .padding(palette.sectionMargin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            HStack(spacing: model.palette.widgetGap) {
+            HStack(spacing: palette.widgetGap) {
                 ForEach(tiles, id: \.id.rawValue) { snapshot in
                     TileView(
                         snapshot: snapshot,
-                        palette: model.palette,
+                        palette: palette,
                         layoutOverride: model.layoutOverride
                     )
                 }
             }
-            .padding(model.palette.sectionMargin)
+            .padding(palette.sectionMargin)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
     /// A top-to-bottom gradient when the palette defines one (the gradient-clock
     /// theme), otherwise the flat background color.
-    @ViewBuilder private var background: some View {
-        if let stops = model.palette.backgroundGradient {
+    @ViewBuilder private func background(_ palette: ThemePalette) -> some View {
+        if let stops = palette.backgroundGradient {
             LinearGradient(
                 colors: stops,
                 startPoint: .top,
                 endPoint: .bottom
             )
         } else {
-            model.palette.background
+            palette.background
         }
     }
 
-    private var header: some View {
+    private func header(_ palette: ThemePalette) -> some View {
         HStack {
             Text("DeskDashboard · \(model.previewName)")
-                .font(.system(size: model.palette.captionSize, weight: model.palette.bodyWeight))
-                .foregroundColor(model.palette.secondary)
+                .font(.system(size: palette.captionSize, weight: palette.bodyWeight))
+                .foregroundColor(palette.secondary)
             Spacer(minLength: 0)
             if model.showsPreviewControls {
-                previewBar
+                previewBar(palette)
             }
         }
-        .padding(model.palette.sectionMargin)
+        .padding(palette.sectionMargin)
     }
 
     /// A pill-shaped segmented switcher styled after the reference HTML toggle:
@@ -81,28 +92,42 @@ struct DashboardRootView: View {
     /// (e.g. CSS-style `999`): the AppKit backend sets `layer.cornerRadius`
     /// literally with `clipsToBounds`, and a radius larger than half the size
     /// collapses the clip mask, hiding the whole control (taps still land).
-    private var segmentHeight: Int { Int(model.palette.captionSize.rounded()) + 12 }
-
-    private var previewBar: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(model.previews.enumerated()), id: \.offset) { item in
-                segment(item.offset)
-            }
-        }
-        .padding(4)
-        .background(model.palette.surface)
-        .cornerRadius(segmentHeight / 2 + 4)
+    /// Segment padding, scaled with the rest of the board so the pill keeps its
+    /// shape on any screen.
+    private func segmentInsets(_ palette: ThemePalette) -> (vertical: Int, horizontal: Int, track: Int) {
+        (
+            vertical: Int((6 * palette.scale).rounded()),
+            horizontal: Int((14 * palette.scale).rounded()),
+            track: Int((4 * palette.scale).rounded())
+        )
     }
 
-    private func segment(_ index: Int) -> some View {
+    private func segmentHeight(_ palette: ThemePalette) -> Int {
+        Int(palette.captionSize.rounded()) + segmentInsets(palette).vertical * 2
+    }
+
+    private func previewBar(_ palette: ThemePalette) -> some View {
+        let insets = segmentInsets(palette)
+        return HStack(spacing: 0) {
+            ForEach(Array(model.previews.enumerated()), id: \.offset) { item in
+                segment(item.offset, palette)
+            }
+        }
+        .padding(insets.track)
+        .background(palette.surface)
+        .cornerRadius(segmentHeight(palette) / 2 + insets.track)
+    }
+
+    private func segment(_ index: Int, _ palette: ThemePalette) -> some View {
         let selected = index == model.previewIndex
+        let insets = segmentInsets(palette)
         return Text(model.previews[index].short)
-            .font(.system(size: model.palette.captionSize, weight: .semibold))
-            .foregroundColor(selected ? model.palette.background : model.palette.accent)
-            .padding(.vertical, 6)
-            .padding(.horizontal, 14)
-            .background(selected ? model.palette.accent : model.palette.accent.opacity(0))
-            .cornerRadius(segmentHeight / 2)
+            .font(.system(size: palette.captionSize, weight: .semibold))
+            .foregroundColor(selected ? palette.background : palette.accent)
+            .padding(.vertical, insets.vertical)
+            .padding(.horizontal, insets.horizontal)
+            .background(selected ? palette.accent : palette.accent.opacity(0))
+            .cornerRadius(segmentHeight(palette) / 2)
             .onTapGesture {
                 model.select(index)
             }

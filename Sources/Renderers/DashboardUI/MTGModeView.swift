@@ -56,12 +56,13 @@ private struct LifeCounterView: View {
         .cornerRadius(Int(palette.cornerRadius.rounded()))
     }
 
-    /// A large, tappable `+`/`−` glyph in the accent color.
+    /// A large, tappable `+`/`−` glyph in the accent color. Sized off the
+    /// palette's heading size so the tap targets grow with the screen.
     private func tapGlyph(_ symbol: String, _ action: @escaping () -> Void) -> some View {
         Text(symbol)
-            .font(.system(size: 46, weight: .light))
+            .font(.system(size: palette.headingSize, weight: .light))
             .foregroundColor(palette.accent)
-            .padding(8)
+            .padding(Int((8 * palette.scale).rounded()))
             .onTapGesture(perform: action)
     }
 }
@@ -74,7 +75,7 @@ private struct TurnCounterView: View {
     @State private var turn = 0
 
     var body: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Int((4 * palette.scale).rounded())) {
             Text("TURN")
                 .font(.system(size: palette.captionSize, weight: palette.bodyWeight))
                 .foregroundColor(palette.accent)
