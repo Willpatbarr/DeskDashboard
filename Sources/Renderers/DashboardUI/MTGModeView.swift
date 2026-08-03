@@ -14,19 +14,19 @@ struct MTGModeView: View {
 
     var body: some View {
         HStack(spacing: palette.widgetGap) {
-            LifeCounterView(palette: palette)
-            LifeCounterView(palette: palette)
+            LifeCounterView(palette: palette).tileCorners(palette)
+            LifeCounterView(palette: palette).tileCorners(palette)
             centerStack
-            LifeCounterView(palette: palette)
-            LifeCounterView(palette: palette)
+            LifeCounterView(palette: palette).tileCorners(palette)
+            LifeCounterView(palette: palette).tileCorners(palette)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var centerStack: some View {
         VStack(spacing: palette.verticalWidgetGap) {
-            MiniClockView(palette: palette, time: time)
-            TurnCounterView(palette: palette)
+            MiniClockView(palette: palette, time: time).tileCorners(palette)
+            TurnCounterView(palette: palette).tileCorners(palette)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }

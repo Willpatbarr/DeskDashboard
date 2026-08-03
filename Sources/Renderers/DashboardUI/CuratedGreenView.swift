@@ -31,10 +31,16 @@ struct CuratedGreenView: View {
             let tileWidth = max(1, available / Double(count))
 
             HStack(spacing: gap) {
-                clockTile.frame(width: tileWidth)
-                tile(id: "music", layout: .mediaCompact).frame(width: tileWidth)
-                tile(id: "indoor", layout: .standard).frame(width: tileWidth)
-                tile(id: "outdoor", layout: .standard).frame(width: tileWidth)
+                clockTile.frame(width: tileWidth).tileCorners(palette)
+                ForEach(snapshotTiles, id: \.snapshot.id.rawValue) { item in
+                    TileView(
+                        snapshot: item.snapshot,
+                        palette: palette,
+                        layoutOverride: item.layout
+                    )
+                    .frame(width: tileWidth)
+                    .tileCorners(palette)
+                }
             }
         }
     }
@@ -43,13 +49,18 @@ struct CuratedGreenView: View {
         snapshots.first { $0.id.rawValue == id }
     }
 
-    /// A snapshot-backed tile rendered through the shared `TileView` with a
-    /// forced layout. Empty if that widget isn't in the snapshot set.
-    @ViewBuilder
-    private func tile(id: String, layout: WidgetLayout) -> some View {
-        if let snapshot = snapshot(id) {
-            TileView(snapshot: snapshot, palette: palette, layoutOverride: layout)
-        }
+    /// The three snapshot-backed tiles, resolved up front.
+    ///
+    /// Deliberately *not* an `@ViewBuilder` with `if let` per tile: that wraps each
+    /// tile in an optional view, and on the GTK backend those tiles rendered with
+    /// **square corners** while the plainly-constructed clock tile kept its
+    /// rounded ones. Resolving the snapshots first keeps every tile on the same
+    /// unwrapped path.
+    private var snapshotTiles: [(snapshot: AttachedWidgetSnapshot, layout: WidgetLayout)] {
+        [("music", WidgetLayout.mediaCompact), ("indoor", .standard), ("outdoor", .standard)]
+            .compactMap { id, layout in
+                snapshot(id).map { (snapshot: $0, layout: layout) }
+            }
     }
 
     /// The clock tile — a `.bigNumber`-style stack (title / hero / date) built

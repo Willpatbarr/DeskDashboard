@@ -97,6 +97,7 @@ struct DashboardRootView: View {
                         palette: palette,
                         layoutOverride: model.layoutOverride
                     )
+                    .tileCorners(palette)
                 }
             }
             .frame(height: inner)

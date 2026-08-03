@@ -107,6 +107,19 @@ struct ThemePalette: Sendable {
     }
 }
 
+extension View {
+    /// Rounds a tile/panel's corners **from the call site**.
+    ///
+    /// Necessary because `.cornerRadius` applied *inside* a child `View` struct's
+    /// own body does not clip that view's composited background on the GTK
+    /// backend. Verified on the Pi: `TileView` tiles rendered with square corners
+    /// while a tile built inline in the parent — same modifier chain, same radius —
+    /// rendered rounded. Moving the call to the parent fixed it.
+    func tileCorners(_ palette: ThemePalette) -> some View {
+        cornerRadius(Int(palette.cornerRadius.rounded()))
+    }
+}
+
 extension Color {
     /// Parses a `#RRGGBB` / `#RRGGBBAA` (or 3/4-digit) hex string into a color.
     /// Returns `nil` for anything it can't parse, so callers can fall back.
