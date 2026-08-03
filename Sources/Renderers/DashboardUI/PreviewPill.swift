@@ -112,6 +112,10 @@ struct PreviewPill: View {
 
     @State private var animator = PillAnimator()
 
+    /// How far to lift a digit inside its slot, cancelling the descender space in
+    /// the label's box that digits never use.
+    private var opticalRise: Int { max(1, Int((fontSize * 0.22).rounded())) }
+
     /// Height of the whole control, so the parent can reserve exactly this much.
     static func height(slotHeight: Int, trackInset: Int) -> Int {
         slotHeight + trackInset * 2
@@ -129,12 +133,20 @@ struct PreviewPill: View {
                 slot(index)
             }
         }
+        // Every one of these three modifiers is load-bearing for *visibility*,
+        // established by screenshotting each variation on the panel:
+        //   - drop `.frame(height:)`  -> the row collapses, taps stop landing
+        //   - drop `.background(...)` -> the whole control disappears (an HStack
+        //     with no background gets no widget of its own here)
+        //   - drop `.cornerRadius(...)` -> likewise disappears
+        // So the track stays, and its corners stay square: `.cornerRadius` here
+        // doesn't clip a composited background on this backend, and applying it
+        // from the parent (with or without an explicit frame) collapsed the clip
+        // mask and hid the control. The pill shape lives on the selected slot's own
+        // fill, which does round correctly.
         .frame(height: Double(slotHeight))
         .padding(trackInset)
         .background(palette.surface)
-        // Comfortably under half the box height: the backends apply a literal
-        // `cornerRadius` with `clipsToBounds` and never clamp it, so a radius at or
-        // over half eats the edge (see the 999-radius gotcha).
         .cornerRadius(max(0, min(pillHeight / 2 - 1, slotHeight / 2)))
     }
 
@@ -152,7 +164,16 @@ struct PreviewPill: View {
             // A wrapped label grows the header's height, which is what pushed the
             // tiles off-screen before. Truncate instead, always.
             .lineLimit(1)
-            .frame(width: Double(slotWidth), height: Double(slotHeight))
+            // Height from padding, plus an upward nudge, instead of a fixed-height
+            // frame. Measured on the panel: in a 26px slot the glyphs sat ~4.5px
+            // low (glyph centre 34 vs slot centre 29.5) — a fixed-height frame does
+            // not vertically centre text here, and symmetric padding didn't either,
+            // because the label's box reserves descender space that digits never
+            // use. Trimming the top inset and adding it to the bottom lifts the
+            // glyph without changing the slot's height.
+            .frame(width: Double(slotWidth))
+            .padding(.top, max(0, (slotHeight - Int(fontSize)) / 2 - opticalRise))
+            .padding(.bottom, (slotHeight - Int(fontSize)) / 2 + opticalRise)
             .background(palette.accent.opacity(fill))
             .cornerRadius(max(0, slotHeight / 2 - 1))
             .onTapGesture {
