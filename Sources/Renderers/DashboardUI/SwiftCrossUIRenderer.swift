@@ -35,11 +35,15 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
     ///   - windowSize: the window's opening size, or `nil` for the default
     ///     (the theme reference canvas). `--window 1920x440` reproduces the Pi's
     ///     panel geometry on a desktop.
+    ///   - slideMilliseconds: duration of the preview pill's highlight slide, or
+    ///     `nil` for the default. `0` disables the animation — an escape hatch for
+    ///     a display whose backend can't draw frames fast enough.
     public init(
         theme: any Theme,
         showsPreviewControls: Bool = false,
         scaleMultiplier: Double = 1,
-        windowSize: (width: Int, height: Int)? = nil
+        windowSize: (width: Int, height: Int)? = nil,
+        slideMilliseconds: Double? = nil
     ) {
         let model = DashboardModel(
             theme: theme,
@@ -50,6 +54,9 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
         DashboardLaunch.model = model
         if let windowSize {
             DashboardLaunch.windowSize = windowSize
+        }
+        if let slideMilliseconds, slideMilliseconds >= 0 {
+            DashboardLaunch.slideMilliseconds = slideMilliseconds
         }
     }
 

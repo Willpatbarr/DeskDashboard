@@ -85,11 +85,21 @@ let windowSize: (width: Int, height: Int)? = {
     return (w, h)
 }()
 
+// `DD_UI_SLIDE_MS` tunes the pill's highlight slide; `0` turns it off. The Pi
+// draws frames far slower than AppKit, so this is dialable without a rebuild.
+let slideMilliseconds: Double? = {
+    guard let raw = ProcessInfo.processInfo.environment["DD_UI_SLIDE_MS"],
+          let value = Double(raw), value >= 0 else { return nil }
+    log("DeskDashboard UI: pill slide \(value == 0 ? "off" : "\(value)ms")")
+    return value
+}()
+
 let renderer = SwiftCrossUIRenderer(
     theme: runner.dashboard.configuration.theme,
     showsPreviewControls: showsSwitcher,
     scaleMultiplier: scaleMultiplier,
-    windowSize: windowSize
+    windowSize: windowSize,
+    slideMilliseconds: slideMilliseconds
 )
 renderer.render(runner.attachedWidgetSnapshots)
 runner.start { _ in

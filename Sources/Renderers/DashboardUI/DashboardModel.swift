@@ -12,22 +12,6 @@ final class DashboardModel: ObservableObject {
     /// Index into `previews`; advanced by `nextPreview()` (the toggle button).
     @Published private(set) var previewIndex = 0
 
-    /// Where the pill's highlight is drawn, as a *fractional* segment index.
-    /// Equal to `previewIndex` at rest; during a tap it walks from the old index
-    /// to the new one so the highlight slides instead of jumping.
-    @Published private(set) var highlightPosition: Double = 0
-
-    /// Frames in a highlight slide, at `Self.frameInterval` each — ~200ms total.
-    /// Short on purpose: every frame re-renders the whole tree (all tiles, not
-    /// just the pill), which is real work for the Pi's GTK backend.
-    private static let slideFrames = 12
-    private static let frameInterval = 0.016
-
-    private let slideTicker = FrameTicker()
-    private var slideFrame = 0
-    private var slideFrom: Double = 0
-    private var slideTo: Double = 0
-
     /// Whether to show the preview toggle button (the `--preview` flag).
     let showsPreviewControls: Bool
     /// Curated theme × layout combinations to cycle through. Index 0 is the
@@ -147,35 +131,11 @@ final class DashboardModel: ObservableObject {
     /// Jump straight to a preview by index (a segment tap). Out-of-range is
     /// ignored. This is the hook a real layout switcher would drive too.
     ///
-    /// The content switches immediately; only the highlight is animated, so a tap
-    /// never feels laggy even if the slide stutters.
+    /// Selection is instant; the pill owns its own highlight animation (see
+    /// `PillAnimator`) so a slide never re-renders the tiles.
     func select(_ index: Int) {
-        guard previews.indices.contains(index), index != previewIndex else { return }
-
-        slideFrom = highlightPosition
-        slideTo = Double(index)
-        slideFrame = 0
+        guard previews.indices.contains(index) else { return }
         previewIndex = index
-
-        slideTicker.start(interval: Self.frameInterval) { [weak self] in
-            self?.advanceSlide()
-        }
-    }
-
-    /// One frame of the highlight slide. Eased out (cubic) so it decelerates into
-    /// place rather than stopping dead.
-    private func advanceSlide() {
-        slideFrame += 1
-        let t = min(1, Double(slideFrame) / Double(Self.slideFrames))
-        let remaining = 1 - t
-        let eased = 1 - remaining * remaining * remaining
-
-        highlightPosition = slideFrom + (slideTo - slideFrom) * eased
-
-        if t >= 1 {
-            slideTicker.stop()
-            highlightPosition = slideTo
-        }
     }
 }
 
@@ -192,4 +152,10 @@ enum DashboardLaunch {
     /// to reproduce a target panel's geometry — the Pi's strip display is a very
     /// different shape from a Mac window, and that shape is what breaks layouts.
     nonisolated(unsafe) static var windowSize: (width: Int, height: Int) = (1280, 800)
+
+    /// Total duration of the pill's highlight slide, in milliseconds. `0` turns
+    /// the animation off (instant jump). Set from `DD_UI_SLIDE_MS`, so a display
+    /// that renders frames too slowly can be tuned or opted out without a rebuild
+    /// — which matters when the target is a Pi and each build is minutes.
+    nonisolated(unsafe) static var slideMilliseconds: Double = 300
 }

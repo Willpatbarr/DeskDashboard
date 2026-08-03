@@ -103,6 +103,10 @@ struct DashboardRootView: View {
                 previewBar(palette)
             }
         }
+        // Reserve the pill's full height explicitly. Without this the row was
+        // sized from its text, so the pill overflowed into the tiles below and its
+        // bottom edge got clipped by the content region.
+        .frame(minHeight: model.showsPreviewControls ? Double(pillHeight(palette)) : nil)
         .padding(.horizontal, palette.sectionMargin)
         .padding(.vertical, palette.verticalSectionMargin)
     }
@@ -146,62 +150,25 @@ struct DashboardRootView: View {
         return Int(glyphs.rounded()) + segmentInsets(palette).horizontal * 2
     }
 
-    /// The track: a single sliding highlight behind a row of equal-width labels.
-    ///
-    /// Radii are ~half the element height for a pill look. They must NOT be huge
-    /// (e.g. CSS-style `999`): the AppKit backend sets `layer.cornerRadius`
-    /// literally with `clipsToBounds`, and a radius larger than half the size
-    /// collapses the clip mask, hiding the whole control (taps still land).
-    private func previewBar(_ palette: ThemePalette) -> some View {
-        let insets = segmentInsets(palette)
-        let width = segmentWidth(palette)
-        let height = segmentHeight(palette)
-
-        return ZStack(alignment: .leading) {
-            // The moving part. `highlightPosition` is fractional, so this lands
-            // between slots mid-slide.
-            palette.accent
-                .frame(width: width, height: height)
-                .cornerRadius(height / 2)
-                .padding(.leading, Int((model.highlightPosition * Double(width)).rounded()))
-
-            HStack(spacing: 0) {
-                ForEach(Array(model.previews.enumerated()), id: \.offset) { item in
-                    segment(item.offset, palette, width: width, height: height)
-                }
-            }
-        }
-        .padding(insets.track)
-        .background(palette.surface)
-        .cornerRadius(height / 2 + insets.track)
+    /// The whole control's height, which the header row reserves explicitly.
+    private func pillHeight(_ palette: ThemePalette) -> Int {
+        PreviewPill.height(
+            slotHeight: segmentHeight(palette),
+            trackInset: segmentInsets(palette).track
+        )
     }
 
-    /// Unselected segments show just their **number**; the selected one shows its
-    /// name. Nine word labels at 1.5× wrapped onto two lines on the Pi's 1920×440
-    /// panel ("Clo-ck", "M-TG"), inflating the header until the tiles fell off the
-    /// bottom — a digit can't wrap, and the selected label alone says where you
-    /// are.
-    ///
-    /// The label draws no background of its own now: the highlight behind it is a
-    /// separate, animated view.
-    private func segment(
-        _ index: Int,
-        _ palette: ThemePalette,
-        width: Int,
-        height: Int
-    ) -> some View {
-        let selected = index == model.previewIndex
-        return Text(selected ? model.previews[index].short : "\(index + 1)")
-            .font(.system(size: palette.captionSize, weight: .semibold))
-            .foregroundColor(selected ? palette.background : palette.accent)
-            // Hard guard against the failure that broke the last layout: if a
-            // label ever exceeds its slot it must truncate, never wrap onto a
-            // second line and grow the header's height.
-            .lineLimit(1)
-            .frame(width: width, height: height)
-            .onTapGesture {
-                model.select(index)
-            }
+    private func previewBar(_ palette: ThemePalette) -> some View {
+        PreviewPill(
+            palette: palette,
+            labels: model.previews.map(\.short),
+            selected: model.previewIndex,
+            slotWidth: segmentWidth(palette),
+            slotHeight: segmentHeight(palette),
+            trackInset: segmentInsets(palette).track,
+            slideMilliseconds: DashboardLaunch.slideMilliseconds,
+            onSelect: { model.select($0) }
+        )
     }
 
     // MARK: - Tile ordering
