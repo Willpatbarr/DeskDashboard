@@ -69,6 +69,13 @@ final class DashboardModel: ObservableObject {
         shape: .rounded
     )
 
+    /// The composition's real theme, kept aside from `previews` so the app chrome
+    /// (title line, switcher pill) can size itself from something that does *not*
+    /// change when you pick a preview. Previews carry their own typography
+    /// (caption 13/14/18), so chrome sized from the selected preview's palette
+    /// visibly resized itself on every switch.
+    private let chromeTheme: any Theme
+
     /// Multiplied into the viewport-derived scale before sizes are resolved.
     /// Set from `--scale N` / `DD_UI_SCALE` so type can be dialed in on a real
     /// screen without a rebuild (a Pi build is slow). `1` means "as computed".
@@ -82,6 +89,7 @@ final class DashboardModel: ObservableObject {
     ) {
         self.snapshots = snapshots
         self.showsPreviewControls = showsPreviewControls
+        self.chromeTheme = theme
         self.scaleMultiplier = scaleMultiplier > 0 ? scaleMultiplier : 1
         self.previews = [
             Preview(name: theme.name, short: "Real", theme: theme),
@@ -114,6 +122,17 @@ final class DashboardModel: ObservableObject {
             scaleMultiplier: scaleMultiplier
         )
     }
+    /// Palette for the app chrome: sizes that stay put across preview switches.
+    /// Colours still come from `palette(for:)` so the chrome matches the theme on
+    /// screen — it's only the geometry that must not move.
+    func chromePalette(for viewport: Viewport) -> ThemePalette {
+        ThemePalette(
+            theme: chromeTheme,
+            viewport: viewport,
+            scaleMultiplier: scaleMultiplier
+        )
+    }
+
     /// A layout forced on every tile for the current preview, or `nil`.
     var layoutOverride: WidgetLayout? { current.layout }
     var previewName: String { current.name }

@@ -74,20 +74,25 @@ final class PillAnimator: ObservableObject {
     }
 }
 
-/// The segmented preview switcher: a single sliding highlight behind a row of
-/// equal-width slots.
+/// The segmented preview switcher: a row of fixed slots whose *fill* travels
+/// between them.
 ///
-/// Equal widths are a prerequisite for the slide — slots used to size to their
-/// text, so a slot changing between a digit and a word would have moved *and*
-/// resized the highlight mid-flight while the whole row reflowed on every tap.
+/// Nothing in here moves. An earlier version slid one highlight view across the
+/// row by animating its leading padding, and on the Pi's GTK backend that left
+/// **ghost circles** at previous positions — the compositor never repainted the
+/// region the overlay vacated. Instead each slot owns its own background and the
+/// animation just varies each slot's fill opacity by distance from the animated
+/// position, so the only thing changing per frame is a colour on a widget that
+/// therefore redraws itself. Reads as a travelling glow; cannot smear.
 ///
-/// **Every** slot shows just its number — including the selected one, which is
-/// distinguished by the highlight behind it rather than by its text.
+/// Geometry is passed in and is deliberately **independent of the selected
+/// preview's theme**: previews carry their own typography (caption 13/14/18), so
+/// deriving slot sizes from the current palette made the pill change size every
+/// time you switched layouts.
 ///
-/// Sizing nine uniform slots to the widest label ("Compact") made the control
-/// ~1320px wide, which together with the header text overran the Pi's 1920px row
-/// and clipped the pill's left edge. Digits need ~a third of that. The selected
-/// preview's *name* is already spelled out in the header line, so nothing is lost.
+/// Every slot shows just its number. Sizing nine uniform slots to the widest word
+/// label ("Compact") made the control ~1320px, which overran the Pi's 1920px row;
+/// the selected preview's name is spelled out in the header line anyway.
 struct PreviewPill: View {
     let palette: ThemePalette
     /// How many slots to draw.
@@ -98,6 +103,9 @@ struct PreviewPill: View {
     let slotWidth: Int
     let slotHeight: Int
     let trackInset: Int
+    /// Digit size, from the stable chrome palette rather than the preview's, so
+    /// the pill doesn't resize when a preview with different typography is picked.
+    let fontSize: Double
     /// Total slide duration; 0 disables the animation.
     let slideMilliseconds: Double
     let onSelect: (Int) -> Void
@@ -110,46 +118,43 @@ struct PreviewPill: View {
     }
 
     var body: some View {
-        // Starting a slide from `body` looks unusual, but it's idempotent (the
-        // animator ignores a target it's already heading to) and it means both
-        // taps and programmatic selection changes animate through one path.
+        // Idempotent: the animator ignores a target it is already heading to, so
+        // both taps and programmatic selection changes animate through one path.
         animator.slide(to: selected, milliseconds: slideMilliseconds)
 
         let pillHeight = Self.height(slotHeight: slotHeight, trackInset: trackInset)
 
-        return ZStack(alignment: .leading) {
-            palette.accent
-                .frame(width: Double(slotWidth), height: Double(slotHeight))
-                .cornerRadius(slotHeight / 2)
-                .padding(.leading, Int((animator.position * Double(slotWidth)).rounded()))
-
-            HStack(spacing: 0) {
-                ForEach(Array(0..<count), id: \.self) { index in
-                    slot(index)
-                }
+        return HStack(spacing: 0) {
+            ForEach(Array(0..<count), id: \.self) { index in
+                slot(index)
             }
         }
-        // An exact box, so the parent reserves precisely what gets drawn — the
-        // pill's bottom edge was being clipped by the tile region below when the
-        // header sized itself from its text instead.
         .frame(height: Double(slotHeight))
         .padding(trackInset)
         .background(palette.surface)
-        // Kept a pixel under half the height: the backends set a literal
-        // `cornerRadius` with `clipsToBounds` and don't clamp it, so a radius at
-        // or over half the box eats the edge (see the 999-radius gotcha).
-        .cornerRadius(max(0, pillHeight / 2 - 1))
+        // Comfortably under half the box height: the backends apply a literal
+        // `cornerRadius` with `clipsToBounds` and never clamp it, so a radius at or
+        // over half eats the edge (see the 999-radius gotcha).
+        .cornerRadius(max(0, min(pillHeight / 2 - 1, slotHeight / 2)))
     }
 
     private func slot(_ index: Int) -> some View {
-        let isSelected = index == selected
+        // 1 when the travelling fill is centred here, 0 once it's a slot away, so
+        // mid-slide two neighbours share it and the glow appears to move.
+        let distance = abs(Double(index) - animator.position)
+        let fill = max(0, min(1, 1 - distance))
+
         return Text("\(index + 1)")
-            .font(.system(size: palette.captionSize, weight: .semibold))
-            .foregroundColor(isSelected ? palette.background : palette.accent)
+            .font(.system(size: fontSize, weight: .semibold))
+            // Flip the digit to the dark background colour once the fill is mostly
+            // over it, so it stays legible against the accent.
+            .foregroundColor(fill > 0.5 ? palette.background : palette.accent)
             // A wrapped label grows the header's height, which is what pushed the
             // tiles off-screen before. Truncate instead, always.
             .lineLimit(1)
             .frame(width: Double(slotWidth), height: Double(slotHeight))
+            .background(palette.accent.opacity(fill))
+            .cornerRadius(max(0, slotHeight / 2 - 1))
             .onTapGesture {
                 onSelect(index)
             }
