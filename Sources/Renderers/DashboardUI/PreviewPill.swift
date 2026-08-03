@@ -119,7 +119,7 @@ struct PreviewPill: View {
 
         return ZStack(alignment: .leading) {
             palette.accent
-                .frame(width: slotWidth, height: slotHeight)
+                .frame(width: Double(slotWidth), height: Double(slotHeight))
                 .cornerRadius(slotHeight / 2)
                 .padding(.leading, Int((animator.position * Double(slotWidth)).rounded()))
 
@@ -149,7 +149,7 @@ struct PreviewPill: View {
             // A wrapped label grows the header's height, which is what pushed the
             // tiles off-screen before. Truncate instead, always.
             .lineLimit(1)
-            .frame(width: slotWidth, height: slotHeight)
+            .frame(width: Double(slotWidth), height: Double(slotHeight))
             .onTapGesture {
                 onSelect(index)
             }

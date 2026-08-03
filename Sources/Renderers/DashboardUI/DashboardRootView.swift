@@ -26,19 +26,31 @@ struct DashboardRootView: View {
             // diagnosed. Logs once per distinct value, not per frame.
             // (bound to `_` so the ViewBuilder treats it as a declaration rather
             // than trying to make a View out of `Void`)
+            let band = headerBandHeight(palette, viewport)
+
             let _ = UILog.once("geometry", """
             LAYOUT viewport=\(Int(viewport.width))×\(Int(viewport.height)) \
             scale=\(palette.scale) vScale=\(palette.verticalScale) \
             pill=\(model.previews.count)×\(segmentWidth(palette))=\
             \(model.previews.count * segmentWidth(palette))w \
             ×\(pillHeight(palette))h \
+            band=\(Int(band)) content=\(Int(viewport.height - band)) \
             margins=\(palette.sectionMargin)/\(palette.verticalSectionMargin) \
             caption=\(palette.captionSize)
             """)
 
             VStack(spacing: 0) {
+                // Fixed band at the top for the title + pill, then the widgets
+                // take whatever is left. Previously the header only asked for a
+                // `minHeight` while the content region was greedy
+                // (`maxHeight: .infinity`), so the VStack squeezed the header to
+                // its *text* height and the taller pill overflowed — which is what
+                // clipped the pill's bottom edge.
                 header(palette, viewport)
+                    .frame(height: band)
+
                 content(palette)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(background(palette))
@@ -113,15 +125,16 @@ struct DashboardRootView: View {
                 .font(.system(size: palette.captionSize, weight: palette.bodyWeight))
                 .foregroundColor(palette.secondary)
                 .lineLimit(1)
+                // The pill wins any contest for the row's width: it has a fixed
+                // size and gets clipped if squeezed, whereas the title can simply
+                // truncate. (Left-edge clipping came from the pill losing this.)
+                .layoutPriority(-1)
             Spacer(minLength: 0)
             if model.showsPreviewControls {
                 previewBar(palette)
+                    .layoutPriority(1)
             }
         }
-        // Reserve the pill's full height explicitly. Without this the row was
-        // sized from its text, so the pill overflowed into the tiles below and its
-        // bottom edge got clipped by the content region.
-        .frame(minHeight: model.showsPreviewControls ? Double(pillHeight(palette)) : nil)
         .padding(.horizontal, palette.sectionMargin)
         .padding(.vertical, palette.verticalSectionMargin)
     }
@@ -160,6 +173,21 @@ struct DashboardRootView: View {
         let digits = model.previews.count >= 10 ? 2.0 : 1.0
         let glyphs = digits * palette.captionSize * 0.62
         return Int(glyphs.rounded()) + segmentInsets(palette).horizontal * 2
+    }
+
+    /// Height of the reserved top band: whatever the pill needs (or the title
+    /// line, when the switcher is hidden) plus its vertical margins, capped at a
+    /// third of the screen so the widgets always get the majority.
+    ///
+    /// Reserving this explicitly is what guarantees the pill's size, rather than
+    /// leaving it to fight the greedy content region for space.
+    private func headerBandHeight(_ palette: ThemePalette, _ viewport: Viewport) -> Double {
+        let tallestElement = model.showsPreviewControls
+            ? max(pillHeight(palette), Int(palette.captionSize * 1.3))
+            : Int(palette.captionSize * 1.3)
+        let wanted = Double(tallestElement + palette.verticalSectionMargin * 2)
+        guard viewport.height > 0 else { return wanted }
+        return min(wanted, viewport.height / 3)
     }
 
     /// The whole control's height, which the header row reserves explicitly.
