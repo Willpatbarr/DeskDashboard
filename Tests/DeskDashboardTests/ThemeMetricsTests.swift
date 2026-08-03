@@ -5,8 +5,20 @@ import Testing
     #expect(ThemeMetrics.default.scale(for: .reference) == 1)
 }
 
-@Test func scaleUsesTheTighterOfTheTwoDimensions() {
+@Test func defaultBasisIsWidthOnly() {
     let metrics = ThemeMetrics.default
+    #expect(metrics.basis == .width)
+
+    // Height gets no vote: a short, wide window still scales off its width.
+    // (This is the real shape of the app's window — the AppKit backend opens it
+    // at ~1329×350, which under a min-of-both rule collapsed to the clamp floor.)
+    #expect(metrics.scale(for: Viewport(width: 1280, height: 350)) == 1)
+    #expect(metrics.scale(for: Viewport(width: 2560, height: 350)) == 2)
+    #expect(metrics.scale(for: Viewport(width: 1920, height: 1080)) == 1.5)
+}
+
+@Test func fitBasisUsesTheTighterOfTheTwoDimensions() {
+    let metrics = ThemeMetrics(basis: .fit)
 
     // Twice as wide, same height: height is the tighter fit, so no growth.
     #expect(metrics.scale(for: Viewport(width: 2560, height: 800)) == 1)
@@ -14,6 +26,13 @@ import Testing
     #expect(metrics.scale(for: Viewport(width: 2560, height: 1600)) == 2)
     // A 1024×600 Pi panel: 600/800 is tighter than 1024/1280.
     #expect(metrics.scale(for: Viewport(width: 1024, height: 600)) == 0.75)
+}
+
+@Test func heightBasisUsesHeightOnly() {
+    let metrics = ThemeMetrics(basis: .height)
+
+    #expect(metrics.scale(for: Viewport(width: 400, height: 1600)) == 2)
+    #expect(metrics.scale(for: Viewport(width: 4000, height: 800)) == 1)
 }
 
 @Test func scaleIsClampedAtBothEnds() {
@@ -45,6 +64,16 @@ import Testing
     #expect(sizes.spacing.tilePadding == theme.spacing.tilePadding * 2)
     #expect(sizes.spacing.sectionMargin == theme.spacing.sectionMargin * 2)
     #expect(sizes.shape.cornerRadius == theme.shape.cornerRadius * 2)
+}
+
+@Test func manualMultiplierStacksOnTopOfTheComputedScale() {
+    let theme = DarkDeskTheme()
+    let viewport = Viewport(width: 1920, height: 1080)   // width basis -> 1.5
+
+    #expect(theme.sizes(for: viewport, multiplier: 2).scale == 3)
+    #expect(theme.sizes(for: viewport, multiplier: 1).scale == 1.5)
+    // A nonsense multiplier is ignored rather than zeroing every size.
+    #expect(theme.sizes(for: viewport, multiplier: 0).scale == 1.5)
 }
 
 @Test func scalingLeavesScreenIndependentTokensAlone() {

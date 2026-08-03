@@ -26,10 +26,14 @@ public extension Theme {
     /// This is the single place renderers go to turn reference sizes into real
     /// ones, so the native UI and the dev web page agree on what "a heading"
     /// means on a given screen.
+    /// - Parameter multiplier: a manual nudge applied on top of the
+    ///   viewport-derived scale, for tuning on a real display without changing
+    ///   the theme. `1` leaves the computed scale alone.
     func sizes(
-        for viewport: Viewport
+        for viewport: Viewport,
+        multiplier: Double = 1
     ) -> ThemeSizes {
-        let scale = metrics.scale(for: viewport)
+        let scale = metrics.scale(for: viewport) * (multiplier > 0 ? multiplier : 1)
         return ThemeSizes(
             scale: scale,
             typography: typography.scaled(by: scale),

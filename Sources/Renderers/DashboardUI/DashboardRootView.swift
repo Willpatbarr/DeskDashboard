@@ -18,12 +18,11 @@ struct DashboardRootView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let palette = model.palette(
-                for: Viewport(width: proxy.size.width, height: proxy.size.height)
-            )
+            let viewport = Viewport(width: proxy.size.width, height: proxy.size.height)
+            let palette = model.palette(for: viewport)
 
             VStack(spacing: 0) {
-                header(palette)
+                header(palette, viewport)
                 content(palette)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -71,9 +70,24 @@ struct DashboardRootView: View {
         }
     }
 
-    private func header(_ palette: ThemePalette) -> some View {
+    /// `1920×1080 @1.35×` — the viewport the layout system actually reported and
+    /// the scale derived from it. Shown next to the preview name whenever the
+    /// switcher is visible, so what the sizing is doing is verifiable *on the
+    /// screen in question* rather than inferred from logs.
+    private func metricsReadout(_ palette: ThemePalette, _ viewport: Viewport) -> String {
+        let w = Int(viewport.width.rounded())
+        let h = Int(viewport.height.rounded())
+        let scale = (palette.scale * 100).rounded() / 100
+        return "\(w)×\(h) @\(scale)×"
+    }
+
+    private func header(_ palette: ThemePalette, _ viewport: Viewport) -> some View {
         HStack {
-            Text("DeskDashboard · \(model.previewName)")
+            Text(
+                model.showsPreviewControls
+                    ? "DeskDashboard · \(model.previewName) · \(metricsReadout(palette, viewport))"
+                    : "DeskDashboard · \(model.previewName)"
+            )
                 .font(.system(size: palette.captionSize, weight: palette.bodyWeight))
                 .foregroundColor(palette.secondary)
             Spacer(minLength: 0)

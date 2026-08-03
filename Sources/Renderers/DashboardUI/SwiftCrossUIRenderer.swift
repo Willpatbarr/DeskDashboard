@@ -24,11 +24,24 @@ import DashboardKit
 public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable {
     private let model: DashboardModel
 
-    /// - Parameter showsPreviewControls: when true, the UI shows a button that
-    ///   cycles through built-in theme × layout combinations (the `--preview`
-    ///   flag) — for eyeballing configurations, not for the shipping kiosk.
-    public init(theme: any Theme, showsPreviewControls: Bool = false) {
-        let model = DashboardModel(theme: theme, showsPreviewControls: showsPreviewControls)
+    /// - Parameters:
+    ///   - showsPreviewControls: when true, the UI shows a button that cycles
+    ///     through built-in theme × layout combinations (the `--preview` flag) —
+    ///     for eyeballing configurations, not for the shipping kiosk. It also
+    ///     shows the viewport/scale readout in the header.
+    ///   - scaleMultiplier: manual nudge on top of the viewport-derived type
+    ///     scale (`--scale N` / `DD_UI_SCALE`), for dialing in a real display
+    ///     without rebuilding.
+    public init(
+        theme: any Theme,
+        showsPreviewControls: Bool = false,
+        scaleMultiplier: Double = 1
+    ) {
+        let model = DashboardModel(
+            theme: theme,
+            showsPreviewControls: showsPreviewControls,
+            scaleMultiplier: scaleMultiplier
+        )
         self.model = model
         DashboardLaunch.model = model
     }

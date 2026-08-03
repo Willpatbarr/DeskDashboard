@@ -12,6 +12,12 @@ import Foundation
 // text/web development front-end, see `DeskDashboardDevApp` (product
 // `deskdashboard-dev`).
 
+// Line-buffer stdout. When this runs as a service (the Pi kiosk under
+// cage/sway), stdout is a pipe, not a tty, so the C library block-buffers it and
+// nothing reaches the journal or a redirect log until the buffer fills — which is
+// why `journalctl -u deskdashboard-ui` looked silent.
+setvbuf(stdout, nil, _IOLBF, 0)
+
 let system = makeDeskDashboardSystem(showsAlbum: false)
 let runner = system.runner
 
@@ -36,9 +42,31 @@ do {
 // explicit opt-in, so old launch commands keep behaving.)
 let showsSwitcher = !CommandLine.arguments.contains("--kiosk")
     || CommandLine.arguments.contains("--preview")
+
+// Type-scale nudge on top of the viewport-derived scale: `--scale 1.4`, or
+// `DD_UI_SCALE=1.4` (easier for the Pi kiosk — a systemd `Environment=` drop-in
+// needs no change to the sway/cage ExecStart line). The flag wins if both are set.
+let scaleMultiplier: Double = {
+    let args = CommandLine.arguments
+    if let i = args.firstIndex(of: "--scale"),
+       i + 1 < args.count,
+       let value = Double(args[i + 1]), value > 0 {
+        return value
+    }
+    if let env = ProcessInfo.processInfo.environment["DD_UI_SCALE"],
+       let value = Double(env), value > 0 {
+        return value
+    }
+    return 1
+}()
+if scaleMultiplier != 1 {
+    print("DeskDashboard UI: type scale multiplier \(scaleMultiplier)×")
+}
+
 let renderer = SwiftCrossUIRenderer(
     theme: runner.dashboard.configuration.theme,
-    showsPreviewControls: showsSwitcher
+    showsPreviewControls: showsSwitcher,
+    scaleMultiplier: scaleMultiplier
 )
 renderer.render(runner.attachedWidgetSnapshots)
 runner.start { _ in

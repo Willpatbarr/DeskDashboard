@@ -69,13 +69,20 @@ final class DashboardModel: ObservableObject {
         shape: .rounded
     )
 
+    /// Multiplied into the viewport-derived scale before sizes are resolved.
+    /// Set from `--scale N` / `DD_UI_SCALE` so type can be dialed in on a real
+    /// screen without a rebuild (a Pi build is slow). `1` means "as computed".
+    let scaleMultiplier: Double
+
     init(
         theme: any Theme,
         snapshots: [AttachedWidgetSnapshot] = [],
-        showsPreviewControls: Bool = false
+        showsPreviewControls: Bool = false,
+        scaleMultiplier: Double = 1
     ) {
         self.snapshots = snapshots
         self.showsPreviewControls = showsPreviewControls
+        self.scaleMultiplier = scaleMultiplier > 0 ? scaleMultiplier : 1
         self.previews = [
             Preview(name: theme.name, short: "Real", theme: theme),
             Preview(name: "Dark · big number", short: "Big", theme: DarkDeskTheme(), layout: .bigNumber),
@@ -101,7 +108,11 @@ final class DashboardModel: ObservableObject {
     /// colors as authored, sizes scaled to the screen. Called from the root
     /// view's `GeometryReader`, so it re-resolves whenever the window resizes.
     func palette(for viewport: Viewport) -> ThemePalette {
-        ThemePalette(theme: current.theme, viewport: viewport)
+        ThemePalette(
+            theme: current.theme,
+            viewport: viewport,
+            scaleMultiplier: scaleMultiplier
+        )
     }
     /// A layout forced on every tile for the current preview, or `nil`.
     var layoutOverride: WidgetLayout? { current.layout }

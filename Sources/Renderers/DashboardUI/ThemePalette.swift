@@ -40,10 +40,18 @@ struct ThemePalette: Sendable {
     /// proportion with the rest of the board.
     let scale: Double
 
-    /// - Parameter viewport: the window size to resolve sizes for. Defaults to
-    ///   the theme's reference canvas, i.e. sizes exactly as authored.
-    init(theme: any Theme, viewport: Viewport = .reference) {
-        let sizes = theme.sizes(for: viewport)
+    /// - Parameters:
+    ///   - viewport: the window size to resolve sizes for. Defaults to the
+    ///     theme's reference canvas, i.e. sizes exactly as authored.
+    ///   - scaleMultiplier: a manual nudge applied on top of the viewport-derived
+    ///     scale (`--scale N` / `DD_UI_SCALE`), for dialing type in on a real
+    ///     display without a rebuild.
+    init(
+        theme: any Theme,
+        viewport: Viewport = .reference,
+        scaleMultiplier: Double = 1
+    ) {
+        let sizes = theme.sizes(for: viewport, multiplier: scaleMultiplier)
         scale = sizes.scale
 
         let colors = theme.colors

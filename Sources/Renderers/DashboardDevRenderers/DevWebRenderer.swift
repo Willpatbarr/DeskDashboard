@@ -132,13 +132,12 @@ extension DevWebRenderer {
     }
 
     /// A reference size rendered as a viewport-relative CSS length, so the page
-    /// scales like the native UI does: uniformly, off whichever of the browser
-    /// window's dimensions is the tighter fit, clamped to the theme's scale
-    /// bounds.
+    /// scales like the native UI does — same basis, same clamp bounds.
     ///
-    /// `min(Xvw, Yvh)` is the CSS equivalent of
-    /// `min(width / refWidth, height / refHeight) * size`, and the `clamp()`
-    /// bounds mirror `ThemeMetrics.minimumScale`/`maximumScale`.
+    /// `vw`/`vh` are the CSS equivalents of `width / refWidth` and
+    /// `height / refHeight`; `ThemeMetrics.Basis` decides which one (or the
+    /// `min()` of both) applies, and `clamp()` mirrors
+    /// `minimumScale`/`maximumScale`.
     private static func responsive(
         _ size: Double,
         _ metrics: ThemeMetrics
@@ -148,11 +147,16 @@ extension DevWebRenderer {
             return "\(px(size))"
         }
 
-        let vw = size / reference.width * 100
-        let vh = size / reference.height * 100
+        let vw = "\(round(size / reference.width * 100))vw"
+        let vh = "\(round(size / reference.height * 100))vh"
+        let relative = switch metrics.basis {
+        case .width: vw
+        case .height: vh
+        case .fit: "min(\(vw), \(vh))"
+        }
         return """
         clamp(\(px(size * metrics.minimumScale)), \
-        min(\(round(vw))vw, \(round(vh))vh), \
+        \(relative), \
         \(px(size * metrics.maximumScale)))
         """
     }
