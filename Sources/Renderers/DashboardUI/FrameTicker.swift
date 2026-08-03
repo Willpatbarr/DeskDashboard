@@ -50,4 +50,27 @@ private final class FrameHandlerBox: @unchecked Sendable {
     }
 }
 
+/// Logs a line to stderr, but only the *first* time a given `key`'s message
+/// changes — so a per-render call site logs once instead of every frame.
+///
+/// This exists because the layout can only be inspected on the device: the Pi's
+/// panel is the only place the real geometry happens, and there's no way to
+/// screenshot it from a dev machine. Printing the numbers the layout computed
+/// turns "it looks clipped" into an arithmetic problem.
+enum UILog {
+    nonisolated(unsafe) private static var seen: [String: String] = [:]
+    private static let lock = NSLock()
+
+    static func once(_ key: String, _ message: @autoclosure () -> String) {
+        guard ProcessInfo.processInfo.environment["DD_UI_LOG"] == "1" else { return }
+        let text = message()
+        lock.lock()
+        let isNew = seen[key] != text
+        if isNew { seen[key] = text }
+        lock.unlock()
+        guard isNew else { return }
+        FileHandle.standardError.write(Data((text + "\n").utf8))
+    }
+}
+
 

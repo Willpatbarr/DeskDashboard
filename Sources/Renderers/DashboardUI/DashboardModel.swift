@@ -153,6 +153,14 @@ enum DashboardLaunch {
     /// different shape from a Mac window, and that shape is what breaks layouts.
     nonisolated(unsafe) static var windowSize: (width: Int, height: Int) = (1280, 800)
 
+    /// Set only when `--window` was passed explicitly. `defaultSize` alone is not
+    /// enough: it seeds the window's initial rect, then SwiftCrossUI resizes the
+    /// window to its content's ideal size, and this dashboard's root fills space
+    /// flexibly — so the window snapped back to its content size (~1329×350) and
+    /// the flag silently did nothing. Pinning the *root view* to the requested
+    /// frame makes the content's ideal size the requested size.
+    nonisolated(unsafe) static var forcedWindowSize: (width: Int, height: Int)?
+
     /// Total duration of the pill's highlight slide, in milliseconds. `0` turns
     /// the animation off (instant jump). Set from `DD_UI_SLIDE_MS`, so a display
     /// that renders frames too slowly can be tuned or opted out without a rebuild

@@ -54,6 +54,7 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
         DashboardLaunch.model = model
         if let windowSize {
             DashboardLaunch.windowSize = windowSize
+            DashboardLaunch.forcedWindowSize = windowSize
         }
         if let slideMilliseconds, slideMilliseconds >= 0 {
             DashboardLaunch.slideMilliseconds = slideMilliseconds

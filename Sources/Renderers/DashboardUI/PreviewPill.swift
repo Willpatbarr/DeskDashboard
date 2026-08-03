@@ -81,12 +81,17 @@ final class PillAnimator: ObservableObject {
 /// text, so a slot changing between a digit and a word would have moved *and*
 /// resized the highlight mid-flight while the whole row reflowed on every tap.
 ///
-/// Unselected slots show their number; only the selected one shows its name. Nine
-/// word labels at 1.5× wrapped onto two lines on the Pi's 1920×440 panel
-/// ("Clo-ck", "M-TG") and inflated the header until the tiles fell off the bottom.
+/// **Every** slot shows just its number — including the selected one, which is
+/// distinguished by the highlight behind it rather than by its text.
+///
+/// Sizing nine uniform slots to the widest label ("Compact") made the control
+/// ~1320px wide, which together with the header text overran the Pi's 1920px row
+/// and clipped the pill's left edge. Digits need ~a third of that. The selected
+/// preview's *name* is already spelled out in the header line, so nothing is lost.
 struct PreviewPill: View {
     let palette: ThemePalette
-    let labels: [String]
+    /// How many slots to draw.
+    let count: Int
     let selected: Int
     /// Slot geometry, computed by the parent so it can also reserve the row's
     /// height (an under-reserved header clipped the pill's bottom edge).
@@ -119,11 +124,15 @@ struct PreviewPill: View {
                 .padding(.leading, Int((animator.position * Double(slotWidth)).rounded()))
 
             HStack(spacing: 0) {
-                ForEach(Array(labels.enumerated()), id: \.offset) { item in
-                    slot(item.offset, label: item.element)
+                ForEach(Array(0..<count), id: \.self) { index in
+                    slot(index)
                 }
             }
         }
+        // An exact box, so the parent reserves precisely what gets drawn — the
+        // pill's bottom edge was being clipped by the tile region below when the
+        // header sized itself from its text instead.
+        .frame(height: Double(slotHeight))
         .padding(trackInset)
         .background(palette.surface)
         // Kept a pixel under half the height: the backends set a literal
@@ -132,9 +141,9 @@ struct PreviewPill: View {
         .cornerRadius(max(0, pillHeight / 2 - 1))
     }
 
-    private func slot(_ index: Int, label: String) -> some View {
+    private func slot(_ index: Int) -> some View {
         let isSelected = index == selected
-        return Text(isSelected ? label : "\(index + 1)")
+        return Text("\(index + 1)")
             .font(.system(size: palette.captionSize, weight: .semibold))
             .foregroundColor(isSelected ? palette.background : palette.accent)
             // A wrapped label grows the header's height, which is what pushed the

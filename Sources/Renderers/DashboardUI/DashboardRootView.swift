@@ -21,6 +21,21 @@ struct DashboardRootView: View {
             let viewport = Viewport(width: proxy.size.width, height: proxy.size.height)
             let palette = model.palette(for: viewport)
 
+            // Set DD_UI_LOG=1 to have the layout report its own geometry; the
+            // panel can't be screenshotted, so this is how clipping gets
+            // diagnosed. Logs once per distinct value, not per frame.
+            // (bound to `_` so the ViewBuilder treats it as a declaration rather
+            // than trying to make a View out of `Void`)
+            let _ = UILog.once("geometry", """
+            LAYOUT viewport=\(Int(viewport.width))×\(Int(viewport.height)) \
+            scale=\(palette.scale) vScale=\(palette.verticalScale) \
+            pill=\(model.previews.count)×\(segmentWidth(palette))=\
+            \(model.previews.count * segmentWidth(palette))w \
+            ×\(pillHeight(palette))h \
+            margins=\(palette.sectionMargin)/\(palette.verticalSectionMargin) \
+            caption=\(palette.captionSize)
+            """)
+
             VStack(spacing: 0) {
                 header(palette, viewport)
                 content(palette)
@@ -134,19 +149,16 @@ struct DashboardRootView: View {
         Int(palette.captionSize.rounded()) + segmentInsets(palette).vertical * 2
     }
 
-    /// Every slot is the same width, sized to the longest label.
+    /// Every slot is the same width — the highlight is one rect moving by
+    /// `index × width`, so uniform slots are what make the slide possible.
     ///
-    /// Uniform slots are what make the slide possible: the highlight is one rect
-    /// moving by `index × width`, so if slots resized per selection (a digit
-    /// becoming a word) it would have to change size and position mid-flight, and
-    /// the whole row would reflow on every tap.
-    ///
-    /// SwiftCrossUI exposes no text-measurement API, so the width is estimated
-    /// from the character count — ~0.62em per character at semibold, which is
-    /// generous for digits and about right for the mixed-case labels.
+    /// Slots hold a *number*, not a label, so the width only has to fit one or two
+    /// digits. Sizing for the widest word instead made the control ~1320px, which
+    /// overran the Pi's 1920px header row. SwiftCrossUI exposes no
+    /// text-measurement API, so this estimates ~0.62em per digit at semibold.
     private func segmentWidth(_ palette: ThemePalette) -> Int {
-        let longest = model.previews.map(\.short.count).max() ?? 4
-        let glyphs = Double(longest) * palette.captionSize * 0.62
+        let digits = model.previews.count >= 10 ? 2.0 : 1.0
+        let glyphs = digits * palette.captionSize * 0.62
         return Int(glyphs.rounded()) + segmentInsets(palette).horizontal * 2
     }
 
@@ -161,7 +173,7 @@ struct DashboardRootView: View {
     private func previewBar(_ palette: ThemePalette) -> some View {
         PreviewPill(
             palette: palette,
-            labels: model.previews.map(\.short),
+            count: model.previews.count,
             selected: model.previewIndex,
             slotWidth: segmentWidth(palette),
             slotHeight: segmentHeight(palette),
