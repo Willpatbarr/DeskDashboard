@@ -12,11 +12,18 @@ import Foundation
 // text/web development front-end, see `DeskDashboardDevApp` (product
 // `deskdashboard-dev`).
 
-// Line-buffer stdout. When this runs as a service (the Pi kiosk under
-// cage/sway), stdout is a pipe, not a tty, so the C library block-buffers it and
-// nothing reaches the journal or a redirect log until the buffer fills — which is
-// why `journalctl -u deskdashboard-ui` looked silent.
-setvbuf(stdout, nil, _IOLBF, 0)
+/// Writes a startup/diagnostic line to **stderr**.
+///
+/// Not `print`: when this runs as a service (the Pi kiosk under cage/sway),
+/// stdout is a pipe rather than a tty, so the C library block-buffers it and
+/// nothing reaches the journal until the buffer fills — which is why
+/// `journalctl -u deskdashboard-ui` looked silent. stderr is unbuffered, and
+/// journald captures it the same way. (`setvbuf(stdout, …)` would also work, but
+/// Glibc declares `stdout` as a global `var`, which Swift 6 strict concurrency
+/// rejects on Linux — it only compiles on Darwin.)
+func log(_ message: String) {
+    FileHandle.standardError.write(Data((message + "\n").utf8))
+}
 
 let system = makeDeskDashboardSystem(showsAlbum: false)
 let runner = system.runner
@@ -31,10 +38,10 @@ registerPushIngest(
 )
 do {
     try ingestServer.start()
-    print("DeskDashboard UI: ingest server on :\(ingestServer.port)")
+    log("DeskDashboard UI: ingest server on :\(ingestServer.port)")
 } catch {
     // Non-fatal: the UI still runs; push widgets keep their seeded data.
-    print("warning: failed to start ingest server: \(error)")
+    log("warning: failed to start ingest server: \(error)")
 }
 
 // The layout/theme switcher (Clock, MTG, etc.) is shown by default; pass
@@ -60,7 +67,7 @@ let scaleMultiplier: Double = {
     return 1
 }()
 if scaleMultiplier != 1 {
-    print("DeskDashboard UI: type scale multiplier \(scaleMultiplier)×")
+    log("DeskDashboard UI: type scale multiplier \(scaleMultiplier)×")
 }
 
 let renderer = SwiftCrossUIRenderer(
