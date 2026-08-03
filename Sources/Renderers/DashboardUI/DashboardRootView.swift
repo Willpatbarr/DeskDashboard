@@ -86,13 +86,18 @@ struct DashboardRootView: View {
 
     private func header(_ palette: ThemePalette, _ viewport: Viewport) -> some View {
         HStack {
+            // With the switcher visible the pill needs most of the row (nine
+            // uniform slots ≈ 1320px at 1.5×), so the "DeskDashboard" prefix is
+            // dropped — on a kiosk the app's identity isn't in question, and
+            // keeping it overflowed 1920px.
             Text(
                 model.showsPreviewControls
-                    ? "DeskDashboard · \(model.previewName) · \(metricsReadout(palette, viewport))"
+                    ? "\(model.previewName) · \(metricsReadout(palette, viewport))"
                     : "DeskDashboard · \(model.previewName)"
             )
                 .font(.system(size: palette.captionSize, weight: palette.bodyWeight))
                 .foregroundColor(palette.secondary)
+                .lineLimit(1)
             Spacer(minLength: 0)
             if model.showsPreviewControls {
                 previewBar(palette)
@@ -125,16 +130,50 @@ struct DashboardRootView: View {
         Int(palette.captionSize.rounded()) + segmentInsets(palette).vertical * 2
     }
 
+    /// Every slot is the same width, sized to the longest label.
+    ///
+    /// Uniform slots are what make the slide possible: the highlight is one rect
+    /// moving by `index × width`, so if slots resized per selection (a digit
+    /// becoming a word) it would have to change size and position mid-flight, and
+    /// the whole row would reflow on every tap.
+    ///
+    /// SwiftCrossUI exposes no text-measurement API, so the width is estimated
+    /// from the character count — ~0.62em per character at semibold, which is
+    /// generous for digits and about right for the mixed-case labels.
+    private func segmentWidth(_ palette: ThemePalette) -> Int {
+        let longest = model.previews.map(\.short.count).max() ?? 4
+        let glyphs = Double(longest) * palette.captionSize * 0.62
+        return Int(glyphs.rounded()) + segmentInsets(palette).horizontal * 2
+    }
+
+    /// The track: a single sliding highlight behind a row of equal-width labels.
+    ///
+    /// Radii are ~half the element height for a pill look. They must NOT be huge
+    /// (e.g. CSS-style `999`): the AppKit backend sets `layer.cornerRadius`
+    /// literally with `clipsToBounds`, and a radius larger than half the size
+    /// collapses the clip mask, hiding the whole control (taps still land).
     private func previewBar(_ palette: ThemePalette) -> some View {
         let insets = segmentInsets(palette)
-        return HStack(spacing: 0) {
-            ForEach(Array(model.previews.enumerated()), id: \.offset) { item in
-                segment(item.offset, palette)
+        let width = segmentWidth(palette)
+        let height = segmentHeight(palette)
+
+        return ZStack(alignment: .leading) {
+            // The moving part. `highlightPosition` is fractional, so this lands
+            // between slots mid-slide.
+            palette.accent
+                .frame(width: width, height: height)
+                .cornerRadius(height / 2)
+                .padding(.leading, Int((model.highlightPosition * Double(width)).rounded()))
+
+            HStack(spacing: 0) {
+                ForEach(Array(model.previews.enumerated()), id: \.offset) { item in
+                    segment(item.offset, palette, width: width, height: height)
+                }
             }
         }
         .padding(insets.track)
         .background(palette.surface)
-        .cornerRadius(segmentHeight(palette) / 2 + insets.track)
+        .cornerRadius(height / 2 + insets.track)
     }
 
     /// Unselected segments show just their **number**; the selected one shows its
@@ -142,16 +181,24 @@ struct DashboardRootView: View {
     /// panel ("Clo-ck", "M-TG"), inflating the header until the tiles fell off the
     /// bottom — a digit can't wrap, and the selected label alone says where you
     /// are.
-    private func segment(_ index: Int, _ palette: ThemePalette) -> some View {
+    ///
+    /// The label draws no background of its own now: the highlight behind it is a
+    /// separate, animated view.
+    private func segment(
+        _ index: Int,
+        _ palette: ThemePalette,
+        width: Int,
+        height: Int
+    ) -> some View {
         let selected = index == model.previewIndex
-        let insets = segmentInsets(palette)
         return Text(selected ? model.previews[index].short : "\(index + 1)")
             .font(.system(size: palette.captionSize, weight: .semibold))
             .foregroundColor(selected ? palette.background : palette.accent)
-            .padding(.vertical, insets.vertical)
-            .padding(.horizontal, insets.horizontal)
-            .background(selected ? palette.accent : palette.accent.opacity(0))
-            .cornerRadius(segmentHeight(palette) / 2)
+            // Hard guard against the failure that broke the last layout: if a
+            // label ever exceeds its slot it must truncate, never wrap onto a
+            // second line and grow the header's height.
+            .lineLimit(1)
+            .frame(width: width, height: height)
             .onTapGesture {
                 model.select(index)
             }
