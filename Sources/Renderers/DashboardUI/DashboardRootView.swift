@@ -53,8 +53,13 @@ struct DashboardRootView: View {
                 header(palette, chrome, viewport)
                     .frame(height: band)
 
-                content(palette)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                // Exact height, not `maxHeight: .infinity`. Measured on the panel:
+                // a greedy child inside `.padding(.vertical:)` swallowed the
+                // bottom inset, so the tiles ran to y=439 of 440 — bleeding off
+                // the screen with their bottom corners cut. Sizing the region and
+                // its inset content explicitly leaves the margin intact.
+                content(palette, height: max(1, viewport.height - band))
+                    .frame(width: viewport.width, height: max(1, viewport.height - band))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(background(palette))
@@ -63,17 +68,27 @@ struct DashboardRootView: View {
 
     /// The screen below the header: the interactive MTG mode, or the widget-tile
     /// grid for every other preview.
-    @ViewBuilder private func content(_ palette: ThemePalette) -> some View {
+    ///
+    /// - Parameter height: the region's exact height. Each branch is given a
+    ///   definite inner size *before* its margins are added, so the margins
+    ///   survive; with a greedy inner view the bottom inset was being dropped and
+    ///   the tiles overran the bottom of the screen.
+    @ViewBuilder private func content(
+        _ palette: ThemePalette,
+        height: Double
+    ) -> some View {
+        let inner = max(1, height - Double(palette.verticalSectionMargin * 2))
+
         if model.isMTG {
             MTGModeView(palette: palette, time: model.clockTime)
+                .frame(height: inner)
                 .padding(.horizontal, palette.sectionMargin)
                 .padding(.vertical, palette.verticalSectionMargin)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if model.isBoard {
             CuratedGreenView(palette: palette, snapshots: model.snapshots)
+                .frame(height: inner)
                 .padding(.horizontal, palette.sectionMargin)
                 .padding(.vertical, palette.verticalSectionMargin)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             HStack(spacing: palette.widgetGap) {
                 ForEach(tiles, id: \.id.rawValue) { snapshot in
@@ -84,9 +99,9 @@ struct DashboardRootView: View {
                     )
                 }
             }
+            .frame(height: inner)
             .padding(.horizontal, palette.sectionMargin)
             .padding(.vertical, palette.verticalSectionMargin)
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 
