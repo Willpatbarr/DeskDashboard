@@ -35,11 +35,13 @@ struct DashboardRootView: View {
     @ViewBuilder private func content(_ palette: ThemePalette) -> some View {
         if model.isMTG {
             MTGModeView(palette: palette, time: model.clockTime)
-                .padding(palette.sectionMargin)
+                .padding(.horizontal, palette.sectionMargin)
+                .padding(.vertical, palette.verticalSectionMargin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if model.isBoard {
             CuratedGreenView(palette: palette, snapshots: model.snapshots)
-                .padding(palette.sectionMargin)
+                .padding(.horizontal, palette.sectionMargin)
+                .padding(.vertical, palette.verticalSectionMargin)
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
             HStack(spacing: palette.widgetGap) {
@@ -51,7 +53,8 @@ struct DashboardRootView: View {
                     )
                 }
             }
-            .padding(palette.sectionMargin)
+            .padding(.horizontal, palette.sectionMargin)
+            .padding(.vertical, palette.verticalSectionMargin)
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
@@ -95,7 +98,8 @@ struct DashboardRootView: View {
                 previewBar(palette)
             }
         }
-        .padding(palette.sectionMargin)
+        .padding(.horizontal, palette.sectionMargin)
+        .padding(.vertical, palette.verticalSectionMargin)
     }
 
     /// A pill-shaped segmented switcher styled after the reference HTML toggle:
@@ -106,13 +110,14 @@ struct DashboardRootView: View {
     /// (e.g. CSS-style `999`): the AppKit backend sets `layer.cornerRadius`
     /// literally with `clipsToBounds`, and a radius larger than half the size
     /// collapses the clip mask, hiding the whole control (taps still land).
-    /// Segment padding, scaled with the rest of the board so the pill keeps its
-    /// shape on any screen.
+    /// Segment padding. Horizontal follows the type scale; vertical follows the
+    /// height scale, so the pill doesn't eat the header's whole height on a short
+    /// panel.
     private func segmentInsets(_ palette: ThemePalette) -> (vertical: Int, horizontal: Int, track: Int) {
         (
-            vertical: Int((6 * palette.scale).rounded()),
-            horizontal: Int((14 * palette.scale).rounded()),
-            track: Int((4 * palette.scale).rounded())
+            vertical: max(2, Int((6 * palette.verticalScale).rounded())),
+            horizontal: Int((10 * palette.scale).rounded()),
+            track: max(1, Int((4 * palette.verticalScale).rounded()))
         )
     }
 
@@ -132,10 +137,15 @@ struct DashboardRootView: View {
         .cornerRadius(segmentHeight(palette) / 2 + insets.track)
     }
 
+    /// Unselected segments show just their **number**; the selected one shows its
+    /// name. Nine word labels at 1.5× wrapped onto two lines on the Pi's 1920×440
+    /// panel ("Clo-ck", "M-TG"), inflating the header until the tiles fell off the
+    /// bottom — a digit can't wrap, and the selected label alone says where you
+    /// are.
     private func segment(_ index: Int, _ palette: ThemePalette) -> some View {
         let selected = index == model.previewIndex
         let insets = segmentInsets(palette)
-        return Text(model.previews[index].short)
+        return Text(selected ? model.previews[index].short : "\(index + 1)")
             .font(.system(size: palette.captionSize, weight: .semibold))
             .foregroundColor(selected ? palette.background : palette.accent)
             .padding(.vertical, insets.vertical)

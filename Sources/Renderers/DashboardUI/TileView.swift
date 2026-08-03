@@ -28,7 +28,8 @@ struct TileView: View {
     var body: some View {
         let layout = layoutOverride ?? snapshot.configuration.layout
         return interpret(layout.makeView(content))
-            .padding(palette.tilePadding)
+            .padding(.horizontal, palette.tilePadding)
+            .padding(.vertical, palette.verticalTilePadding)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(palette.surface)
             .cornerRadius(Int(palette.cornerRadius.rounded()))

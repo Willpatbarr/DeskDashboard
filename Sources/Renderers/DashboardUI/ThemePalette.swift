@@ -29,6 +29,18 @@ struct ThemePalette: Sendable {
     let sectionMargin: Int
     let cornerRadius: Double
 
+    /// Vertical counterparts of `tilePadding` / `sectionMargin`, scaled off the
+    /// viewport's **height** instead of its width.
+    ///
+    /// Type scales with width (a wider screen wants bigger type), but vertical
+    /// whitespace has to answer to the height it's spending. The Pi's panel is
+    /// 1920×440 — 1.5× the reference width but 0.55× its height — so scaling
+    /// vertical padding by the type scale spent ~1.5× the room on margins and
+    /// pushed the tiles off the bottom of the screen.
+    let verticalTilePadding: Int
+    let verticalSectionMargin: Int
+    let verticalWidgetGap: Int
+
     let headingSize: Double
     let bodySize: Double
     let captionSize: Double
@@ -39,6 +51,9 @@ struct ThemePalette: Sendable {
     /// Views with a one-off size or gap of their own multiply by this to stay in
     /// proportion with the rest of the board.
     let scale: Double
+    /// The height-derived multiplier behind the `vertical*` values above. Use it
+    /// for one-off *vertical* gaps so they shrink on a short screen.
+    let verticalScale: Double
 
     /// - Parameters:
     ///   - viewport: the window size to resolve sizes for. Defaults to the
@@ -53,6 +68,13 @@ struct ThemePalette: Sendable {
     ) {
         let sizes = theme.sizes(for: viewport, multiplier: scaleMultiplier)
         scale = sizes.scale
+
+        // Same theme, same clamps, but measured against the height.
+        var verticalMetrics = theme.metrics
+        verticalMetrics.basis = .height
+        let vertical = verticalMetrics.scale(for: viewport)
+            * (scaleMultiplier > 0 ? scaleMultiplier : 1)
+        verticalScale = vertical
 
         let colors = theme.colors
         background = Color(hex: colors.background) ?? .black
@@ -70,6 +92,11 @@ struct ThemePalette: Sendable {
         tilePadding = Int(spacing.tilePadding.rounded())
         sectionMargin = Int(spacing.sectionMargin.rounded())
         cornerRadius = sizes.shape.cornerRadius
+
+        let authored = theme.spacing
+        verticalTilePadding = max(2, Int((authored.tilePadding * vertical).rounded()))
+        verticalSectionMargin = max(2, Int((authored.sectionMargin * vertical).rounded()))
+        verticalWidgetGap = max(2, Int((authored.widgetGap * vertical).rounded()))
 
         let typography = sizes.typography
         headingSize = typography.headingSize

@@ -10,5 +10,9 @@ struct DashboardApp: App {
         WindowGroup("DeskDashboard") {
             DashboardRootView()
         }
+        .defaultSize(
+            width: DashboardLaunch.windowSize.width,
+            height: DashboardLaunch.windowSize.height
+        )
     }
 }

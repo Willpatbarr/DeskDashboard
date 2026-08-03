@@ -70,10 +70,26 @@ if scaleMultiplier != 1 {
     log("DeskDashboard UI: type scale multiplier \(scaleMultiplier)×")
 }
 
+// `--window 1920x440` opens the window at a specific geometry, for previewing a
+// target panel's shape (the Pi's strip display) from a desktop.
+let windowSize: (width: Int, height: Int)? = {
+    let args = CommandLine.arguments
+    guard let i = args.firstIndex(of: "--window"), i + 1 < args.count else { return nil }
+    let parts = args[i + 1].lowercased().split(separator: "x")
+    guard parts.count == 2, let w = Int(parts[0]), let h = Int(parts[1]),
+          w > 0, h > 0 else {
+        log("warning: ignoring malformed --window '\(args[i + 1])' (expected WIDTHxHEIGHT)")
+        return nil
+    }
+    log("DeskDashboard UI: window \(w)×\(h)")
+    return (w, h)
+}()
+
 let renderer = SwiftCrossUIRenderer(
     theme: runner.dashboard.configuration.theme,
     showsPreviewControls: showsSwitcher,
-    scaleMultiplier: scaleMultiplier
+    scaleMultiplier: scaleMultiplier,
+    windowSize: windowSize
 )
 renderer.render(runner.attachedWidgetSnapshots)
 runner.start { _ in

@@ -32,10 +32,14 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
     ///   - scaleMultiplier: manual nudge on top of the viewport-derived type
     ///     scale (`--scale N` / `DD_UI_SCALE`), for dialing in a real display
     ///     without rebuilding.
+    ///   - windowSize: the window's opening size, or `nil` for the default
+    ///     (the theme reference canvas). `--window 1920x440` reproduces the Pi's
+    ///     panel geometry on a desktop.
     public init(
         theme: any Theme,
         showsPreviewControls: Bool = false,
-        scaleMultiplier: Double = 1
+        scaleMultiplier: Double = 1,
+        windowSize: (width: Int, height: Int)? = nil
     ) {
         let model = DashboardModel(
             theme: theme,
@@ -44,6 +48,9 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
         )
         self.model = model
         DashboardLaunch.model = model
+        if let windowSize {
+            DashboardLaunch.windowSize = windowSize
+        }
     }
 
     /// Publishes a new set of widget snapshots to the UI.

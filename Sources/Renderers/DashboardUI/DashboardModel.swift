@@ -143,4 +143,10 @@ final class DashboardModel: ObservableObject {
 /// before launching; `DashboardRootView` reads it once into its `@State`.
 enum DashboardLaunch {
     nonisolated(unsafe) static var model: DashboardModel?
+
+    /// The window's opening size. Defaults to the theme reference canvas, so an
+    /// unconfigured launch starts at scale 1×. Override with `--window 1920x440`
+    /// to reproduce a target panel's geometry — the Pi's strip display is a very
+    /// different shape from a Mac window, and that shape is what breaks layouts.
+    nonisolated(unsafe) static var windowSize: (width: Int, height: Int) = (1280, 800)
 }
