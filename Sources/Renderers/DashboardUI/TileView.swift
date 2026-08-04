@@ -120,14 +120,14 @@ struct TileView: View {
     /// `Text` can't be tightened. Negative stack spacing does work on this backend
     /// (as negative padding does), so the value is composed per glyph.
     ///
-    /// Tracking is proportional to the font (`-0.0275em`), i.e. `-5px` at the design
+    /// Tracking is proportional to the font (`-0.0055em`), i.e. `-1px` at the design
     /// mock's 180px size — so it stays right if the clock is resized.
     private func trackedText(
         _ text: String,
         style: (size: Double, weight: Font.Weight, color: Color, uppercased: Bool)
     ) -> some View {
         let characters = Array(text.enumerated())
-        return HStack(spacing: Int((style.size * -0.0275).rounded())) {
+        return HStack(spacing: Int((style.size * -0.0055).rounded())) {
             ForEach(characters, id: \.offset) { item in
                 Text(String(item.element))
                     .font(.system(size: style.size, weight: style.weight))
