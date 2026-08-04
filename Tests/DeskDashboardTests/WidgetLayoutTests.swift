@@ -41,3 +41,30 @@ import Testing
         .text("71°F", role: .hero),
     ]))
 }
+
+@Test func centeredValueLayoutKeepsTitleAtTopAndCentersTheValue() {
+    let content = WidgetContent(
+        title: "Clock",
+        primaryText: "9:21",
+        secondaryText: "Tuesday, Aug 4"
+    )
+
+    // Title first (so it stays top-left), then spacers around a `.centered` block
+    // — the spacers centre it vertically, `.centered` horizontally.
+    #expect(WidgetLayout.centeredValue.makeView(content) == .stack(.vertical, spacing: 2, [
+        .text("Clock", role: .title),
+        .spacer,
+        .centered([.text("9:21", role: .display)]),
+        .centered([.text("Tuesday, Aug 4", role: .secondary)]),
+        .spacer,
+    ]))
+}
+
+@Test func centeredValueLayoutOmitsAbsentSlots() {
+    #expect(WidgetLayout.centeredValue.makeView(WidgetContent(primaryText: "71°F"))
+        == .stack(.vertical, spacing: 2, [
+            .spacer,
+            .centered([.text("71°F", role: .display)]),
+            .spacer,
+        ]))
+}

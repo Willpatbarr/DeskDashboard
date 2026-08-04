@@ -19,6 +19,10 @@ public enum WidgetLayout: Sendable, Equatable {
     case compact
     /// Just the value, nothing else.
     case minimal
+    /// Title parked at the top-left, with the value (and its supporting line)
+    /// centred in the rest of the tile — both vertically and horizontally. For a
+    /// tile whose value is the centrepiece, like the board's clock.
+    case centeredValue
     /// Media/now-playing: title label, the primary value at *supporting* size
     /// (not the big primary role) so long song titles fit, a caption subline,
     /// and any badge. Good for the Music tile.
@@ -31,6 +35,7 @@ public enum WidgetLayout: Sendable, Equatable {
         case .stat: Self.makeStat(content)
         case .compact: Self.makeCompact(content)
         case .minimal: Self.makeMinimal(content)
+        case .centeredValue: Self.makeCenteredValue(content)
         case .mediaCompact: Self.makeMediaCompact(content)
         }
     }
@@ -107,6 +112,26 @@ public enum WidgetLayout: Sendable, Equatable {
 
     private static func makeMinimal(_ content: WidgetContent) -> WidgetView {
         .stack(.vertical, spacing: 0, [.text(content.primaryText, role: .hero)])
+    }
+
+    private static func makeCenteredValue(_ content: WidgetContent) -> WidgetView {
+        var children: [WidgetView] = []
+        if let title = content.title {
+            children.append(.text(title, role: .title))
+        }
+
+        // Spacers above and below do the vertical centring; each `.centered` row
+        // does the horizontal. One row per line rather than one `.centered` holding
+        // both: nesting two lines inside a single centring container made the
+        // renderer draw the supporting line *on top of* the value.
+        children.append(.spacer)
+        children.append(.centered([.text(content.primaryText, role: .display)]))
+        if let secondary = content.secondaryText {
+            children.append(.centered([.text(secondary, role: .secondary)]))
+        }
+        children.append(.spacer)
+
+        return .stack(.vertical, spacing: 2, children)
     }
 
     private static func makeMediaCompact(_ content: WidgetContent) -> WidgetView {

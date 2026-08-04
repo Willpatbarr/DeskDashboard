@@ -58,6 +58,16 @@ struct TileView: View {
         case .spacer:
             return AnyView(Spacer(minLength: 0))
 
+        case let .centered(children):
+            let views = children.map(interpret)
+            let indexed = Array(views.enumerated())
+            return AnyView(
+                VStack(alignment: .center, spacing: Int((2 * palette.verticalScale).rounded())) {
+                    ForEach(indexed, id: \.offset) { $0.element }
+                }
+                .frame(maxWidth: .infinity)
+            )
+
         case let .stack(axis, spacing, children):
             let views = children.map(interpret)
             let indexed = Array(views.enumerated())
@@ -89,6 +99,10 @@ struct TileView: View {
         switch role {
         case .title:     (palette.captionSize, palette.bodyWeight, palette.secondary, true)
         case .hero:      (palette.headingSize * 1.6, palette.headingWeight, palette.primary, false)
+        // Bounded by the *narrowest* column that uses it: in the equal-width board
+        // the clock gets ~442px, leaving ~394px inside the padding, and a
+        // five-glyph time ("12:34") runs about 2.25× the font size.
+        case .display:   (palette.headingSize * 2.2, palette.headingWeight, palette.primary, false)
         case .primary:   (palette.headingSize, palette.headingWeight, palette.primary, false)
         case .secondary: (palette.bodySize, palette.bodyWeight, palette.text, false)
         case .caption:   (palette.captionSize, palette.bodyWeight, palette.muted, false)

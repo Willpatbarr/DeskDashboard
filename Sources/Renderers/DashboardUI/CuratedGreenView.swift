@@ -8,8 +8,9 @@ import SwiftCrossUI
 /// - Widths are **proportional**, CSS-`fr`-style: each column takes
 ///   `weight / totalWeight` of the row (minus the gaps between tiles), sized from a
 ///   `GeometryReader` rather than from content.
-/// - The clock column shows a **big, minute-precision** time built locally, so it
-///   never shows seconds regardless of the clock widget's `showSeconds` option.
+/// - The clock column shows a **big, minute-precision** time, centred in its tile
+///   via `WidgetLayout.centeredValue`; its text is rewritten locally so it never
+///   shows seconds regardless of the clock widget's `showSeconds` option.
 /// - Music uses `.mediaCompact` (smaller title text) so long song titles fit.
 /// - The temps use `.standard`, unchanged.
 struct CuratedGreenView: View {
@@ -60,13 +61,13 @@ struct CuratedGreenView: View {
         }
     }
 
-    /// The clock column is hand-built (for minute precision); everything else goes
-    /// through the shared `TileView`.
+    /// Every column goes through the shared `TileView`; the clock's *content* is
+    /// swapped for a minute-precision time rather than the tile being rebuilt by
+    /// hand. That keeps one code path for tile chrome, and the centred treatment
+    /// lives in `WidgetLayout.centeredValue` so no other layout is affected.
     @ViewBuilder
     private func column(_ column: Column) -> some View {
-        if column.id == "clock" {
-            clockTile
-        } else if let snapshot = snapshot(column.id) {
+        if let snapshot = resolvedSnapshot(column) {
             TileView(snapshot: snapshot, palette: palette, layoutOverride: column.layout)
         }
     }
@@ -75,28 +76,26 @@ struct CuratedGreenView: View {
         snapshots.first { $0.id.rawValue == id }
     }
 
-    /// The clock tile — a `.bigNumber`-style stack (title / hero / date) built
-    /// by hand so the time is minute-precision. Roles mirror `TileView.style`
-    /// so it matches the other tiles visually.
-    private var clockTile: some View {
-        VStack(alignment: .leading, spacing: Int((2 * palette.verticalScale).rounded())) {
-            Text("CLOCK")
-                .font(.system(size: palette.captionSize, weight: palette.bodyWeight))
-                .foregroundColor(palette.secondary)
-            Text(Self.timeFormatter.string(from: Date()))
-                .font(.system(size: palette.headingSize * 1.6, weight: palette.headingWeight))
-                .foregroundColor(palette.primary)
-            if let date = snapshot("clock")?.content?.secondaryText {
-                Text(date)
-                    .font(.system(size: palette.bodySize, weight: palette.bodyWeight))
-                    .foregroundColor(palette.text)
-            }
-        }
-        .padding(.horizontal, palette.tilePadding)
-        .padding(.vertical, palette.verticalTilePadding)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .background(palette.surface)
-        .cornerRadius(Int(palette.cornerRadius.rounded()))
+    /// The column's snapshot, with the clock's time rewritten to minute precision.
+    ///
+    /// The composed clock widget runs with `showSeconds()`, so its `primaryText`
+    /// ticks every second; the board wants a calm "9:21".
+    private func resolvedSnapshot(_ column: Column) -> AttachedWidgetSnapshot? {
+        guard let snapshot = snapshot(column.id) else { return nil }
+        guard column.id == "clock" else { return snapshot }
+
+        return AttachedWidgetSnapshot(
+            id: snapshot.id,
+            configuration: snapshot.configuration,
+            placement: snapshot.placement,
+            content: WidgetContent(
+                title: snapshot.content?.title ?? snapshot.configuration.title,
+                primaryText: Self.timeFormatter.string(from: Date()),
+                secondaryText: snapshot.content?.secondaryText,
+                accessoryText: snapshot.content?.accessoryText,
+                metadata: []
+            )
+        )
     }
 }
 
@@ -107,7 +106,7 @@ struct CuratedGreenView: View {
 enum BoardColumns {
     /// Clock, music, indoor, outdoor — all the same width.
     static let equalWidths: [CuratedGreenView.Column] = [
-        CuratedGreenView.Column("clock", .bigNumber, 1),
+        CuratedGreenView.Column("clock", .centeredValue, 1),
         CuratedGreenView.Column("music", .mediaCompact, 1),
         CuratedGreenView.Column("indoor", .standard, 1),
         CuratedGreenView.Column("outdoor", .standard, 1),
@@ -118,7 +117,7 @@ enum BoardColumns {
     static let wideClock: [CuratedGreenView.Column] = [
         CuratedGreenView.Column("indoor", .standard, 1),
         CuratedGreenView.Column("outdoor", .standard, 1),
-        CuratedGreenView.Column("clock", .bigNumber, 3),
+        CuratedGreenView.Column("clock", .centeredValue, 3),
         CuratedGreenView.Column("music", .mediaCompact, 2),
     ]
 }
