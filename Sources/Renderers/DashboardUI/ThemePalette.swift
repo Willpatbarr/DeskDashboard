@@ -156,10 +156,15 @@ extension Color {
 
 extension Font.Weight {
     /// Maps a CSS-style numeric weight (100–900) onto the nearest named weight.
+    /// Note the order of the two lightest cases: Apple's naming has `ultraLight`
+    /// *lighter* than `thin` (100 and 200 respectively), matching CSS. These were
+    /// swapped, which capped the theme's `headingWeight: 100` at GTK CSS weight 300
+    /// — so a family with genuine Thin/Ultralight faces (SF Pro) still rendered in
+    /// Light, and the "thin" look the gradient theme is built around never appeared.
     init(cssWeight: Int) {
         switch cssWeight {
-        case ..<150: self = .thin
-        case ..<250: self = .ultraLight
+        case ..<150: self = .ultraLight
+        case ..<250: self = .thin
         case ..<350: self = .light
         case ..<450: self = .regular
         case ..<550: self = .medium
