@@ -47,6 +47,9 @@ struct TileView: View {
             // here — it pushes the glyphs *down* and out of their box, so the
             // supporting line gets drawn straight through them (verified on the
             // panel twice now).
+            if role == .display {
+                return AnyView(trackedText(text, style: style))
+            }
             return AnyView(
                 Text(text)
                     .font(.system(size: style.size, weight: style.weight))
@@ -109,6 +112,43 @@ struct TileView: View {
         }
     }
 
+    /// Draws `text` one character at a time in an `HStack` with negative spacing,
+    /// which is the only way to get letter-spacing here.
+    ///
+    /// SwiftCrossUI's `Font` exposes size, weight and design — no tracking — and the
+    /// GTK backend's CSS property set has no `letter-spacing` either, so a single
+    /// `Text` can't be tightened. Negative stack spacing does work on this backend
+    /// (as negative padding does), so the value is composed per glyph.
+    ///
+    /// Tracking is proportional to the font (`-0.055em`), matching the design mock's
+    /// `letter-spacing: -10px` at its 180px size — so it stays right if the clock is
+    /// resized.
+    private func trackedText(
+        _ text: String,
+        style: (size: Double, weight: Font.Weight, color: Color, uppercased: Bool)
+    ) -> some View {
+        let characters = Array(text.enumerated())
+        return HStack(spacing: Int((style.size * -0.055).rounded())) {
+            ForEach(characters, id: \.offset) { item in
+                Text(String(item.element))
+                    .font(.system(size: style.size, weight: style.weight))
+                    .foregroundColor(style.color)
+                    .lineLimit(1)
+            }
+        }
+        // A definite height, because a bare `HStack` reports none here — without it
+        // the stack above collapsed this row to nothing and drew the supporting line
+        // straight over the value.
+        .frame(height: (style.size * 1.3).rounded())
+        // Even with that, the per-character labels draw *below* their box, so the
+        // next row still landed on top of the glyphs: measured, the supporting line's
+        // ink started 37px above the value's ink bottom. This clears it.
+        .padding(.bottom, Int((style.size * 0.29).rounded()))
+        // ...and the same dead space above the glyphs dropped the whole block ~90px
+        // below the values in the neighbouring tiles, so take it back off the top.
+        .padding(.top, -Int((style.size * 0.5).rounded()))
+    }
+
     // MARK: - Role -> concrete style (the theme decides the look)
 
     private func style(
@@ -126,6 +166,7 @@ struct TileView: View {
         case .display:   (palette.headingSize * 2.6, palette.headingWeight, palette.primary, false)
         case .primary:   (palette.headingSize, palette.headingWeight, palette.primary, false)
         case .secondary: (palette.bodySize, palette.bodyWeight, palette.text, false)
+        case .subtitle:  (palette.bodySize, palette.bodyWeight, palette.secondary, true)
         case .caption:   (palette.captionSize, palette.bodyWeight, palette.muted, false)
         }
     }

@@ -55,7 +55,7 @@ import Testing
         .text("Clock", role: .title),
         .centered([
             .text("9:21", role: .display),
-            .text("Tuesday, Aug 4", role: .secondary),
+            .text("Tuesday, Aug 4", role: .subtitle),
         ]),
         .spacer,
     ]))

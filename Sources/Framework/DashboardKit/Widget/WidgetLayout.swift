@@ -128,7 +128,7 @@ public enum WidgetLayout: Sendable, Equatable {
         // in the middle of its own tile.
         var value: [WidgetView] = [.text(content.primaryText, role: .display)]
         if let secondary = content.secondaryText {
-            value.append(.text(secondary, role: .secondary))
+            value.append(.text(secondary, role: .subtitle))
         }
         children.append(.centered(value))
         children.append(.spacer)

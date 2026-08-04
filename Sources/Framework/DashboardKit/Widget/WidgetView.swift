@@ -39,6 +39,9 @@ public enum TextRole: Sendable {
     case primary
     /// Supporting line under the primary value.
     case secondary
+    /// Supporting line rendered like the tile's label — uppercase, in the label
+    /// colour — but at body size. Pairs with `display` in `centeredValue`.
+    case subtitle
     /// De-emphasized fine print (metadata).
     case caption
 }
