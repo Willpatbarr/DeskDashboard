@@ -20,8 +20,10 @@ public enum WidgetLayout: Sendable, Equatable {
     /// Just the value, nothing else.
     case minimal
     /// Title parked at the top-left, with the value (and its supporting line)
-    /// centred in the rest of the tile — both vertically and horizontally. For a
-    /// tile whose value is the centrepiece, like the board's clock.
+    /// centred **horizontally** and top-aligned vertically — the value container
+    /// starts right below the title, exactly where every other layout puts its
+    /// value, so a row of tiles lines up. For a tile whose value is the
+    /// centrepiece, like the board's clock.
     case centeredValue
     /// Media/now-playing: title label, the primary value at *supporting* size
     /// (not the big primary role) so long song titles fit, a caption subline,
@@ -120,14 +122,14 @@ public enum WidgetLayout: Sendable, Equatable {
             children.append(.text(title, role: .title))
         }
 
-        // One `.centered` holding *both* lines, so the spacers above and below
-        // centre the block as a unit — equal space above the value and below its
-        // supporting line, rather than centring each line separately.
+        // Both lines in one `.centered` group so they share a centre line, and the
+        // group sits directly under the title with only a *trailing* spacer: that
+        // top-aligns it with the values in neighbouring tiles instead of floating it
+        // in the middle of its own tile.
         var value: [WidgetView] = [.text(content.primaryText, role: .display)]
         if let secondary = content.secondaryText {
             value.append(.text(secondary, role: .secondary))
         }
-        children.append(.spacer)
         children.append(.centered(value))
         children.append(.spacer)
 

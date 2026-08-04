@@ -62,26 +62,11 @@ struct TileView: View {
             let views = children.map(interpret)
             let indexed = Array(views.enumerated())
 
-            // Sitting between two spacers, this group is centred by *box*, but at
-            // display sizes the glyphs bleed below the box the layout allocates, so
-            // the block read ~22px low (126px of space above the ink, 38 below).
-            // Growing the group downward shrinks both spacers equally, which lifts
-            // the ink by half the inset. Scaled off the largest text in the group,
-            // since the bleed scales with the font.
-            let largest = children.reduce(0.0) { widest, child in
-                if case let .text(_, role) = child {
-                    return max(widest, style(for: role).size)
-                }
-                return widest
-            }
-            let opticalInset = Int((largest * 0.3).rounded())
-
             return AnyView(
                 VStack(alignment: .center, spacing: Int((2 * palette.verticalScale).rounded())) {
                     ForEach(indexed, id: \.offset) { $0.element }
                 }
                 .frame(maxWidth: .infinity)
-                .padding(.bottom, opticalInset)
             )
 
         case let .stack(axis, spacing, children):

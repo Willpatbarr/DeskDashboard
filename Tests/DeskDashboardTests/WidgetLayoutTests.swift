@@ -53,7 +53,6 @@ import Testing
     // — the spacers centre it vertically, `.centered` horizontally.
     #expect(WidgetLayout.centeredValue.makeView(content) == .stack(.vertical, spacing: 2, [
         .text("Clock", role: .title),
-        .spacer,
         .centered([
             .text("9:21", role: .display),
             .text("Tuesday, Aug 4", role: .secondary),
@@ -65,7 +64,6 @@ import Testing
 @Test func centeredValueLayoutOmitsAbsentSlots() {
     #expect(WidgetLayout.centeredValue.makeView(WidgetContent(primaryText: "71°F"))
         == .stack(.vertical, spacing: 2, [
-            .spacer,
             .centered([.text("71°F", role: .display)]),
             .spacer,
         ]))
