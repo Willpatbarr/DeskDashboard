@@ -42,6 +42,11 @@ struct TileView: View {
         case let .text(string, role):
             let style = style(for: role)
             let text = style.uppercased ? string.uppercased() : string
+            // Note: do NOT try to lift display text with a shorter `.frame(height:)`.
+            // A frame smaller than the label's natural box does not centre the text
+            // here — it pushes the glyphs *down* and out of their box, so the
+            // supporting line gets drawn straight through them (verified on the
+            // panel twice now).
             return AnyView(
                 Text(text)
                     .font(.system(size: style.size, weight: style.weight))
@@ -62,11 +67,23 @@ struct TileView: View {
             let views = children.map(interpret)
             let indexed = Array(views.enumerated())
 
+            // Lift the group by the ascent its largest text reserves above its cap
+            // height (~0.17× the font size), so a big value's glyph top lines up with
+            // the smaller values in neighbouring tiles instead of sitting lower.
+            let largest = children.reduce(0.0) { widest, child in
+                if case let .text(_, role) = child {
+                    return max(widest, style(for: role).size)
+                }
+                return widest
+            }
+            let lift = Int((largest * 0.17).rounded())
+
             return AnyView(
                 VStack(alignment: .center, spacing: Int((2 * palette.verticalScale).rounded())) {
                     ForEach(indexed, id: \.offset) { $0.element }
                 }
                 .frame(maxWidth: .infinity)
+                .padding(.top, -lift)
             )
 
         case let .stack(axis, spacing, children):
@@ -100,10 +117,13 @@ struct TileView: View {
         switch role {
         case .title:     (palette.captionSize, palette.bodyWeight, palette.secondary, true)
         case .hero:      (palette.headingSize * 1.6, palette.headingWeight, palette.primary, false)
-        // Bounded by the *narrowest* column that uses it: in the equal-width board
-        // the clock gets ~442px, leaving ~394px inside the padding, and a
-        // five-glyph time ("12:34") runs about 2.25× the font size.
-        case .display:   (palette.headingSize * 2.2, palette.headingWeight, palette.primary, false)
+        // Only `.centeredValue` uses this, and only the wide board's 3fr clock
+        // column uses that: ~765px wide, ~717px inside the padding. A five-glyph
+        // time ("12:34") runs about 2.3× the font size, so width is not the binding
+        // constraint here — *height* is. At 3× (207pt) the supporting line below the
+        // value ran to y=435 against a tile bottom of 428; 2.6× leaves it clear.
+        // Re-check both bounds before reusing this role in a smaller tile.
+        case .display:   (palette.headingSize * 2.6, palette.headingWeight, palette.primary, false)
         case .primary:   (palette.headingSize, palette.headingWeight, palette.primary, false)
         case .secondary: (palette.bodySize, palette.bodyWeight, palette.text, false)
         case .caption:   (palette.captionSize, palette.bodyWeight, palette.muted, false)
