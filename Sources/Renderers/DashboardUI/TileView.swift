@@ -120,15 +120,14 @@ struct TileView: View {
     /// `Text` can't be tightened. Negative stack spacing does work on this backend
     /// (as negative padding does), so the value is composed per glyph.
     ///
-    /// Tracking is proportional to the font (`-0.055em`), matching the design mock's
-    /// `letter-spacing: -10px` at its 180px size — so it stays right if the clock is
-    /// resized.
+    /// Tracking is proportional to the font (`-0.0275em`), i.e. `-5px` at the design
+    /// mock's 180px size — so it stays right if the clock is resized.
     private func trackedText(
         _ text: String,
         style: (size: Double, weight: Font.Weight, color: Color, uppercased: Bool)
     ) -> some View {
         let characters = Array(text.enumerated())
-        return HStack(spacing: Int((style.size * -0.055).rounded())) {
+        return HStack(spacing: Int((style.size * -0.0275).rounded())) {
             ForEach(characters, id: \.offset) { item in
                 Text(String(item.element))
                     .font(.system(size: style.size, weight: style.weight))
@@ -142,8 +141,9 @@ struct TileView: View {
         .frame(height: (style.size * 1.3).rounded())
         // Even with that, the per-character labels draw *below* their box, so the
         // next row still landed on top of the glyphs: measured, the supporting line's
-        // ink started 37px above the value's ink bottom. This clears it.
-        .padding(.bottom, Int((style.size * 0.29).rounded()))
+        // ink started 37px above the value's ink bottom. This clears it, with a
+        // little breathing room beyond.
+        .padding(.bottom, Int((style.size * 0.36).rounded()))
         // ...and the same dead space above the glyphs dropped the whole block ~90px
         // below the values in the neighbouring tiles, so take it back off the top.
         .padding(.top, -Int((style.size * 0.5).rounded()))
@@ -166,7 +166,9 @@ struct TileView: View {
         case .display:   (palette.headingSize * 2.6, palette.headingWeight, palette.primary, false)
         case .primary:   (palette.headingSize, palette.headingWeight, palette.primary, false)
         case .secondary: (palette.bodySize, palette.bodyWeight, palette.text, false)
-        case .subtitle:  (palette.bodySize, palette.bodyWeight, palette.secondary, true)
+        // A notch under body size: it's a caption-ish line under a display value,
+        // and uppercase reads larger than mixed case at the same point size.
+        case .subtitle:  (palette.bodySize * 0.85, palette.bodyWeight, palette.secondary, true)
         case .caption:   (palette.captionSize, palette.bodyWeight, palette.muted, false)
         }
     }
