@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "deskdashboard-dev",
+      "runtimeExecutable": ".build/debug/DeskDashboard",
+      "runtimeArgs": [],
+      "port": 8642
+    }
+  ]
+}
