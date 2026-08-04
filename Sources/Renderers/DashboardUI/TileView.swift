@@ -47,6 +47,9 @@ struct TileView: View {
             // here — it pushes the glyphs *down* and out of their box, so the
             // supporting line gets drawn straight through them (verified on the
             // panel twice now).
+            if role == .display {
+                return AnyView(tightenedText(text, style: style))
+            }
             return AnyView(
                 Text(text)
                     .font(.system(size: style.size, weight: style.weight))
@@ -110,6 +113,63 @@ struct TileView: View {
                 )
             }
         }
+    }
+
+    /// Draws display text as runs split around its separators, pulled together with
+    /// negative stack spacing — the closest thing to letter-spacing available here.
+    ///
+    /// There is no tracking API: `Font` exposes size, weight and design only, the GTK
+    /// backend's CSS property set has no `letter-spacing`, and `Text` doesn't go
+    /// through Pango markup.
+    ///
+    /// Splitting *per character* was the obvious approach and it's wrong: a `Text` is
+    /// sized to its **ink**, not to the font's advance, so narrow glyphs lose their
+    /// side bearings — the colon is two dots, and its neighbours landed on top of
+    /// them. Splitting on separators keeps each digit group a real text run (advances
+    /// and kerning intact) and tightens only the joins, which is where the slack is.
+    private func tightenedText(
+        _ text: String,
+        style: (size: Double, weight: Font.Weight, color: Color, uppercased: Bool)
+    ) -> some View {
+        let runs = Self.separatorRuns(of: text)
+        let indexed = Array(runs.enumerated())
+        return HStack(spacing: Int((style.size * Self.displayTightening).rounded())) {
+            ForEach(indexed, id: \.offset) { item in
+                Text(item.element)
+                    .font(.system(size: style.size, weight: style.weight))
+                    .foregroundColor(style.color)
+                    .lineLimit(1)
+            }
+        }
+        // A bare `HStack` reports no height here, which collapses the row and lets the
+        // supporting line draw over the value; and the glyphs then sit low in that box,
+        // so the line below needs pushing clear and the whole block lifting back up.
+        // All three measured on the panel.
+        .frame(height: (style.size * 1.3).rounded())
+        .padding(.bottom, Int((style.size * 0.50).rounded()))
+        .padding(.top, -Int((style.size * 0.60).rounded()))
+    }
+
+    /// How far to pull display runs together, as a fraction of the font size.
+    /// Tuned on the panel: tight without the digits touching the colon.
+    private static let displayTightening = -0.05
+
+    /// Splits `text` into alphanumeric runs and the separators between them, e.g.
+    /// `"12:30"` -> `["12", ":", "30"]`.
+    private static func separatorRuns(of text: String) -> [String] {
+        var runs: [String] = []
+        var current = ""
+        for character in text {
+            let isSeparator = !character.isLetter && !character.isNumber
+            if isSeparator {
+                if !current.isEmpty { runs.append(current); current = "" }
+                runs.append(String(character))
+            } else {
+                current.append(character)
+            }
+        }
+        if !current.isEmpty { runs.append(current) }
+        return runs
     }
 
     // MARK: - Role -> concrete style (the theme decides the look)
