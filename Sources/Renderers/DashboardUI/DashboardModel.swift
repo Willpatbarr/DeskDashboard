@@ -33,8 +33,8 @@ final class DashboardModel: ObservableObject {
         enum Screen: Equatable {
             /// Interactive Magic: The Gathering life/turn tracker.
             case mtg
-            /// Curated four-tile board (clock, music, indoor, outdoor).
-            case board
+            /// Curated single-row board with proportional column widths.
+            case board([CuratedGreenView.Column])
         }
 
         init(
@@ -91,22 +91,14 @@ final class DashboardModel: ObservableObject {
         self.showsPreviewControls = showsPreviewControls
         self.chromeTheme = theme
         self.scaleMultiplier = scaleMultiplier > 0 ? scaleMultiplier : 1
+        // Index 0 is what the kiosk shows at boot, so the everyday board leads.
         self.previews = [
-            Preview(name: theme.name, short: "Real", theme: theme),
-            Preview(name: "Dark · big number", short: "Big", theme: DarkDeskTheme(), layout: .bigNumber),
-            Preview(name: "Dark · stat", short: "Stat", theme: DarkDeskTheme(), layout: .stat),
-            Preview(name: "Light · standard", short: "Light",
-                    theme: DarkDeskTheme(name: "Light", colors: .light), layout: .standard),
-            Preview(name: "Light · compact", short: "Compact",
-                    theme: DarkDeskTheme(name: "Light", colors: .light), layout: .compact),
-            Preview(name: "Neon · minimal", short: "Neon",
-                    theme: DarkDeskTheme(name: "Neon", colors: .neon), layout: .minimal),
-            Preview(name: "Gradient · clock", short: "Clock",
-                    theme: Self.gradientTheme, layout: .bigNumber),
+            Preview(name: "Green · board", short: "Board",
+                    theme: Self.boardTheme, screen: .board(BoardColumns.equalWidths)),
+            Preview(name: "Green · wide clock", short: "Wide",
+                    theme: Self.boardTheme, screen: .board(BoardColumns.wideClock)),
             Preview(name: "Gradient · MTG", short: "MTG",
                     theme: Self.gradientTheme, screen: .mtg),
-            Preview(name: "Green · board", short: "Board",
-                    theme: Self.boardTheme, screen: .board),
         ]
     }
 
@@ -138,8 +130,10 @@ final class DashboardModel: ObservableObject {
     var previewName: String { current.name }
     /// Whether the current preview is the interactive MTG mode.
     var isMTG: Bool { current.screen == .mtg }
-    /// Whether the current preview is the curated four-tile board.
-    var isBoard: Bool { current.screen == .board }
+    /// The board's column spec when the current preview is a board, else `nil`.
+    var boardColumns: [CuratedGreenView.Column]? {
+        if case let .board(columns) = current.screen { columns } else { nil }
+    }
 
     /// The clock widget's latest time text, for the MTG mini-clock. Updates each
     /// tick as fresh snapshots arrive, so the MTG clock stays live.

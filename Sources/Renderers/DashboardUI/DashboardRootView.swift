@@ -84,8 +84,8 @@ struct DashboardRootView: View {
                 .frame(height: inner)
                 .padding(.horizontal, palette.sectionMargin)
                 .padding(.vertical, palette.verticalSectionMargin)
-        } else if model.isBoard {
-            CuratedGreenView(palette: palette, snapshots: model.snapshots)
+        } else if let columns = model.boardColumns {
+            CuratedGreenView(palette: palette, snapshots: model.snapshots, columns: columns)
                 .frame(height: inner)
                 .padding(.horizontal, palette.sectionMargin)
                 .padding(.vertical, palette.verticalSectionMargin)

@@ -2,18 +2,35 @@ import DashboardKit
 import Foundation
 import SwiftCrossUI
 
-/// The curated "green board": a four-tile dashboard on the gradient-clock theme —
-/// clock, music, indoor temp, outdoor temp, in that order (no alarm tile).
+/// A curated single-row board on the gradient-clock theme, with the columns and
+/// their relative widths given by `columns`.
 ///
-/// - All four tiles are forced to **equal width** via a `GeometryReader` (each
-///   gets `1/4` of the row rather than sizing to its content).
-/// - The clock shows a **big, minute-precision** time built locally, so it never
-///   shows seconds regardless of the clock widget's `showSeconds` option.
+/// - Widths are **proportional**, CSS-`fr`-style: each column takes
+///   `weight / totalWeight` of the row (minus the gaps between tiles), sized from a
+///   `GeometryReader` rather than from content.
+/// - The clock column shows a **big, minute-precision** time built locally, so it
+///   never shows seconds regardless of the clock widget's `showSeconds` option.
 /// - Music uses `.mediaCompact` (smaller title text) so long song titles fit.
 /// - The temps use `.standard`, unchanged.
 struct CuratedGreenView: View {
+    /// One column: which widget, how to lay its content out, and how wide it is
+    /// relative to its siblings.
+    struct Column: Equatable {
+        let id: String
+        let layout: WidgetLayout
+        /// Relative width, like a CSS `fr` unit.
+        let weight: Double
+
+        init(_ id: String, _ layout: WidgetLayout, _ weight: Double) {
+            self.id = id
+            self.layout = layout
+            self.weight = weight
+        }
+    }
+
     let palette: ThemePalette
     let snapshots: [AttachedWidgetSnapshot]
+    let columns: [Column]
 
     /// Minute-precision, no seconds. Rebuilt each render (snapshots tick ~1s).
     private static let timeFormatter: DateFormatter = {
@@ -25,42 +42,37 @@ struct CuratedGreenView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let count = 4
+            let visible = columns.filter { $0.id == "clock" || snapshot($0.id) != nil }
+            let total = max(1, visible.reduce(0) { $0 + $1.weight })
             let gap = palette.widgetGap
-            let available = proxy.size.width - Double(gap * (count - 1))
-            let tileWidth = max(1, available / Double(count))
+            let available = max(1, proxy.size.width - Double(gap * max(0, visible.count - 1)))
 
             HStack(spacing: gap) {
-                clockTile.frame(width: tileWidth).tileCorners(palette)
-                ForEach(snapshotTiles, id: \.snapshot.id.rawValue) { item in
-                    TileView(
-                        snapshot: item.snapshot,
-                        palette: palette,
-                        layoutOverride: item.layout
-                    )
-                    .frame(width: tileWidth)
-                    .tileCorners(palette)
+                ForEach(Array(visible.enumerated()), id: \.element.id) { item in
+                    column(item.element)
+                        .frame(width: max(1, available * item.element.weight / total))
+                        // Corners are rounded here, by the parent: a child view's own
+                        // `.cornerRadius` doesn't clip its composited background on
+                        // the GTK backend.
+                        .tileCorners(palette)
                 }
             }
         }
     }
 
-    private func snapshot(_ id: String) -> AttachedWidgetSnapshot? {
-        snapshots.first { $0.id.rawValue == id }
+    /// The clock column is hand-built (for minute precision); everything else goes
+    /// through the shared `TileView`.
+    @ViewBuilder
+    private func column(_ column: Column) -> some View {
+        if column.id == "clock" {
+            clockTile
+        } else if let snapshot = snapshot(column.id) {
+            TileView(snapshot: snapshot, palette: palette, layoutOverride: column.layout)
+        }
     }
 
-    /// The three snapshot-backed tiles, resolved up front.
-    ///
-    /// Deliberately *not* an `@ViewBuilder` with `if let` per tile: that wraps each
-    /// tile in an optional view, and on the GTK backend those tiles rendered with
-    /// **square corners** while the plainly-constructed clock tile kept its
-    /// rounded ones. Resolving the snapshots first keeps every tile on the same
-    /// unwrapped path.
-    private var snapshotTiles: [(snapshot: AttachedWidgetSnapshot, layout: WidgetLayout)] {
-        [("music", WidgetLayout.mediaCompact), ("indoor", .standard), ("outdoor", .standard)]
-            .compactMap { id, layout in
-                snapshot(id).map { (snapshot: $0, layout: layout) }
-            }
+    private func snapshot(_ id: String) -> AttachedWidgetSnapshot? {
+        snapshots.first { $0.id.rawValue == id }
     }
 
     /// The clock tile — a `.bigNumber`-style stack (title / hero / date) built
@@ -86,4 +98,27 @@ struct CuratedGreenView: View {
         .background(palette.surface)
         .cornerRadius(Int(palette.cornerRadius.rounded()))
     }
+}
+
+/// Column specs for the curated boards.
+///
+/// Deliberately *not* statics on `CuratedGreenView`: statics on a `View` inherit
+/// its main-actor isolation, so `DashboardModel.init` couldn't reference them.
+enum BoardColumns {
+    /// Clock, music, indoor, outdoor — all the same width.
+    static let equalWidths: [CuratedGreenView.Column] = [
+        CuratedGreenView.Column("clock", .bigNumber, 1),
+        CuratedGreenView.Column("music", .mediaCompact, 1),
+        CuratedGreenView.Column("indoor", .standard, 1),
+        CuratedGreenView.Column("outdoor", .standard, 1),
+    ]
+
+    /// Temps narrow on the left, then a wide clock and a roomy music column
+    /// (1fr / 1fr / 3fr / 2fr).
+    static let wideClock: [CuratedGreenView.Column] = [
+        CuratedGreenView.Column("indoor", .standard, 1),
+        CuratedGreenView.Column("outdoor", .standard, 1),
+        CuratedGreenView.Column("clock", .bigNumber, 3),
+        CuratedGreenView.Column("music", .mediaCompact, 2),
+    ]
 }
