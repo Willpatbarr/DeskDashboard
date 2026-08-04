@@ -54,8 +54,10 @@ import Testing
     #expect(WidgetLayout.centeredValue.makeView(content) == .stack(.vertical, spacing: 2, [
         .text("Clock", role: .title),
         .spacer,
-        .centered([.text("9:21", role: .display)]),
-        .centered([.text("Tuesday, Aug 4", role: .secondary)]),
+        .centered([
+            .text("9:21", role: .display),
+            .text("Tuesday, Aug 4", role: .secondary),
+        ]),
         .spacer,
     ]))
 }

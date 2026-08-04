@@ -120,15 +120,15 @@ public enum WidgetLayout: Sendable, Equatable {
             children.append(.text(title, role: .title))
         }
 
-        // Spacers above and below do the vertical centring; each `.centered` row
-        // does the horizontal. One row per line rather than one `.centered` holding
-        // both: nesting two lines inside a single centring container made the
-        // renderer draw the supporting line *on top of* the value.
-        children.append(.spacer)
-        children.append(.centered([.text(content.primaryText, role: .display)]))
+        // One `.centered` holding *both* lines, so the spacers above and below
+        // centre the block as a unit — equal space above the value and below its
+        // supporting line, rather than centring each line separately.
+        var value: [WidgetView] = [.text(content.primaryText, role: .display)]
         if let secondary = content.secondaryText {
-            children.append(.centered([.text(secondary, role: .secondary)]))
+            value.append(.text(secondary, role: .secondary))
         }
+        children.append(.spacer)
+        children.append(.centered(value))
         children.append(.spacer)
 
         return .stack(.vertical, spacing: 2, children)
