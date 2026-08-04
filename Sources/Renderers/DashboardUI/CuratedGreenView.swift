@@ -104,9 +104,10 @@ struct CuratedGreenView: View {
 /// Deliberately *not* statics on `CuratedGreenView`: statics on a `View` inherit
 /// its main-actor isolation, so `DashboardModel.init` couldn't reference them.
 enum BoardColumns {
-    /// Clock, music, indoor, outdoor — all the same width.
+    /// Clock, music, indoor, outdoor — all the same width, and the clock keeps the
+    /// original top-left `.bigNumber` treatment (the centred one is the wide board's).
     static let equalWidths: [CuratedGreenView.Column] = [
-        CuratedGreenView.Column("clock", .centeredValue, 1),
+        CuratedGreenView.Column("clock", .bigNumber, 1),
         CuratedGreenView.Column("music", .mediaCompact, 1),
         CuratedGreenView.Column("indoor", .standard, 1),
         CuratedGreenView.Column("outdoor", .standard, 1),
