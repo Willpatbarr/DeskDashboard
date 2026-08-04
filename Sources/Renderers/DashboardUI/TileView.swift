@@ -47,9 +47,6 @@ struct TileView: View {
             // here — it pushes the glyphs *down* and out of their box, so the
             // supporting line gets drawn straight through them (verified on the
             // panel twice now).
-            if role == .display {
-                return AnyView(trackedText(text, style: style))
-            }
             return AnyView(
                 Text(text)
                     .font(.system(size: style.size, weight: style.weight))
@@ -79,10 +76,13 @@ struct TileView: View {
                 }
                 return widest
             }
-            let lift = Int((largest * 0.17).rounded())
+            let lift = Int((largest * 0.11).rounded())
 
             return AnyView(
-                VStack(alignment: .center, spacing: Int((2 * palette.verticalScale).rounded())) {
+                // Negative, because the two labels' own boxes already leave ~50px
+                // between the inks at this size; this trims it to the ~26px that
+                // reads right.
+                VStack(alignment: .center, spacing: Int((largest * -0.13).rounded())) {
                     ForEach(indexed, id: \.offset) { $0.element }
                 }
                 .frame(maxWidth: .infinity)
@@ -110,43 +110,6 @@ struct TileView: View {
                 )
             }
         }
-    }
-
-    /// Draws `text` one character at a time in an `HStack` with negative spacing,
-    /// which is the only way to get letter-spacing here.
-    ///
-    /// SwiftCrossUI's `Font` exposes size, weight and design — no tracking — and the
-    /// GTK backend's CSS property set has no `letter-spacing` either, so a single
-    /// `Text` can't be tightened. Negative stack spacing does work on this backend
-    /// (as negative padding does), so the value is composed per glyph.
-    ///
-    /// Tracking is proportional to the font (`-0.0055em`), i.e. `-1px` at the design
-    /// mock's 180px size — so it stays right if the clock is resized.
-    private func trackedText(
-        _ text: String,
-        style: (size: Double, weight: Font.Weight, color: Color, uppercased: Bool)
-    ) -> some View {
-        let characters = Array(text.enumerated())
-        return HStack(spacing: Int((style.size * -0.0055).rounded())) {
-            ForEach(characters, id: \.offset) { item in
-                Text(String(item.element))
-                    .font(.system(size: style.size, weight: style.weight))
-                    .foregroundColor(style.color)
-                    .lineLimit(1)
-            }
-        }
-        // A definite height, because a bare `HStack` reports none here — without it
-        // the stack above collapsed this row to nothing and drew the supporting line
-        // straight over the value.
-        .frame(height: (style.size * 1.3).rounded())
-        // Even with that, the per-character labels draw *below* their box, so the
-        // next row still landed on top of the glyphs: measured, the supporting line's
-        // ink started 37px above the value's ink bottom. This clears it, with a
-        // little breathing room beyond.
-        .padding(.bottom, Int((style.size * 0.36).rounded()))
-        // ...and the same dead space above the glyphs dropped the whole block ~90px
-        // below the values in the neighbouring tiles, so take it back off the top.
-        .padding(.top, -Int((style.size * 0.5).rounded()))
     }
 
     // MARK: - Role -> concrete style (the theme decides the look)
