@@ -219,7 +219,10 @@ extension DevWebRenderer {
           * { box-sizing: border-box; }
           body {
             margin: 0; background: var(--background); color: var(--text);
-            font-family: "\(typography.fontFamily)", -apple-system, system-ui, sans-serif;
+            /* Same stack as the design mock, so the preview and the reference
+               render in the same face: Roboto on Linux, SF on Apple platforms. */
+            font-family: \(typography.fontFamily), -apple-system, BlinkMacSystemFont,
+                         "Segoe UI", Roboto, Arial, sans-serif;
           }
           header {
             display: flex; justify-content: space-between; align-items: baseline;

@@ -142,6 +142,11 @@ public struct ThemeColors: Equatable, Sendable {
 /// Type tokens. The sizes are *reference* sizes, authored at
 /// `ThemeMetrics.referenceViewport`, not fixed pixel values — renderers scale
 /// them to the screen via `Theme.sizes(for:)`.
+///
+/// `fontFamily` reaches the **dev web renderer only**. SwiftCrossUI's `Font` has a
+/// single identifier — `.system` — and no way to name a family, so the native UI
+/// always draws in whatever the platform's UI font is. On the Pi that's chosen by
+/// GTK (`~/.config/gtk-4.0/settings.ini`), not by this theme.
 public struct ThemeTypography: Equatable, Sendable {
     public var fontFamily: String
     public var headingSize: Double
@@ -167,7 +172,7 @@ public struct ThemeTypography: Equatable, Sendable {
     }
 
     public static let `default` = Self(
-        fontFamily: "SF Pro",
+        fontFamily: "system-ui",
         headingSize: 28,
         bodySize: 17,
         captionSize: 13,
@@ -177,7 +182,7 @@ public struct ThemeTypography: Equatable, Sendable {
 
     /// Large, thin numerals with light labels — the gradient-clock aesthetic.
     public static let airy = Self(
-        fontFamily: "SF Pro",
+        fontFamily: "system-ui",
         headingSize: 44,
         bodySize: 18,
         captionSize: 14,
@@ -188,7 +193,7 @@ public struct ThemeTypography: Equatable, Sendable {
     /// Like `airy`, but the supporting text (body/caption) is a notch larger for
     /// legibility on the curated board.
     public static let airyLegible = Self(
-        fontFamily: "SF Pro",
+        fontFamily: "system-ui",
         headingSize: 46,
         bodySize: 24,
         captionSize: 18,
