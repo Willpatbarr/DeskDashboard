@@ -12,6 +12,12 @@ public final class MusicWidgetModel: WidgetModel {
     private(set) var displayTitle: String?
     private(set) var displaySubtitle: String?
     private(set) var displayProgress: String?
+    /// Track position as a fraction 0…1 (nil without both elapsed + duration).
+    private(set) var progressFraction: Double?
+    /// "2:20" — the live position alone, for a progress line's leading end.
+    private(set) var displayElapsed: String?
+    /// "4:18" — the track length alone, for a progress line's trailing end.
+    private(set) var displayDuration: String?
     private(set) var isPlaying: Bool = false
     private(set) var hasTrack: Bool = false
 
@@ -45,6 +51,9 @@ public final class MusicWidgetModel: WidgetModel {
             displayTitle = nil
             displaySubtitle = nil
             displayProgress = nil
+            progressFraction = nil
+            displayElapsed = nil
+            displayDuration = nil
             isPlaying = false
             hasTrack = false
             return
@@ -55,6 +64,9 @@ public final class MusicWidgetModel: WidgetModel {
         displayTitle = track.title
         displaySubtitle = subtitle(for: track)
         displayProgress = progress(for: track, at: date)
+        progressFraction = fraction(for: track, at: date)
+        displayElapsed = liveElapsed(for: track, at: date).map(timeText)
+        displayDuration = track.duration.map(timeText)
     }
 
     // MARK: - Helpers
@@ -79,9 +91,32 @@ public final class MusicWidgetModel: WidgetModel {
         for track: NowPlaying,
         at date: Date
     ) -> String? {
-        guard let elapsed = track.elapsed else { return nil }
+        guard let live = liveElapsed(for: track, at: date) else { return nil }
+        guard let duration = track.duration else {
+            return timeText(live)
+        }
+        return "\(timeText(live)) / \(timeText(duration))"
+    }
 
-        // Advance the position only while playing; a paused track holds still.
+    /// Position ÷ duration, 0…1, advancing live like `progress`. Needs a
+    /// duration; a stream with no known length has no fraction to report.
+    private func fraction(
+        for track: NowPlaying,
+        at date: Date
+    ) -> Double? {
+        guard let live = liveElapsed(for: track, at: date),
+              let duration = track.duration, duration > 0
+        else { return nil }
+        return min(1, live / duration)
+    }
+
+    /// The track position as of `date`. Advances only while playing (a paused
+    /// track holds still), clamped to 0…duration. Nil when unreported.
+    private func liveElapsed(
+        for track: NowPlaying,
+        at date: Date
+    ) -> TimeInterval? {
+        guard let elapsed = track.elapsed else { return nil }
         var live = elapsed
         if track.isPlaying {
             live += date.timeIntervalSince(track.timestamp)
@@ -90,11 +125,7 @@ public final class MusicWidgetModel: WidgetModel {
         if let duration = track.duration {
             live = min(live, duration)
         }
-
-        guard let duration = track.duration else {
-            return timeText(live)
-        }
-        return "\(timeText(live)) / \(timeText(duration))"
+        return live
     }
 
     /// Seconds -> "m:ss" (or "h:mm:ss" for long tracks).

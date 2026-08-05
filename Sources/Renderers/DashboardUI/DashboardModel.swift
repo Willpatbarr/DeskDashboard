@@ -33,8 +33,8 @@ final class DashboardModel: ObservableObject {
         enum Screen: Equatable {
             /// Interactive Magic: The Gathering life/turn tracker.
             case mtg
-            /// Curated four-tile board (clock, music, indoor, outdoor).
-            case board
+            /// Curated single-row board with proportional column widths.
+            case board([CuratedGreenView.Column])
         }
 
         init(
@@ -69,6 +69,13 @@ final class DashboardModel: ObservableObject {
         shape: .rounded
     )
 
+    /// The composition's real theme, kept aside from `previews` so the app chrome
+    /// (title line, switcher pill) can size itself from something that does *not*
+    /// change when you pick a preview. Previews carry their own typography
+    /// (caption 13/14/18), so chrome sized from the selected preview's palette
+    /// visibly resized itself on every switch.
+    private let chromeTheme: any Theme
+
     /// Multiplied into the viewport-derived scale before sizes are resolved.
     /// Set from `--scale N` / `DD_UI_SCALE` so type can be dialed in on a real
     /// screen without a rebuild (a Pi build is slow). `1` means "as computed".
@@ -82,23 +89,20 @@ final class DashboardModel: ObservableObject {
     ) {
         self.snapshots = snapshots
         self.showsPreviewControls = showsPreviewControls
+        self.chromeTheme = theme
         self.scaleMultiplier = scaleMultiplier > 0 ? scaleMultiplier : 1
+        // Index 0 is what the kiosk shows at boot, so the everyday board leads.
         self.previews = [
-            Preview(name: theme.name, short: "Real", theme: theme),
-            Preview(name: "Dark · big number", short: "Big", theme: DarkDeskTheme(), layout: .bigNumber),
-            Preview(name: "Dark · stat", short: "Stat", theme: DarkDeskTheme(), layout: .stat),
-            Preview(name: "Light · standard", short: "Light",
-                    theme: DarkDeskTheme(name: "Light", colors: .light), layout: .standard),
-            Preview(name: "Light · compact", short: "Compact",
-                    theme: DarkDeskTheme(name: "Light", colors: .light), layout: .compact),
-            Preview(name: "Neon · minimal", short: "Neon",
-                    theme: DarkDeskTheme(name: "Neon", colors: .neon), layout: .minimal),
-            Preview(name: "Gradient · clock", short: "Clock",
-                    theme: Self.gradientTheme, layout: .bigNumber),
+            Preview(name: "Green · board", short: "Board",
+                    theme: Self.boardTheme, screen: .board(BoardColumns.equalWidths)),
+            Preview(name: "Green · wide clock", short: "Wide",
+                    theme: Self.boardTheme, screen: .board(BoardColumns.wideClock)),
+            Preview(name: "Green · focus", short: "Focus",
+                    theme: Self.boardTheme, screen: .board(BoardColumns.focus)),
+            Preview(name: "Green · focus flipped", short: "Flip",
+                    theme: Self.boardTheme, screen: .board(BoardColumns.focusFlipped)),
             Preview(name: "Gradient · MTG", short: "MTG",
                     theme: Self.gradientTheme, screen: .mtg),
-            Preview(name: "Green · board", short: "Board",
-                    theme: Self.boardTheme, screen: .board),
         ]
     }
 
@@ -114,13 +118,26 @@ final class DashboardModel: ObservableObject {
             scaleMultiplier: scaleMultiplier
         )
     }
+    /// Palette for the app chrome: sizes that stay put across preview switches.
+    /// Colours still come from `palette(for:)` so the chrome matches the theme on
+    /// screen — it's only the geometry that must not move.
+    func chromePalette(for viewport: Viewport) -> ThemePalette {
+        ThemePalette(
+            theme: chromeTheme,
+            viewport: viewport,
+            scaleMultiplier: scaleMultiplier
+        )
+    }
+
     /// A layout forced on every tile for the current preview, or `nil`.
     var layoutOverride: WidgetLayout? { current.layout }
     var previewName: String { current.name }
     /// Whether the current preview is the interactive MTG mode.
     var isMTG: Bool { current.screen == .mtg }
-    /// Whether the current preview is the curated four-tile board.
-    var isBoard: Bool { current.screen == .board }
+    /// The board's column spec when the current preview is a board, else `nil`.
+    var boardColumns: [CuratedGreenView.Column]? {
+        if case let .board(columns) = current.screen { columns } else { nil }
+    }
 
     /// The clock widget's latest time text, for the MTG mini-clock. Updates each
     /// tick as fresh snapshots arrive, so the MTG clock stays live.
@@ -130,6 +147,9 @@ final class DashboardModel: ObservableObject {
 
     /// Jump straight to a preview by index (a segment tap). Out-of-range is
     /// ignored. This is the hook a real layout switcher would drive too.
+    ///
+    /// Selection is instant; the pill owns its own highlight animation (see
+    /// `PillAnimator`) so a slide never re-renders the tiles.
     func select(_ index: Int) {
         guard previews.indices.contains(index) else { return }
         previewIndex = index
@@ -143,4 +163,24 @@ final class DashboardModel: ObservableObject {
 /// before launching; `DashboardRootView` reads it once into its `@State`.
 enum DashboardLaunch {
     nonisolated(unsafe) static var model: DashboardModel?
+
+    /// The window's opening size. Defaults to the theme reference canvas, so an
+    /// unconfigured launch starts at scale 1×. Override with `--window 1920x440`
+    /// to reproduce a target panel's geometry — the Pi's strip display is a very
+    /// different shape from a Mac window, and that shape is what breaks layouts.
+    nonisolated(unsafe) static var windowSize: (width: Int, height: Int) = (1280, 800)
+
+    /// Set only when `--window` was passed explicitly. `defaultSize` alone is not
+    /// enough: it seeds the window's initial rect, then SwiftCrossUI resizes the
+    /// window to its content's ideal size, and this dashboard's root fills space
+    /// flexibly — so the window snapped back to its content size (~1329×350) and
+    /// the flag silently did nothing. Pinning the *root view* to the requested
+    /// frame makes the content's ideal size the requested size.
+    nonisolated(unsafe) static var forcedWindowSize: (width: Int, height: Int)?
+
+    /// Total duration of the pill's highlight slide, in milliseconds. `0` turns
+    /// the animation off (instant jump). Set from `DD_UI_SLIDE_MS`, so a display
+    /// that renders frames too slowly can be tuned or opted out without a rebuild
+    /// — which matters when the target is a Pi and each build is minutes.
+    nonisolated(unsafe) static var slideMilliseconds: Double = 300
 }

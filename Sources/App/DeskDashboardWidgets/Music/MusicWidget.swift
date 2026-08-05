@@ -39,6 +39,18 @@ public struct MusicWidget: ServiceBackedWidget {
         model?.displayProgress
     }
 
+    var progressFraction: Double? {
+        model?.progressFraction
+    }
+
+    var displayElapsed: String? {
+        model?.displayElapsed
+    }
+
+    var displayDuration: String? {
+        model?.displayDuration
+    }
+
     var isPlaying: Bool {
         model?.isPlaying ?? false
     }
@@ -87,6 +99,10 @@ public struct MusicWidget: ServiceBackedWidget {
             // when the track carries no artist or album.
             secondaryText: displaySubtitle ?? displayProgress,
             accessoryText: isPlaying ? nil : "PAUSED",
+            progress: progressFraction,
+            elapsedText: displayElapsed,
+            durationText: displayDuration,
+            isPlaying: isPlaying,
             metadata: metadata
         )
     }

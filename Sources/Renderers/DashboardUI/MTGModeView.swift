@@ -14,19 +14,19 @@ struct MTGModeView: View {
 
     var body: some View {
         HStack(spacing: palette.widgetGap) {
-            LifeCounterView(palette: palette)
-            LifeCounterView(palette: palette)
+            LifeCounterView(palette: palette).tileCorners(palette)
+            LifeCounterView(palette: palette).tileCorners(palette)
             centerStack
-            LifeCounterView(palette: palette)
-            LifeCounterView(palette: palette)
+            LifeCounterView(palette: palette).tileCorners(palette)
+            LifeCounterView(palette: palette).tileCorners(palette)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var centerStack: some View {
-        VStack(spacing: palette.widgetGap) {
-            MiniClockView(palette: palette, time: time)
-            TurnCounterView(palette: palette)
+        VStack(spacing: palette.verticalWidgetGap) {
+            MiniClockView(palette: palette, time: time).tileCorners(palette)
+            TurnCounterView(palette: palette).tileCorners(palette)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -50,7 +50,8 @@ private struct LifeCounterView: View {
             Spacer(minLength: 0)
             tapGlyph("−") { life -= 1 }
         }
-        .padding(palette.tilePadding)
+        .padding(.horizontal, palette.tilePadding)
+        .padding(.vertical, palette.verticalTilePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(palette.surface)
         .cornerRadius(Int(palette.cornerRadius.rounded()))
@@ -62,7 +63,8 @@ private struct LifeCounterView: View {
         Text(symbol)
             .font(.system(size: palette.headingSize, weight: .light))
             .foregroundColor(palette.accent)
-            .padding(Int((8 * palette.scale).rounded()))
+            .padding(.horizontal, Int((8 * palette.scale).rounded()))
+            .padding(.vertical, max(2, Int((8 * palette.verticalScale).rounded())))
             .onTapGesture(perform: action)
     }
 }
@@ -75,7 +77,7 @@ private struct TurnCounterView: View {
     @State private var turn = 0
 
     var body: some View {
-        VStack(spacing: Int((4 * palette.scale).rounded())) {
+        VStack(spacing: max(2, Int((4 * palette.verticalScale).rounded()))) {
             Text("TURN")
                 .font(.system(size: palette.captionSize, weight: palette.bodyWeight))
                 .foregroundColor(palette.accent)
@@ -92,7 +94,8 @@ private struct TurnCounterView: View {
                     .onTapGesture { turn = 0 }
             }
         }
-        .padding(palette.tilePadding)
+        .padding(.horizontal, palette.tilePadding)
+        .padding(.vertical, palette.verticalTilePadding)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(palette.surface)
         .cornerRadius(Int(palette.cornerRadius.rounded()))

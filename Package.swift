@@ -70,6 +70,15 @@ let package = Package(
                 "DashboardKit",
                 .product(name: "SwiftCrossUI", package: "swift-cross-ui"),
                 .product(name: "DefaultBackend", package: "swift-cross-ui"),
+                // GTK-only escape hatch: `Text.inspect` hands us the Gtk.Label so
+                // display text can get real CSS `letter-spacing` (SwiftCrossUI has
+                // no tracking API). Linux-only — the Mac dev build uses AppKit.
+                .product(
+                    name: "GtkBackend", package: "swift-cross-ui",
+                    condition: .when(platforms: [.linux])),
+                .product(
+                    name: "Gtk", package: "swift-cross-ui",
+                    condition: .when(platforms: [.linux])),
             ],
             path: "Sources/Renderers/DashboardUI"
         ),

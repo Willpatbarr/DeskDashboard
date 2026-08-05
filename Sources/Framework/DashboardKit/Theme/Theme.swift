@@ -119,9 +119,17 @@ public struct ThemeColors: Equatable, Sendable {
 
     /// Deep-green gradient with a mint accent and translucent panels — the
     /// "gradient clock" look (white numerals, green labels).
+    /// Panel surface is a *lighter* translucent green, not a darker one.
+    ///
+    /// It used to be `#05120B47` — 28% alpha of a near-black green — layered over
+    /// this dark gradient. Measured on the panel that came out 1–2/255 away from
+    /// the background (tile `(9,22,15)` vs background `(11,23,17)`), so the tiles
+    /// had no perceptible edge or corner and read as vague blocks. A lighter
+    /// translucent fill is also closer to the frosted-panel look this theme is
+    /// modeled on.
     public static let gradientClock = Self(
         background: "#0F2018",
-        surface: "#05120B47",
+        surface: "#3C6E554D",
         primary: "#FFFFFF",
         secondary: "#8FD79A",
         accent: "#8FD79A",
@@ -134,6 +142,11 @@ public struct ThemeColors: Equatable, Sendable {
 /// Type tokens. The sizes are *reference* sizes, authored at
 /// `ThemeMetrics.referenceViewport`, not fixed pixel values — renderers scale
 /// them to the screen via `Theme.sizes(for:)`.
+///
+/// `fontFamily` reaches the **dev web renderer only**. SwiftCrossUI's `Font` has a
+/// single identifier — `.system` — and no way to name a family, so the native UI
+/// always draws in whatever the platform's UI font is. On the Pi that's chosen by
+/// GTK (`~/.config/gtk-4.0/settings.ini`), not by this theme.
 public struct ThemeTypography: Equatable, Sendable {
     public var fontFamily: String
     public var headingSize: Double
@@ -159,7 +172,7 @@ public struct ThemeTypography: Equatable, Sendable {
     }
 
     public static let `default` = Self(
-        fontFamily: "SF Pro",
+        fontFamily: "system-ui",
         headingSize: 28,
         bodySize: 17,
         captionSize: 13,
@@ -169,7 +182,7 @@ public struct ThemeTypography: Equatable, Sendable {
 
     /// Large, thin numerals with light labels — the gradient-clock aesthetic.
     public static let airy = Self(
-        fontFamily: "SF Pro",
+        fontFamily: "system-ui",
         headingSize: 44,
         bodySize: 18,
         captionSize: 14,
@@ -180,7 +193,7 @@ public struct ThemeTypography: Equatable, Sendable {
     /// Like `airy`, but the supporting text (body/caption) is a notch larger for
     /// legibility on the curated board.
     public static let airyLegible = Self(
-        fontFamily: "SF Pro",
+        fontFamily: "system-ui",
         headingSize: 46,
         bodySize: 24,
         captionSize: 18,

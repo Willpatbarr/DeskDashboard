@@ -70,10 +70,36 @@ if scaleMultiplier != 1 {
     log("DeskDashboard UI: type scale multiplier \(scaleMultiplier)×")
 }
 
+// `--window 1920x440` opens the window at a specific geometry, for previewing a
+// target panel's shape (the Pi's strip display) from a desktop.
+let windowSize: (width: Int, height: Int)? = {
+    let args = CommandLine.arguments
+    guard let i = args.firstIndex(of: "--window"), i + 1 < args.count else { return nil }
+    let parts = args[i + 1].lowercased().split(separator: "x")
+    guard parts.count == 2, let w = Int(parts[0]), let h = Int(parts[1]),
+          w > 0, h > 0 else {
+        log("warning: ignoring malformed --window '\(args[i + 1])' (expected WIDTHxHEIGHT)")
+        return nil
+    }
+    log("DeskDashboard UI: window \(w)×\(h)")
+    return (w, h)
+}()
+
+// `DD_UI_SLIDE_MS` tunes the pill's highlight slide; `0` turns it off. The Pi
+// draws frames far slower than AppKit, so this is dialable without a rebuild.
+let slideMilliseconds: Double? = {
+    guard let raw = ProcessInfo.processInfo.environment["DD_UI_SLIDE_MS"],
+          let value = Double(raw), value >= 0 else { return nil }
+    log("DeskDashboard UI: pill slide \(value == 0 ? "off" : "\(value)ms")")
+    return value
+}()
+
 let renderer = SwiftCrossUIRenderer(
     theme: runner.dashboard.configuration.theme,
     showsPreviewControls: showsSwitcher,
-    scaleMultiplier: scaleMultiplier
+    scaleMultiplier: scaleMultiplier,
+    windowSize: windowSize,
+    slideMilliseconds: slideMilliseconds
 )
 renderer.render(runner.attachedWidgetSnapshots)
 runner.start { _ in

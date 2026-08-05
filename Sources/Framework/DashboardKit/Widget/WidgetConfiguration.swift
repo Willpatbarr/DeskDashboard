@@ -8,6 +8,9 @@ public struct WidgetConfiguration: Equatable, Sendable {
     /// Which prebuilt tile layout this widget renders with. Renderers that
     /// interpret `WidgetView` (currently the SwiftCrossUI UI) use this.
     public var layout: WidgetLayout
+    /// Renders the widget without its tile chrome (surface, border, corners) —
+    /// visually just the label and info sitting directly on the background.
+    public var isContainerless: Bool
 
     public init(
         preferredID: WidgetID? = nil,
@@ -16,7 +19,8 @@ public struct WidgetConfiguration: Equatable, Sendable {
         priority: WidgetPriority = .normal,
         isHidden: Bool = false,
         refreshRate: RefreshRate? = nil,
-        layout: WidgetLayout = .standard
+        layout: WidgetLayout = .standard,
+        isContainerless: Bool = false
     ) {
         self.preferredID = preferredID
         self.title = title
@@ -25,5 +29,6 @@ public struct WidgetConfiguration: Equatable, Sendable {
         self.isHidden = isHidden
         self.refreshRate = refreshRate
         self.layout = layout
+        self.isContainerless = isContainerless
     }
 }

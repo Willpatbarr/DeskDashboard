@@ -8,7 +8,19 @@ import SwiftCrossUI
 struct DashboardApp: App {
     var body: some Scene {
         WindowGroup("DeskDashboard") {
-            DashboardRootView()
+            if let forced = DashboardLaunch.forcedWindowSize {
+                // Pins the layout to a target panel's geometry (see
+                // `DashboardLaunch.forcedWindowSize` for why `defaultSize` alone
+                // doesn't do it).
+                DashboardRootView()
+                    .frame(width: Double(forced.width), height: Double(forced.height))
+            } else {
+                DashboardRootView()
+            }
         }
+        .defaultSize(
+            width: DashboardLaunch.windowSize.width,
+            height: DashboardLaunch.windowSize.height
+        )
     }
 }

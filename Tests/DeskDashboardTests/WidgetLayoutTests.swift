@@ -41,3 +41,123 @@ import Testing
         .text("71°F", role: .hero),
     ]))
 }
+
+@Test func centeredValueLayoutKeepsTitleAtTopAndCentersTheValue() {
+    let content = WidgetContent(
+        title: "Clock",
+        primaryText: "9:21",
+        secondaryText: "Tuesday, Aug 4"
+    )
+
+    // Title first (so it stays top-left), then spacers around a `.centered` block
+    // — the spacers centre it vertically, `.centered` horizontally.
+    #expect(WidgetLayout.centeredValue.makeView(content) == .stack(.vertical, spacing: 2, [
+        .text("Clock", role: .title),
+        .centered([
+            .text("9:21", role: .display),
+            .text("Tuesday, Aug 4", role: .subtitle),
+        ]),
+        .spacer,
+    ]))
+}
+
+@Test func mediaStackedLayoutPutsArtistAboveFullSizeSongTitle() {
+    let content = WidgetContent(
+        title: "Music",
+        primaryText: "Snake Eyes",
+        secondaryText: "Mumford & Sons",
+        accessoryText: "PAUSED"
+    )
+
+    // Artist ABOVE the song, song last at full `.primary` size so wrapping it
+    // over multiple lines never pushes the lines above around. The title joins
+    // the body at a wider spacing (12 vs 6) so the label→artist INK gap matches
+    // the temps' label→value gap (boxes differ: body-sized vs heading-sized).
+    #expect(WidgetLayout.mediaStacked.makeView(content) == .stack(.vertical, spacing: 12, [
+        .text("Music", role: .title),
+        .stack(.vertical, spacing: 6, [
+            .text("Mumford & Sons", role: .secondary),
+            .text("Snake Eyes", role: .primary),
+            .badge("PAUSED"),
+        ]),
+    ]))
+}
+
+@Test func mediaStackedLayoutOmitsAbsentSlots() {
+    #expect(WidgetLayout.mediaStacked.makeView(WidgetContent(primaryText: "Nothing playing"))
+        == .stack(.vertical, spacing: 6, [
+            .text("Nothing playing", role: .primary),
+        ]))
+}
+
+@Test func nowPlayingLayoutPinsTransportRowBelowTheMediaStack() {
+    let content = WidgetContent(
+        title: "Music",
+        primaryText: "Snake Eyes",
+        secondaryText: "Mumford & Sons",
+        progress: 0.25,
+        isPlaying: true
+    )
+
+    #expect(WidgetLayout.nowPlaying.makeView(content) == .stack(.vertical, spacing: 6, [
+        WidgetLayout.mediaStacked.makeView(content),
+        .spacer,
+        .stack(.horizontal, spacing: 10, [
+            .playState(playing: true),
+            .progressBar(0.25),
+        ]),
+    ]))
+}
+
+@Test func nowPlayingLayoutPutsTimeReadoutsAboveTheBarEnds() {
+    let content = WidgetContent(
+        title: "Music",
+        primaryText: "Nightcall",
+        secondaryText: "Kavinsky",
+        progress: 0.5,
+        elapsedText: "2:09",
+        durationText: "4:18",
+        isPlaying: true
+    )
+
+    #expect(WidgetLayout.nowPlaying.makeView(content) == .stack(.vertical, spacing: 6, [
+        WidgetLayout.mediaStacked.makeView(content),
+        .spacer,
+        .stack(.horizontal, spacing: 10, [
+            .playState(playing: true),
+            .stack(.vertical, spacing: 4, [
+                .stack(.horizontal, spacing: 8, [
+                    .text("2:09", role: .caption),
+                    .spacer,
+                    .text("4:18", role: .caption),
+                ]),
+                .progressBar(0.5),
+            ]),
+        ]),
+    ]))
+}
+
+@Test func fittedValueLayoutIsACenteredLabelOverAFittedNumber() {
+    let content = WidgetContent(title: "Indoor", primaryText: "71°F", secondaryText: "44% humidity")
+
+    // No secondary line, no metadata — just the centred label and the value.
+    #expect(WidgetLayout.fittedValue.makeView(content) == .stack(.vertical, spacing: 2, [
+        .centered([.text("Indoor", role: .title)]),
+        .fittedText("71°F"),
+    ]))
+}
+
+@Test func nowPlayingLayoutWithoutTransportDataIsJustMediaStacked() {
+    let content = WidgetContent(title: "Music", primaryText: "Nothing playing")
+
+    #expect(WidgetLayout.nowPlaying.makeView(content)
+        == WidgetLayout.mediaStacked.makeView(content))
+}
+
+@Test func centeredValueLayoutOmitsAbsentSlots() {
+    #expect(WidgetLayout.centeredValue.makeView(WidgetContent(primaryText: "71°F"))
+        == .stack(.vertical, spacing: 2, [
+            .centered([.text("71°F", role: .display)]),
+            .spacer,
+        ]))
+}

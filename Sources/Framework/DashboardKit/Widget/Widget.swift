@@ -75,4 +75,12 @@ public extension Widget {
         copy.configuration.layout = layout
         return copy
     }
+
+    /// Renders the widget without its tile chrome (surface, border, corners) —
+    /// visually just the label and info sitting directly on the background.
+    func containerless(_ isContainerless: Bool = true) -> Self {
+        var copy = self
+        copy.configuration.isContainerless = isContainerless
+        return copy
+    }
 }
