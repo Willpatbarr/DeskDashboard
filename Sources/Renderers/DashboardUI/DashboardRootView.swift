@@ -189,16 +189,18 @@ struct DashboardRootView: View {
         Int(palette.captionSize.rounded()) + segmentInsets(palette).vertical * 2
     }
 
-    /// Every slot is the same width — the highlight is one rect moving by
-    /// `index × width`, so uniform slots are what make the slide possible.
+    /// Every slot is the same width — sized to the WIDEST preview's short label,
+    /// so the travelling glow's geometry stays uniform and taps stay predictable.
     ///
-    /// Slots hold a *number*, not a label, so the width only has to fit one or two
-    /// digits. Sizing for the widest word instead made the control ~1320px, which
-    /// overran the Pi's 1920px header row. SwiftCrossUI exposes no
-    /// text-measurement API, so this estimates ~0.62em per digit at semibold.
+    /// This is affordable because the short labels are ≤5 characters and there
+    /// are five of them (~500px total). History check before adding previews:
+    /// with nine previews sized to the word "Compact" this control ran ~1320px
+    /// and overflowed the Pi's 1920px header row, which is why it spent a while
+    /// showing bare numbers. SwiftCrossUI exposes no text-measurement API, so
+    /// this estimates ~0.62em per glyph at semibold.
     private func segmentWidth(_ palette: ThemePalette) -> Int {
-        let digits = model.previews.count >= 10 ? 2.0 : 1.0
-        let glyphs = digits * palette.captionSize * 0.62
+        let widest = model.previews.map(\.short.count).max() ?? 1
+        let glyphs = Double(widest) * palette.captionSize * 0.62
         return Int(glyphs.rounded()) + segmentInsets(palette).horizontal * 2
     }
 
@@ -234,7 +236,7 @@ struct DashboardRootView: View {
     private func previewBar(_ palette: ThemePalette, _ chrome: ThemePalette) -> some View {
         PreviewPill(
             palette: palette,
-            count: model.previews.count,
+            labels: model.previews.map(\.short),
             selected: model.previewIndex,
             slotWidth: segmentWidth(chrome),
             slotHeight: segmentHeight(chrome),

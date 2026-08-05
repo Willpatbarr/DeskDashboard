@@ -1,3 +1,13 @@
+// This file is the theme SCAFFOLD, deliberately: the protocol, the token types,
+// and the neutral `.default` each token falls back to. It holds no named
+// palette, type scale or shape set of its own.
+//
+// Every concrete theme lives in one file under `Themes/`, and declares the named
+// token values it introduces there — as extensions on these types, which Swift
+// is happy to have in any file. So `ThemeColors.gradientClock` sits beside the
+// theme that introduced it, and any *other* theme can still reuse it by name.
+// Adding a theme should mean adding one file, not editing this one.
+
 public protocol Theme: Sendable {
     var name: String { get }
     var colors: ThemeColors { get }
@@ -10,6 +20,12 @@ public protocol Theme: Sendable {
     var defaultLayout: any Layout { get }
 }
 
+/// Defaults for every token, so a theme declares only what it actually changes
+/// — a conformance can be as small as `struct T: Theme { let name = "T" }`.
+///
+/// `colors` falls back to `.darkDesk`, which is declared over in
+/// `Themes/DarkDeskTheme.swift`: the framework's baseline theme owns the
+/// baseline palette, rather than this file keeping a second copy of it.
 public extension Theme {
     var colors: ThemeColors { .darkDesk }
     var typography: ThemeTypography { .default }
@@ -17,6 +33,7 @@ public extension Theme {
     var shape: ThemeShape { .default }
     var animation: ThemeAnimation { .default }
     var metrics: ThemeMetrics { .default }
+    var defaultLayout: any Layout { GridLayout() }
 }
 
 public extension Theme {
@@ -85,58 +102,7 @@ public struct ThemeColors: Equatable, Sendable {
         self.backgroundGradient = backgroundGradient
     }
 
-    public static let darkDesk = Self(
-        background: "#090D14",
-        surface: "#151B24",
-        primary: "#E8EEF8",
-        secondary: "#8D99AA",
-        accent: "#36C2FF",
-        text: "#F8FBFF",
-        mutedText: "#A8B3C5"
-    )
-
-    /// Light palette: near-white background, dark text.
-    public static let light = Self(
-        background: "#EEF1F6",
-        surface: "#FFFFFF",
-        primary: "#0B1F3A",
-        secondary: "#5B6B82",
-        accent: "#0A84FF",
-        text: "#1A2B45",
-        mutedText: "#6B7A90"
-    )
-
-    /// High-contrast neon-on-black palette.
-    public static let neon = Self(
-        background: "#04050A",
-        surface: "#0C0F1F",
-        primary: "#F7F9FF",
-        secondary: "#9A7BFF",
-        accent: "#FF3DAE",
-        text: "#EAF6FF",
-        mutedText: "#7E8AB0"
-    )
-
-    /// Deep-green gradient with a mint accent and translucent panels — the
-    /// "gradient clock" look (white numerals, green labels).
-    /// Panel surface is a *lighter* translucent green, not a darker one.
-    ///
-    /// It used to be `#05120B47` — 28% alpha of a near-black green — layered over
-    /// this dark gradient. Measured on the panel that came out 1–2/255 away from
-    /// the background (tile `(9,22,15)` vs background `(11,23,17)`), so the tiles
-    /// had no perceptible edge or corner and read as vague blocks. A lighter
-    /// translucent fill is also closer to the frosted-panel look this theme is
-    /// modeled on.
-    public static let gradientClock = Self(
-        background: "#0F2018",
-        surface: "#3C6E554D",
-        primary: "#FFFFFF",
-        secondary: "#8FD79A",
-        accent: "#8FD79A",
-        text: "#FFFFFF",
-        mutedText: "#6F9E78",
-        backgroundGradient: ["#193326", "#0F2018", "#08110D"]
-    )
+    // Named palettes live with the themes that introduce them, under `Themes/`.
 }
 
 /// Type tokens. The sizes are *reference* sizes, authored at
@@ -171,35 +137,8 @@ public struct ThemeTypography: Equatable, Sendable {
         self.bodyWeight = bodyWeight
     }
 
-    public static let `default` = Self(
-        fontFamily: "system-ui",
-        headingSize: 28,
-        bodySize: 17,
-        captionSize: 13,
-        headingWeight: 700,
-        bodyWeight: 500
-    )
-
-    /// Large, thin numerals with light labels — the gradient-clock aesthetic.
-    public static let airy = Self(
-        fontFamily: "system-ui",
-        headingSize: 44,
-        bodySize: 18,
-        captionSize: 14,
-        headingWeight: 100,
-        bodyWeight: 300
-    )
-
-    /// Like `airy`, but the supporting text (body/caption) is a notch larger for
-    /// legibility on the curated board.
-    public static let airyLegible = Self(
-        fontFamily: "system-ui",
-        headingSize: 46,
-        bodySize: 24,
-        captionSize: 18,
-        headingWeight: 100,
-        bodyWeight: 300
-    )
+    // `.default` lives in `Themes/DefaultTheme.swift`; named type scales live with
+    // the themes that introduce them, also under `Themes/`.
 
     /// Every size multiplied by `scale`. Weights and the font family are
     /// screen-independent, so they pass through untouched.
@@ -229,11 +168,7 @@ public struct ThemeSpacing: Equatable, Sendable {
         self.sectionMargin = sectionMargin
     }
 
-    public static let `default` = Self(
-        widgetGap: 12,
-        tilePadding: 16,
-        sectionMargin: 20
-    )
+    // `.default` lives in `Themes/DefaultTheme.swift`.
 
     /// Every gap multiplied by `scale`, so whitespace keeps its proportion to the
     /// type instead of crowding it on a big screen.
@@ -263,18 +198,8 @@ public struct ThemeShape: Equatable, Sendable {
         self.elevation = elevation
     }
 
-    public static let `default` = Self(
-        cornerRadius: 8,
-        borderWidth: 1,
-        elevation: 2
-    )
-
-    /// Soft, pill-adjacent corners for the gradient-clock panels.
-    public static let rounded = Self(
-        cornerRadius: 28,
-        borderWidth: 1,
-        elevation: 2
-    )
+    // `.default` lives in `Themes/DefaultTheme.swift`; named shape sets live with
+    // the themes that introduce them, also under `Themes/`.
 
     /// Corner radius multiplied by `scale`. `borderWidth` and `elevation` stay
     /// put — a hairline border and a shadow depth read the same at any screen
@@ -302,8 +227,5 @@ public struct ThemeAnimation: Equatable, Sendable {
         self.easing = easing
     }
 
-    public static let `default` = Self(
-        transitionDuration: 0.18,
-        easing: "easeInOut"
-    )
+    // `.default` lives in `Themes/DefaultTheme.swift`.
 }

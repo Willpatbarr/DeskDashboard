@@ -17,6 +17,13 @@ import Foundation
 final class FrameTicker: @unchecked Sendable {
     private var timer: Timer?
 
+    /// Wall-clock gaps between delivered frames, for the `DD_UI_LOG` summary.
+    /// Requesting a cadence proves nothing — the panel decides what it can
+    /// actually paint, and this is how that gets measured instead of assumed.
+    private var requested: Double = 0
+    private var lastFiredAt: Double?
+    private var gaps: [Double] = []
+
     var isRunning: Bool { timer != nil }
 
     /// Starts calling `onFrame` every `interval` seconds until `stop()`. Any
@@ -27,11 +34,15 @@ final class FrameTicker: @unchecked Sendable {
         onFrame: @escaping () -> Void
     ) {
         stop()
+        requested = max(interval, 0.001)
+        lastFiredAt = nil
+        gaps = []
         let box = FrameHandlerBox(onFrame)
         timer = Timer.scheduledTimer(
-            withTimeInterval: max(interval, 0.001),
+            withTimeInterval: requested,
             repeats: true
-        ) { _ in
+        ) { [weak self] _ in
+            self?.recordFrame()
             box.onFrame()
         }
     }
@@ -39,6 +50,28 @@ final class FrameTicker: @unchecked Sendable {
     func stop() {
         timer?.invalidate()
         timer = nil
+        reportCadence()
+    }
+
+    private func recordFrame() {
+        let now = ProcessInfo.processInfo.systemUptime
+        if let last = lastFiredAt { gaps.append(now - last) }
+        lastFiredAt = now
+    }
+
+    /// One line per completed run: what was asked for versus what arrived.
+    private func reportCadence() {
+        guard gaps.count > 1 else { return }
+        let mean = gaps.reduce(0, +) / Double(gaps.count)
+        let worst = gaps.max() ?? 0
+        let best = gaps.min() ?? 0
+        func ms(_ seconds: Double) -> String { String(Int((seconds * 1000).rounded())) }
+        UILog.write(
+            "FRAMES n=\(gaps.count) asked=\(ms(requested))ms "
+                + "mean=\(ms(mean))ms min=\(ms(best))ms max=\(ms(worst))ms "
+                + "≈\(Int((1 / max(mean, 0.001)).rounded()))fps"
+        )
+        gaps = []
     }
 }
 
@@ -70,6 +103,13 @@ enum UILog {
         lock.unlock()
         guard isNew else { return }
         FileHandle.standardError.write(Data((text + "\n").utf8))
+    }
+
+    /// Unconditional counterpart to `once`, for values that are *supposed* to
+    /// repeat — a per-run measurement, where every run is a new data point.
+    static func write(_ message: @autoclosure () -> String) {
+        guard ProcessInfo.processInfo.environment["DD_UI_LOG"] == "1" else { return }
+        FileHandle.standardError.write(Data((message() + "\n").utf8))
     }
 }
 

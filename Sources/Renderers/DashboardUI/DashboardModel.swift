@@ -52,22 +52,11 @@ final class DashboardModel: ObservableObject {
         }
     }
 
-    /// The gradient-clock theme, shared by the clock and MTG previews.
-    private static let gradientTheme = DarkDeskTheme(
-        name: "Gradient",
-        colors: .gradientClock,
-        typography: .airy,
-        shape: .rounded
-    )
-
-    /// The curated-board theme: gradient-clock colors, larger supporting text,
-    /// rounded corners.
-    private static let boardTheme = DarkDeskTheme(
-        name: "Green Board",
-        colors: .gradientClock,
-        typography: .airyLegible,
-        shape: .rounded
-    )
+    // Themes are defined in DashboardKit (`Theme/Themes/`), one file each, so a
+    // new one is a new file there plus a `Preview` entry below — not an edit
+    // here *and* in the theme scaffold.
+    private static let gradientTheme = GradientClockTheme()
+    private static let boardTheme = GreenBoardTheme()
 
     /// The composition's real theme, kept aside from `previews` so the app chrome
     /// (title line, switcher pill) can size itself from something that does *not*
@@ -183,4 +172,20 @@ enum DashboardLaunch {
     /// that renders frames too slowly can be tuned or opted out without a rebuild
     /// — which matters when the target is a Pi and each build is minutes.
     nonisolated(unsafe) static var slideMilliseconds: Double = 300
+
+    /// Seconds between hand-stepped animation frames. Same reasoning as
+    /// `slideMilliseconds`: set from `DD_UI_FRAME_MS` so a display's real frame
+    /// budget can be found by sweeping the value on the device instead of
+    /// rebuilding, with `DD_UI_LOG=1` reporting what was achieved.
+    ///
+    /// 20ms (50fps) is **measured**, not guessed: asking the Pi for 16ms over a
+    /// 93-frame run delivered a 19ms mean (≈52fps), so 20ms sits inside the
+    /// panel's real capability and paces evenly instead of relying on the
+    /// timer's catch-up frames (that run's min was 4ms). Do not read the old
+    /// 50ms/20fps figure in git history as a panel limit — it was measured when
+    /// each frame re-laid-out every tile.
+    ///
+    /// Worst frame in that run was 172ms: a snapshot tick (the dashboard
+    /// re-renders wholesale every second) can still stall one frame mid-slide.
+    nonisolated(unsafe) static var frameSeconds: Double = 1.0 / 50.0
 }

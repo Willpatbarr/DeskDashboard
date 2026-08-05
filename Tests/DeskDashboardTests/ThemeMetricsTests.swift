@@ -77,6 +77,9 @@ import Testing
 }
 
 @Test func scalingLeavesScreenIndependentTokensAlone() {
+    // `.airy` / `.rounded` are declared in `Themes/GradientClockTheme.swift`, not
+    // the scaffold — reaching them from here proves a theme file's named tokens
+    // stay reusable module-wide.
     let theme = DarkDeskTheme(typography: .airy, shape: .rounded)
     let sizes = theme.sizes(for: Viewport(width: 1920, height: 1200))
 
@@ -87,4 +90,80 @@ import Testing
     #expect(sizes.typography.bodyWeight == theme.typography.bodyWeight)
     #expect(sizes.shape.borderWidth == theme.shape.borderWidth)
     #expect(sizes.shape.elevation == theme.shape.elevation)
+}
+
+// MARK: - The scaffold contract
+
+/// A theme declaring nothing but its name — the minimum the scaffold allows.
+/// If this stops compiling, a token lost its default and every future theme file
+/// has to restate it.
+private struct BareTheme: Theme {
+    let name = "Bare"
+}
+
+@Test func aThemeNeedOnlyDeclareItsName() {
+    let theme = BareTheme()
+
+    // Unstated tokens fall back to the scaffold's defaults...
+    #expect(theme.typography == .default)
+    #expect(theme.spacing == .default)
+    #expect(theme.shape == .default)
+    #expect(theme.animation == .default)
+    // ...including the layout, and the baseline palette that lives with the
+    // baseline theme rather than in the scaffold.
+    #expect(theme.colors == .darkDesk)
+    #expect(theme.defaultLayout is GridLayout)
+}
+
+@Test func themeFilesOwnTheirNamedTokensAndShareThem() {
+    // Both green themes resolve to the one palette declared in
+    // `GradientClockTheme.swift`; only the type scale differs.
+    #expect(GreenBoardTheme().colors == GradientClockTheme().colors)
+    #expect(GreenBoardTheme().shape == GradientClockTheme().shape)
+    #expect(GreenBoardTheme().typography != GradientClockTheme().typography)
+    #expect(GreenBoardTheme().typography == .airyLegible)
+    #expect(GradientClockTheme().typography == .airy)
+}
+
+/// Pins the actual default values, not just "equals `.default`".
+///
+/// The `.default` tokens moved out of the scaffold into
+/// `Themes/DefaultTheme.swift`; comparisons against `.default` would have passed
+/// even if a number changed in the move, so these assert the numbers themselves.
+/// They also protect every theme that doesn't name its own tokens — editing a
+/// default silently moves all of them.
+@Test func defaultThemeTokenValuesAreUnchanged() {
+    let theme = DefaultTheme()
+
+    #expect(theme.name == "Default")
+    #expect(theme.typography.fontFamily == "system-ui")
+    #expect(theme.typography.headingSize == 28)
+    #expect(theme.typography.bodySize == 17)
+    #expect(theme.typography.captionSize == 13)
+    #expect(theme.typography.headingWeight == 700)
+    #expect(theme.typography.bodyWeight == 500)
+
+    #expect(theme.spacing.widgetGap == 12)
+    #expect(theme.spacing.tilePadding == 16)
+    #expect(theme.spacing.sectionMargin == 20)
+
+    #expect(theme.shape.cornerRadius == 8)
+    #expect(theme.shape.borderWidth == 1)
+    #expect(theme.shape.elevation == 2)
+
+    #expect(theme.animation.transitionDuration == 0.18)
+    #expect(theme.animation.easing == "easeInOut")
+
+    // The baseline palette, still owned by `DarkDeskTheme.swift`.
+    #expect(theme.colors.background == "#090D14")
+    #expect(theme.colors.accent == "#36C2FF")
+}
+
+@Test func defaultThemeMatchesABareConformance() {
+    // Same contract, two spellings — if these ever diverge, a default moved.
+    #expect(DefaultTheme().typography == BareTheme().typography)
+    #expect(DefaultTheme().spacing == BareTheme().spacing)
+    #expect(DefaultTheme().shape == BareTheme().shape)
+    #expect(DefaultTheme().animation == BareTheme().animation)
+    #expect(DefaultTheme().colors == BareTheme().colors)
 }

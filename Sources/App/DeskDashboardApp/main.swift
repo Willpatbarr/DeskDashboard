@@ -94,12 +94,23 @@ let slideMilliseconds: Double? = {
     return value
 }()
 
+// `DD_UI_FRAME_MS` sets the animation frame gap. Sweep it on the target display
+// (with `DD_UI_LOG=1`, which reports the cadence actually achieved) to find the
+// real budget without rebuilding.
+let frameMilliseconds: Double? = {
+    guard let raw = ProcessInfo.processInfo.environment["DD_UI_FRAME_MS"],
+          let value = Double(raw), value > 0 else { return nil }
+    log("DeskDashboard UI: animation frame gap \(value)ms")
+    return value
+}()
+
 let renderer = SwiftCrossUIRenderer(
     theme: runner.dashboard.configuration.theme,
     showsPreviewControls: showsSwitcher,
     scaleMultiplier: scaleMultiplier,
     windowSize: windowSize,
-    slideMilliseconds: slideMilliseconds
+    slideMilliseconds: slideMilliseconds,
+    frameMilliseconds: frameMilliseconds
 )
 renderer.render(runner.attachedWidgetSnapshots)
 runner.start { _ in

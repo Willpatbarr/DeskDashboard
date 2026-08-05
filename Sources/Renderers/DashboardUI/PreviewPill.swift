@@ -25,15 +25,19 @@ final class PillAnimator: ObservableObject {
     private var frames = 1
     private var from: Double = 0
 
-    /// Frame cadence, deliberately slow at 50ms (~20fps).
+    /// Frame cadence, in seconds. Tunable at runtime with `DD_UI_FRAME_MS` so a
+    /// display's real budget can be found without a rebuild (a Pi build is
+    /// minutes); `DD_UI_LOG=1` makes `FrameTicker` report the cadence it actually
+    /// achieved per slide, which is how the default below was chosen rather than
+    /// guessed.
     ///
-    /// Measured: SwiftCrossUI re-renders the **entire** view graph on any state
-    /// change — an 8-frame slide triggered ~100 tile re-layouts — so a frame costs
-    /// far more than a pill redraw should. Asking for frames the GTK backend can't
-    /// finish is precisely what reads as choppy, and requesting 16ms just produced
-    /// dropped frames at uneven spacing. Few, evenly-paced steps look better than
-    /// many ragged ones. `DD_UI_SLIDE_MS=0` opts out entirely.
-    static let frameInterval = 0.05
+    /// History: this sat at 50ms (~20fps) because an early version drove the
+    /// animation from `DashboardModel`, where every frame re-laid-out all five
+    /// tiles (~100 re-layouts per slide) and 16ms produced ragged, dropped
+    /// frames. With the animator owned locally (see this type's doc comment) a
+    /// frame is a pill-only redraw, so the budget is far larger than that
+    /// measurement implied. `DD_UI_SLIDE_MS=0` opts out of animating entirely.
+    static var frameInterval: Double { DashboardLaunch.frameSeconds }
 
     /// Slides to `index` over `milliseconds`. Zero (or less) jumps instantly,
     /// which is the escape hatch when a display can't animate acceptably.
@@ -58,12 +62,18 @@ final class PillAnimator: ObservableObject {
         }
     }
 
-    /// One frame, eased out (cubic) so it decelerates into place.
+    /// One frame, eased so it accelerates out of the old slot and decelerates
+    /// into the new one.
+    ///
+    /// Ease-in-**out** rather than the ease-out this used to have: with a
+    /// travelling highlight, starting at full speed reads as a jump, because the
+    /// first frame already displaces the pill by the largest step it will ever
+    /// take. Smoothstep spends its big steps in the middle, where the eye tracks
+    /// motion instead of edges.
     private func advance() {
         frame += 1
         let t = min(1, Double(frame) / Double(frames))
-        let remaining = 1 - t
-        let eased = 1 - remaining * remaining * remaining
+        let eased = t * t * (3 - 2 * t)
 
         position = from + (target - from) * eased
 
@@ -71,6 +81,35 @@ final class PillAnimator: ObservableObject {
             ticker.stop()
             position = target
         }
+    }
+}
+
+/// The travelling highlight: a rounded rect drawn at an animated offset inside
+/// one full-width widget.
+///
+/// This is how the slide avoids the **ghost trails** that killed the previous
+/// attempt. That version moved a highlight *view* across the row by animating
+/// its leading padding, and GTK never repainted the region the view vacated, so
+/// old circles stayed on screen. Here the widget spans the whole row and never
+/// moves or resizes — only the path inside it changes — so every frame repaints
+/// the entire region it owns. Nothing can be left behind.
+struct PillHighlight: Shape {
+    /// Distance from the row's leading edge to the highlight, in points.
+    let offset: Double
+    let width: Double
+    let cornerRadius: Double
+
+    nonisolated func path(in bounds: Path.Rect) -> Path {
+        Path().addSubpath(
+            RoundedRectangle(cornerRadius: cornerRadius).path(
+                in: Path.Rect(
+                    x: bounds.x + offset,
+                    y: bounds.y,
+                    width: width,
+                    height: bounds.height
+                )
+            )
+        )
     }
 }
 
@@ -90,13 +129,16 @@ final class PillAnimator: ObservableObject {
 /// deriving slot sizes from the current palette made the pill change size every
 /// time you switched layouts.
 ///
-/// Every slot shows just its number. Sizing nine uniform slots to the widest word
-/// label ("Compact") made the control ~1320px, which overran the Pi's 1920px row;
-/// the selected preview's name is spelled out in the header line anyway.
+/// Slots show each preview's SHORT label. They once showed bare numbers: with
+/// nine previews, uniform slots sized to the widest word ("Compact") ran
+/// ~1320px and overflowed the Pi's 1920px row. Five short labels fit fine —
+/// but keep labels to ~5 characters, and if the preview count grows past ~7,
+/// numbers may need to come back (`segmentWidth` in `DashboardRootView` is
+/// where the math lives).
 struct PreviewPill: View {
     let palette: ThemePalette
-    /// How many slots to draw.
-    let count: Int
+    /// One short label per slot.
+    let labels: [String]
     let selected: Int
     /// Slot geometry, computed by the parent so it can also reserve the row's
     /// height (an under-reserved header clipped the pill's bottom edge).
@@ -128,10 +170,29 @@ struct PreviewPill: View {
 
         let pillHeight = Self.height(slotHeight: slotHeight, trackInset: trackInset)
 
-        return HStack(spacing: 0) {
-            ForEach(Array(0..<count), id: \.self) { index in
-                slot(index)
+        let rowWidth = Double(slotWidth * max(1, labels.count))
+
+        return ZStack {
+            // One travelling highlight behind every label, instead of each slot
+            // cross-fading its own fill in and out. The crossfade could never
+            // read as motion — the highlight was only ever *at* a slot, so a
+            // slide was a row of pills blinking in sequence no matter how many
+            // frames it got. A path redrawn at a fractional offset genuinely
+            // glides, and does it without moving a widget (see `PillHighlight`).
+            PillHighlight(
+                offset: animator.position * Double(slotWidth),
+                width: Double(slotWidth),
+                cornerRadius: Double(max(0, slotHeight / 2 - 1))
+            )
+            .fill(palette.accent)
+            .frame(width: rowWidth, height: Double(slotHeight))
+
+            HStack(spacing: 0) {
+                ForEach(Array(0..<labels.count), id: \.self) { index in
+                    slot(index)
+                }
             }
+            .frame(width: rowWidth, height: Double(slotHeight))
         }
         // Every one of these three modifiers is load-bearing for *visibility*,
         // established by screenshotting each variation on the panel:
@@ -151,39 +212,27 @@ struct PreviewPill: View {
     }
 
     private func slot(_ index: Int) -> some View {
-        // 1 when the travelling fill is centred here, 0 once it's a slot away, so
-        // mid-slide two neighbours share it and the glow appears to move.
+        // How covered this slot is by the travelling highlight, for the label's
+        // colour only — the highlight itself is drawn once, behind the whole row.
         let distance = abs(Double(index) - animator.position)
-        let fill = max(0, min(1, 1 - distance))
+        let covered = max(0, min(1, 1 - distance)) > 0.5
 
-        // The fill is its OWN exactly-slot-sized layer underneath the digit, not
-        // the digit's background: painted around the padded label it inherited
-        // the label's box (~7px taller than the slot, since a label's box always
-        // exceeds its font size), and the track clipped the bottom cap off the
-        // highlight — measured on the panel: the top of the circle tapered over
-        // 5 rows, the bottom was cut after 3.
-        return ZStack {
-            HStack(spacing: 0) {}
-                .frame(width: slotWidth, height: slotHeight)
-                .background(palette.accent.opacity(fill))
-                .cornerRadius(max(0, slotHeight / 2 - 1))
-            Text("\(index + 1)")
-                .font(.system(size: fontSize, weight: .semibold))
-                // Flip the digit to the dark background colour once the fill is
-                // mostly over it, so it stays legible against the accent.
-                .foregroundColor(fill > 0.5 ? palette.background : palette.accent)
-                // A wrapped label grows the header's height, which is what pushed
-                // the tiles off-screen before. Truncate instead, always.
-                .lineLimit(1)
-                .frame(width: Double(slotWidth), height: Double(slotHeight))
-                // Digits render ~4.5px low in their box (it reserves descender
-                // space digits never use — measured on the panel). The negative/
-                // positive pair lifts the ink without changing the slot height.
-                .padding(.top, -opticalRise)
-                .padding(.bottom, opticalRise)
-        }
-        .onTapGesture {
-            onSelect(index)
-        }
+        return Text(labels[index])
+            .font(.system(size: fontSize, weight: .semibold))
+            // Flip the label to the dark background colour once the highlight is
+            // mostly over it, so it stays legible against the accent.
+            .foregroundColor(covered ? palette.background : palette.accent)
+            // A wrapped label grows the header's height, which is what pushed
+            // the tiles off-screen before. Truncate instead, always.
+            .lineLimit(1)
+            .frame(width: Double(slotWidth), height: Double(slotHeight))
+            // Labels render ~4.5px low in their box (it reserves descender space
+            // these labels barely use — measured on the panel). The negative/
+            // positive pair lifts the ink without changing the slot height.
+            .padding(.top, -opticalRise)
+            .padding(.bottom, opticalRise)
+            .onTapGesture {
+                onSelect(index)
+            }
     }
 }

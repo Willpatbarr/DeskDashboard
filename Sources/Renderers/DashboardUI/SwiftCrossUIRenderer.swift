@@ -38,12 +38,16 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
     ///   - slideMilliseconds: duration of the preview pill's highlight slide, or
     ///     `nil` for the default. `0` disables the animation — an escape hatch for
     ///     a display whose backend can't draw frames fast enough.
+    ///   - frameMilliseconds: gap between hand-stepped animation frames, or `nil`
+    ///     for the default (~60fps). Sweep it on the target display to find the
+    ///     real budget; `DD_UI_LOG=1` reports the cadence achieved.
     public init(
         theme: any Theme,
         showsPreviewControls: Bool = false,
         scaleMultiplier: Double = 1,
         windowSize: (width: Int, height: Int)? = nil,
-        slideMilliseconds: Double? = nil
+        slideMilliseconds: Double? = nil,
+        frameMilliseconds: Double? = nil
     ) {
         let model = DashboardModel(
             theme: theme,
@@ -58,6 +62,9 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
         }
         if let slideMilliseconds, slideMilliseconds >= 0 {
             DashboardLaunch.slideMilliseconds = slideMilliseconds
+        }
+        if let frameMilliseconds, frameMilliseconds > 0 {
+            DashboardLaunch.frameSeconds = frameMilliseconds / 1000
         }
     }
 
