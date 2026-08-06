@@ -13,6 +13,9 @@ final class DashboardModel: ObservableObject {
     @Published var snapshots: [AttachedWidgetSnapshot]
     /// Index into `arrangements`; set by `select(_:)` (a switcher tap).
     @Published private(set) var selectedIndex = 0
+    /// Whether board tiles draw their chrome, overriding what each board authored.
+    /// Driven by the header's second pill; `.authored` leaves boards as written.
+    @Published private(set) var containerMode: ContainerMode = .authored
 
     /// Whether the header shows the arrangement switcher. Cosmetic only — it does
     /// NOT change what renders, which is `arrangements[selectedIndex]` either way.
@@ -105,6 +108,13 @@ final class DashboardModel: ObservableObject {
     func select(_ index: Int) {
         guard arrangements.indices.contains(index) else { return }
         selectedIndex = index
+    }
+
+    /// Picks a container mode by switcher index (see `ContainerMode.allCases`).
+    func selectContainerMode(_ index: Int) {
+        let modes = ContainerMode.allCases
+        guard modes.indices.contains(index) else { return }
+        containerMode = modes[index]
     }
 }
 

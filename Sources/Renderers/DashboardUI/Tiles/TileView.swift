@@ -101,16 +101,28 @@ struct TileView: View {
             let views = children.map(interpret)
             let indexed = Array(views.enumerated())
 
-            // Lift the group by the ascent its largest text reserves above its cap
-            // height (~0.17× the font size), so a big value's glyph top lines up with
-            // the smaller values in neighbouring tiles instead of sitting lower.
             let largest = children.reduce(0.0) { widest, child in
                 if case let .text(_, role) = child {
                     return max(widest, palette.style(for: role).size)
                 }
                 return widest
             }
-            let lift = Int((largest * 0.11).rounded())
+
+            // Lift the group by the ascent its FIRST line reserves above its cap
+            // height (~0.17× the font size), so a big value's glyph top lines up with
+            // the smaller values in neighbouring tiles instead of sitting lower.
+            //
+            // First line, not the largest: the lift cancels the gap above the group's
+            // top edge, which only the top line contributes. Sizing it from the
+            // largest was equivalent while the value always came first — but with
+            // `centeredValue(subtitle: .above)` the group starts with a subtitle, and
+            // a display-sized 20px lift dragged it clean off the top of the tile
+            // (measured on the panel: the date rendered 13px tall instead of 26).
+            let leadingSize = children.lazy.compactMap { child -> Double? in
+                if case let .text(_, role) = child { return palette.style(for: role).size }
+                return nil
+            }.first ?? 0
+            let lift = Int((leadingSize * 0.11).rounded())
 
             return AnyView(
                 // Negative, because the two labels' own boxes already leave ~50px

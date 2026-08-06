@@ -181,6 +181,7 @@ private let allLayouts: [(id: String, layout: WidgetLayout)] = [
     ("mediaCompact", .mediaCompact),
     ("mediaStacked", .mediaStacked),
     ("nowPlaying", .nowPlaying),
+    ("nowPlayingCentered", .nowPlayingCentered),
     ("fittedValue", .fittedValue),
 ]
 
@@ -220,4 +221,101 @@ private let allLayouts: [(id: String, layout: WidgetLayout)] = [
     #expect(custom.makeView(WidgetContent(primaryText: "42"))
         == .stack(.vertical, spacing: 1, [.text("42", role: .hero)]))
     #expect(custom != .standard)
+}
+
+@Test func centeredValueCanPutTheSubtitleAboveTheValue() {
+    let content = WidgetContent(
+        title: "Clock",
+        primaryText: "9:21",
+        secondaryText: "Tuesday, Aug 4"
+    )
+
+    // Inside the `.centered` group, before the value — so it shares the value's
+    // centre line rather than sitting leading-aligned in the outer stack.
+    #expect(WidgetLayout.centeredValue(subtitle: .above).makeView(content)
+        == .stack(.vertical, spacing: 2, [
+            .text("Clock", role: .title),
+            .centered([
+                .text("Tuesday, Aug 4", role: .subtitle),
+                .text("9:21", role: .display),
+            ]),
+            .spacer,
+        ]))
+}
+
+@Test func centeredValueShowsTheSubtitleOnceOnly() {
+    let content = WidgetContent(primaryText: "9:21", secondaryText: "Tuesday, Aug 4")
+
+    // The obvious mistake when adding the option is appending the same
+    // `secondaryText` both above and below, printing the date twice.
+    func subtitleCount(_ layout: WidgetLayout) -> Int {
+        guard case let .stack(_, _, children) = layout.makeView(content),
+              case let .centered(group) = children.first(where: {
+                  if case .centered = $0 { return true } else { return false }
+              })
+        else { return -1 }
+        return group.filter { $0 == .text("Tuesday, Aug 4", role: .subtitle) }.count
+    }
+
+    #expect(subtitleCount(.centeredValue(subtitle: .above)) == 1)
+    #expect(subtitleCount(.centeredValue(subtitle: .below)) == 1)
+}
+
+@Test func centeredValueDefaultStillPutsTheSubtitleBelow() {
+    // `.centeredValue` must stay the below variant: the boards use it by that
+    // name, and its id is what layout equality compares.
+    let content = WidgetContent(primaryText: "9:21", secondaryText: "Tuesday, Aug 4")
+    #expect(WidgetLayout.centeredValue.makeView(content)
+        == WidgetLayout.centeredValue(subtitle: .below).makeView(content))
+    #expect(WidgetLayout.centeredValue.id == "centeredValue")
+    #expect(WidgetLayout.centeredValue != .centeredValue(subtitle: .above))
+}
+
+@Test func nowPlayingCenteredCentresEachTextLineButKeepsTheTransportRow() {
+    let content = WidgetContent(
+        title: "Music",
+        primaryText: "Nightcall",
+        secondaryText: "Kavinsky",
+        progress: 0.5,
+        elapsedText: "2:09",
+        durationText: "4:18",
+        isPlaying: true
+    )
+
+    // Each line in its OWN `.centered` group: one group around all three would
+    // centre the block while leaving the lines left-aligned against each other.
+    #expect(WidgetLayout.nowPlayingCentered.makeView(content) == .stack(.vertical, spacing: 6, [
+        .stack(.vertical, spacing: 12, [
+            .centered([.text("Music", role: .title)]),
+            .stack(.vertical, spacing: 6, [
+                .centered([.text("Kavinsky", role: .secondary)]),
+                .centered([.text("Nightcall", role: .primary)]),
+            ]),
+        ]),
+        .spacer,
+        // Transport row identical to `nowPlaying` — same glyph, times, bar, spot.
+        .stack(.horizontal, spacing: 10, [
+            .playState(playing: true),
+            .stack(.vertical, spacing: 4, [
+                .stack(.horizontal, spacing: 8, [
+                    .text("2:09", role: .caption),
+                    .spacer,
+                    .text("4:18", role: .caption),
+                ]),
+                .progressBar(0.5),
+            ]),
+        ]),
+    ]))
+}
+
+@Test func nowPlayingCenteredKeepsTheSameTransportRowAsNowPlaying() {
+    let content = WidgetContent(
+        title: "Music", primaryText: "Nightcall", secondaryText: "Kavinsky",
+        progress: 0.5, elapsedText: "2:09", durationText: "4:18", isPlaying: true
+    )
+    func transport(_ layout: WidgetLayout) -> WidgetView? {
+        guard case let .stack(_, _, children) = layout.makeView(content) else { return nil }
+        return children.last
+    }
+    #expect(transport(.nowPlayingCentered) == transport(.nowPlaying))
 }

@@ -87,7 +87,12 @@ struct DashboardRootView: View {
                 .padding(.horizontal, palette.sectionMargin)
                 .padding(.vertical, palette.verticalSectionMargin)
         } else if let columns = model.boardColumns {
-            BoardScreen(palette: palette, snapshots: model.snapshots, columns: columns)
+            BoardScreen(
+                palette: palette,
+                snapshots: model.snapshots,
+                columns: columns,
+                containerMode: model.containerMode
+            )
                 .frame(height: inner)
                 .padding(.horizontal, palette.sectionMargin)
                 .padding(.vertical, palette.verticalSectionMargin)
@@ -155,6 +160,16 @@ struct DashboardRootView: View {
                 .layoutPriority(-1)
             Spacer(minLength: 0)
             if model.showsSwitcher {
+                // Container toggle first, arrangement switcher second — the
+                // arrangement is the primary control, so it keeps the outer edge.
+                //
+                // The gap is trailing PADDING, not a `Spacer`: a Spacer is flexible
+                // and `minLength` is only its floor, so one placed between the pills
+                // expanded to fill the row — shoving the toggle against the left
+                // margin and squeezing the title down to an ellipsis.
+                containerBar(palette, chrome)
+                    .padding(.trailing, chrome.widgetGap)
+                    .layoutPriority(1)
                 previewBar(palette, chrome)
                     .layoutPriority(1)
             }
@@ -199,8 +214,14 @@ struct DashboardRootView: View {
     /// showing bare numbers. SwiftCrossUI exposes no text-measurement API, so
     /// this estimates ~0.62em per glyph at semibold.
     private func segmentWidth(_ palette: ThemeToSCUIPalette) -> Int {
-        let widest = model.arrangements.map(\.short.count).max() ?? 1
-        let glyphs = Double(widest) * palette.captionSize * 0.62
+        segmentWidth(palette, widestLabel: model.arrangements.map(\.short.count).max() ?? 1)
+    }
+
+    /// Slot width for a pill whose widest label is `widestLabel` characters. Each
+    /// pill sizes from its OWN labels — sharing one width would make the container
+    /// toggle as wide as the arrangement switcher's longest name.
+    private func segmentWidth(_ palette: ThemeToSCUIPalette, widestLabel: Int) -> Int {
+        let glyphs = Double(max(1, widestLabel)) * palette.captionSize * 0.62
         return Int(glyphs.rounded()) + segmentInsets(palette).horizontal * 2
     }
 
@@ -231,6 +252,25 @@ struct DashboardRootView: View {
             slotHeight: segmentHeight(palette),
             trackInset: segmentInsets(palette).track
         )
+    }
+
+    /// The container toggle: the same pill control as the arrangement switcher,
+    /// with `ContainerMode`'s labels instead. Reusing it means the glide animation
+    /// and every panel-measured inset come along for free.
+    private func containerBar(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {
+        let modes = ContainerMode.allCases
+        return SwitcherPill(
+            palette: palette,
+            labels: modes.map(\.label),
+            selected: modes.firstIndex(of: model.containerMode) ?? 0,
+            slotWidth: segmentWidth(chrome, widestLabel: modes.map(\.label.count).max() ?? 4),
+            slotHeight: segmentHeight(chrome),
+            trackInset: segmentInsets(chrome).track,
+            fontSize: chrome.captionSize,
+            slideMilliseconds: DashboardLaunch.slideMilliseconds,
+            onSelect: { model.selectContainerMode($0) }
+        )
+        .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
     }
 
     private func previewBar(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {

@@ -23,6 +23,8 @@ struct BoardScreen: View {
     let palette: ThemeToSCUIPalette
     let snapshots: [AttachedWidgetSnapshot]
     let columns: [BoardColumn]
+    /// Overrides each column's authored `containerless` flag; `.authored` keeps it.
+    var containerMode: ContainerMode = .authored
 
     /// Minute-precision, no seconds. Rebuilt each render (snapshots tick ~1s).
     private static let timeFormatter: DateFormatter = {
@@ -70,8 +72,9 @@ struct BoardScreen: View {
             ? (height - gaps) / Double(count)
             : 0
         return VStack(spacing: palette.verticalWidgetGap) {
+            let containerless = containerMode.isContainerless(authored: column.containerless)
             ForEach(Array(column.rows.enumerated()), id: \.offset) { item in
-                row(item.element, containerless: column.containerless)
+                row(item.element, containerless: containerless)
                     .frame(height: max(1, rowHeight))
             }
         }
