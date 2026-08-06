@@ -1,0 +1,27 @@
+Reuse each widget's own PangoContext instead of creating one per measurement.
+
+`GtkBackend.size(of:whenDisplayedIn:)` constructs a `Pango` for EVERY text
+measurement, and SwiftCrossUI's layout measures every `Text` on every layout pass.
+`gtk_widget_create_pango_context` allocates a fresh context and resolves font and
+style settings each time; `gtk_widget_get_pango_context` returns the widget's own,
+which GTK keeps current. The added `g_object_ref` balances the `g_object_unref` the
+existing `deinit` performs, since the widget — not us — owns the returned context.
+
+Measured on a Raspberry Pi driving a 1920x440 panel (DeskDashboard, ~36 labels):
+a full re-layout went from ~310ms to ~108ms, and idle CPU fell by ~40%. Rendering is
+pixel-identical across every font size on two boards, including CSS letter-spacing.
+
+Applies to swift-cross-ui 0.8.0. Worth upstreaming; see docs/agent-handoff.md 2b.
+
+--- a/Sources/Gtk/Utility/Pango.swift
++++ b/Sources/Gtk/Utility/Pango.swift
+@@ -6,7 +6,8 @@
+     /// Create a default pango instance with default context.
+     /// Create a pango context for a specific
+     public init(for widget: Widget) {
+-        pangoContext = gtk_widget_create_pango_context(widget.widgetPointer)
++        pangoContext = gtk_widget_get_pango_context(widget.widgetPointer)
++        g_object_ref(UnsafeMutableRawPointer(pangoContext))
+     }
+
+     deinit {

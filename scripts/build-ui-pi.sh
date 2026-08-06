@@ -73,8 +73,37 @@ echo "swift:     $(command -v swift)  ($(swift --version 2>/dev/null | head -1))
 echo "gtk4:      $(pkg-config --modversion gtk4)"
 echo "product:   $PRODUCT  ($CONFIG, -j $JOBS)"
 
-# --- Build -----------------------------------------------------------------
+# --- Dependency patches ----------------------------------------------------
+# SwiftPM has no patch mechanism, and the fix below is a ~3x win on the panel's
+# re-layout time (see patches/*.patch and docs/agent-handoff.md 2b). It lives in a
+# checkout, so a fresh clone, a `swift package resolve`, or an rm -rf .build silently
+# reverts it — and the only symptom is "the panel feels sluggish again", which is a
+# horrible thing to debug. So it is re-applied here on every build.
+#
+# Resolve first: the checkout has to exist before it can be patched.
 cd "$REPO_ROOT"
+swift package resolve
+
+PATCH="$REPO_ROOT/patches/swift-cross-ui-pango-context.patch"
+TARGET="$REPO_ROOT/.build/checkouts/swift-cross-ui"
+if [ -f "$PATCH" ] && [ -d "$TARGET" ]; then
+    if grep -q gtk_widget_get_pango_context \
+        "$TARGET/Sources/Gtk/Utility/Pango.swift" 2>/dev/null; then
+        echo "patch:     swift-cross-ui pango context (already applied)"
+    elif git -C "$TARGET" apply --check "$PATCH" 2>/dev/null; then
+        git -C "$TARGET" apply "$PATCH"
+        echo "patch:     swift-cross-ui pango context (applied)"
+    else
+        # Loud, not fatal: a dependency bump can legitimately invalidate the patch,
+        # and refusing to build would be worse than building it slow. But say so,
+        # because otherwise the regression is invisible.
+        echo "patch:     WARNING — swift-cross-ui pango patch did NOT apply." >&2
+        echo "           Re-layout will be ~3x slower. Rebase the patch (it is 2" >&2
+        echo "           lines) or drop it if upstream has fixed it." >&2
+    fi
+fi
+
+# --- Build -----------------------------------------------------------------
 swift build --product "$PRODUCT" -c "$CONFIG" -j "$JOBS"
 
 BIN="$REPO_ROOT/.build/$CONFIG/$PRODUCT"
