@@ -81,17 +81,20 @@ struct DashboardRootView: View {
     ) -> some View {
         let inner = max(1, height - Double(palette.verticalSectionMargin * 2))
 
-        if model.isMTG {
-            MTGScreen(palette: palette, time: model.clockTime)
-                .frame(height: inner)
-                .padding(.horizontal, palette.sectionMargin)
-                .padding(.vertical, palette.verticalSectionMargin)
-        } else if let columns = model.boardColumns {
+        if let columns = model.boardColumns {
             BoardScreen(
                 palette: palette,
                 snapshots: model.snapshots,
                 columns: columns,
-                containerMode: model.containerMode
+                containerMode: model.containerMode,
+                onAction: { id, action, isHold, isHoldable in
+                    model.perform(
+                        widgetID: id,
+                        action: action,
+                        cameFromHold: isHold,
+                        isHoldable: isHoldable
+                    )
+                }
             )
                 .frame(height: inner)
                 .padding(.horizontal, palette.sectionMargin)
@@ -101,7 +104,18 @@ struct DashboardRootView: View {
                 ForEach(tiles, id: \.id.rawValue) { snapshot in
                     // No layout override: the tile grid is the honest default,
                     // so each widget draws with its own configured layout.
-                    TileView(snapshot: snapshot, palette: palette)
+                    TileView(
+                        snapshot: snapshot,
+                        palette: palette,
+                        onAction: { action, isHold, isHoldable in
+                            model.perform(
+                                widgetID: snapshot.id.rawValue,
+                                action: action,
+                                cameFromHold: isHold,
+                                isHoldable: isHoldable
+                            )
+                        }
+                    )
                     .tileCorners(palette)
                 }
             }

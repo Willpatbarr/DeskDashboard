@@ -138,6 +138,15 @@ SwiftCrossUI's GTK backend behaves unlike SwiftUI in ways that will eat your day
   board's content region, not just the affected tile. Switch *values* instead:
   same chain, `plain ? Color.clear : palette.surface`, radius 0 vs N
   (see `TileView.body` and `tileCorners(_:rounded:)`).
+- **A GTK long press ALSO fires the tap, and the tap fires FIRST.**
+  `onTapGesture(.primary)` is wired to `GestureClick::pressed` — it fires the
+  instant the button goes down, not on release — and `GestureLongPress` fires
+  later if the finger stays. So a hold delivers both actions, tap first. Measured:
+  holding `+` moved life by 11 rather than 10. There is no press/release pair to
+  reason from, so a tap on a hold-capable region has to be **deferred** ~550ms and
+  cancelled if a hold follows (`HoldGate` in `DashboardUI/Support/`). Don't instead
+  make the hold apply +9 to top up the tap, and don't suppress the tap *after* a
+  hold: both assume an ordering that differs between GTK and AppKit.
 - **Text is sized to its ink, not the font's advance.** Splitting a string per
   character therefore destroys side bearings (the clock's colon got overrun) —
   and even the separator-run split overran the colon once the joins were pulled

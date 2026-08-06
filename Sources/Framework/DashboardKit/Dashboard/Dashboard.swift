@@ -210,6 +210,28 @@ extension Dashboard {
     }
 }
 
+// MARK: - Interaction
+
+extension Dashboard {
+    /// Hands `action` to the widget that raised it, if it accepts input.
+    ///
+    /// Silently ignores unknown ids and non-interactive widgets: a tap is a
+    /// best-effort message from a renderer, and a stale one mustn't be fatal.
+    public mutating func perform(action: String, on widgetID: WidgetID) {
+        guard let attachedWidget = attachedWidgets[widgetID],
+              let interactive = attachedWidget.widget as? any InteractiveWidget
+        else { return }
+
+        interactive.handle(
+            action: action,
+            environment: makeEnvironment(
+                for: widgetID,
+                configuration: attachedWidget.widget.configuration
+            )
+        )
+    }
+}
+
 // MARK: - Environment
 
 extension Dashboard {

@@ -33,6 +33,11 @@ struct TileView: View {
     /// Suppresses the widget's title label for this render (a board-level
     /// choice — every layout already omits an absent title).
     var hidesTitle: Bool = false
+    /// Raised when a `.tappable` node in this tile is tapped or held: the action
+    /// name, plus whether it came from a hold. The caller pairs it with the widget
+    /// id and routes it onward; this view deliberately knows nothing about the
+    /// framework side.
+    var onAction: ((String, Bool, Bool) -> Void)? = nil
 
     /// Semantic content for the layout: real content when present, otherwise the
     /// configured title + a placeholder so an unrendered tile isn't blank.
@@ -96,6 +101,25 @@ struct TileView: View {
 
         case .spacer:
             return AnyView(Spacer(minLength: 0))
+
+        case let .tappable(action, hold, child):
+            // The child draws exactly as it would untapped; only gestures are
+            // added. A renderer with no input story could ignore the wrapper
+            // entirely and still produce correct pixels.
+            //
+            // Both gestures land on the same view. SwiftCrossUI only warns that a
+            // gesture displaces *the same kind* within a view, so a primary tap and
+            // a long press coexist — GTK backs them with separate GestureClick and
+            // GestureLongPress controllers.
+            // A region with a hold reports `isHoldable` on its taps too, so the
+            // gate knows to wait and see rather than emitting immediately.
+            let isHoldable = hold != nil
+            let tappable = interpret(child)
+                .onTapGesture { onAction?(action, false, isHoldable) }
+            guard let hold else { return AnyView(tappable) }
+            return AnyView(
+                tappable.onTapGesture(gesture: .longPress) { onAction?(hold, true, true) }
+            )
 
         case let .centered(children):
             let views = children.map(interpret)

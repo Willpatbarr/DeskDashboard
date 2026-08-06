@@ -28,9 +28,12 @@ public struct Arrangement: Sendable {
     public let screen: Screen?
 
     /// The screens the renderer knows how to draw.
+    ///
+    /// Only boards, now. There used to be a hand-built `.mtg` case for the Magic
+    /// tracker; once widgets could accept input it became an ordinary board of
+    /// widgets, so the renderer no longer carries a bespoke screen — or the
+    /// product knowledge that one of its screens is a game.
     public enum Screen: Equatable, Sendable {
-        /// Interactive Magic: The Gathering life/turn tracker.
-        case mtg
         /// A single-row board with proportional column widths — see `BoardColumn`.
         case board([BoardColumn])
     }

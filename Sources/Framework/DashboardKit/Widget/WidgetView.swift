@@ -28,6 +28,17 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// node is given — the value scales with the widget, instead of taking a
     /// fixed role size.
     case fittedText(String)
+    /// Makes its child tappable — and optionally hold-able — reporting an action
+    /// name back to the widget.
+    ///
+    /// The action is a NAME, not a closure, so a `WidgetView` stays `Equatable`
+    /// and `Sendable` and layouts stay pure data that any renderer can interpret.
+    /// A renderer that doesn't handle input can simply draw the child.
+    /// The widget receives it via `InteractiveWidget.handle(action:environment:)`.
+    /// `hold` fires on a long press instead of `action`; nil means a hold does
+    /// nothing. Both are names, so a renderer without a long-press gesture can
+    /// honour the tap and ignore the hold.
+    case tappable(action: String, hold: String?, WidgetView)
 }
 
 public enum Axis: Sendable {

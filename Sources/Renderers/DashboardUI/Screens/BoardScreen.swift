@@ -25,6 +25,8 @@ struct BoardScreen: View {
     let columns: [BoardColumn]
     /// Overrides each column's authored `containerless` flag; `.authored` keeps it.
     var containerMode: ContainerMode = .authored
+    /// Raised as `(widget id, action, cameFromHold)` when a tile reports a gesture.
+    var onAction: ((String, String, Bool, Bool) -> Void)? = nil
 
     /// Minute-precision, no seconds. Rebuilt each render (snapshots tick ~1s).
     private static let timeFormatter: DateFormatter = {
@@ -68,14 +70,13 @@ struct BoardScreen: View {
     private func column(_ column: BoardColumn, height: Double) -> some View {
         let count = max(1, column.rows.count)
         let gaps = Double(palette.verticalWidgetGap * (count - 1))
-        let rowHeight = height.isFinite && height > gaps
-            ? (height - gaps) / Double(count)
-            : 0
+        let usable = height.isFinite && height > gaps ? height - gaps : 0
+        let totalWeight = max(0.0001, column.rows.reduce(0) { $0 + $1.weight })
         return VStack(spacing: palette.verticalWidgetGap) {
             let containerless = containerMode.isContainerless(authored: column.containerless)
             ForEach(Array(column.rows.enumerated()), id: \.offset) { item in
                 row(item.element, containerless: containerless)
-                    .frame(height: max(1, rowHeight))
+                    .frame(height: max(1, usable * item.element.weight / totalWeight))
             }
         }
     }
@@ -88,7 +89,10 @@ struct BoardScreen: View {
                 palette: palette,
                 layoutOverride: row.layout,
                 containerless: containerless,
-                hidesTitle: row.hidesTitle
+                hidesTitle: row.hidesTitle,
+                onAction: { action, isHold, isHoldable in
+                    onAction?(row.id, action, isHold, isHoldable)
+                }
             )
             .tileCorners(palette, rounded: !containerless)
         }

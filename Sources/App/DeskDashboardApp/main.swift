@@ -112,7 +112,12 @@ let renderer = SwiftCrossUIRenderer(
     scaleMultiplier: scaleMultiplier,
     windowSize: windowSize,
     slideMilliseconds: slideMilliseconds,
-    frameMilliseconds: frameMilliseconds
+    frameMilliseconds: frameMilliseconds,
+    // Input's return path: the renderer only reports `(id, action)`; routing it is
+    // the app's call, because the app owns the runner.
+    onAction: { widgetID, action in
+        runner.perform(action: action, on: WidgetID(widgetID))
+    }
 )
 renderer.render(runner.attachedWidgetSnapshots)
 runner.start { _ in

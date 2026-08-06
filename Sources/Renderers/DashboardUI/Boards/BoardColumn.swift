@@ -61,11 +61,22 @@ public struct BoardColumn: Equatable, Sendable {
 public struct BoardRow: Equatable, Sendable {
     public let id: String
     public let layout: WidgetLayout
+    /// Relative height within the column, like a CSS `fr` unit. Rows default to
+    /// equal shares; give one a larger weight when it needs the room (the MTG
+    /// centre column runs 1:2, clock over turn, because a display-size number
+    /// doesn't fit half a column).
+    public let weight: Double
     public let hidesTitle: Bool
 
-    public init(_ id: String, _ layout: WidgetLayout, hidesTitle: Bool = false) {
+    public init(
+        _ id: String,
+        _ layout: WidgetLayout,
+        _ weight: Double = 1,
+        hidesTitle: Bool = false
+    ) {
         self.id = id
         self.layout = layout
+        self.weight = max(0.0001, weight)
         self.hidesTitle = hidesTitle
     }
 }

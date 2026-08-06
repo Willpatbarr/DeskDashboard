@@ -29,5 +29,5 @@ let dashboardArrangements: [Arrangement] = [
     Arrangement(name: "Green · flip centered", short: "Ctr",
                 screen: .board(BoardColumns.focusFlippedCentered)),
     Arrangement(name: "Gradient · MTG", short: "MTG",
-                theme: GradientClockTheme(), screen: .mtg),
+                theme: GradientClockTheme(), screen: .board(BoardColumns.mtg)),
 ]

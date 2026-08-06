@@ -32,6 +32,10 @@ final class DashboardModel: ObservableObject {
     /// otherwise resize the title and pill on every switch.
     private let dashboardTheme: any Theme
 
+    /// Where taps go. Set by `SwiftCrossUIRenderer` from what the app supplied;
+    /// nil means input is dropped, which is what a read-only dashboard wants.
+    var onAction: ((String, String) -> Void)?
+
     /// Multiplied into the viewport-derived scale before sizes are resolved.
     /// Set from `--scale N` / `DD_UI_SCALE` so type can be dialed in on a real
     /// screen without a rebuild (a Pi build is slow). `1` means "as computed".
@@ -87,18 +91,11 @@ final class DashboardModel: ObservableObject {
     }
 
     var arrangementName: String { current.name }
-    /// Whether the current arrangement is the interactive MTG mode.
-    var isMTG: Bool { current.screen == .mtg }
     /// The board's column spec when the current arrangement is a board, else `nil`.
     var boardColumns: [BoardColumn]? {
         if case let .board(columns) = current.screen { columns } else { nil }
     }
 
-    /// The clock widget's latest time text, for the MTG mini-clock. Updates each
-    /// tick as fresh snapshots arrive, so the MTG clock stays live.
-    var clockTime: String {
-        snapshots.first { $0.id.rawValue == "clock" }?.content?.primaryText ?? "--:--"
-    }
 
     /// Jump straight to an arrangement by index (a segment tap). Out-of-range is
     /// ignored. This is the hook a real layout switcher would drive too.
@@ -108,6 +105,29 @@ final class DashboardModel: ObservableObject {
     func select(_ index: Int) {
         guard arrangements.indices.contains(index) else { return }
         selectedIndex = index
+    }
+
+    /// Drops the tap GTK sends along with a long press — see `HoldGate`.
+    private let holdGate = HoldGate()
+
+    /// Reports a tile's gesture onward. The renderer never handles it itself: the
+    /// app owns the runner, so the app decides what an action means.
+    ///
+    /// `isHoldable` says whether this same region also has a hold action. If it
+    /// does, the tap is held back briefly so a hold can cancel it — see `HoldGate`
+    /// for why that can't be decided when the tap arrives.
+    func perform(
+        widgetID: String,
+        action: String,
+        cameFromHold: Bool,
+        isHoldable: Bool = false
+    ) {
+        let emit: () -> Void = { [weak self] in self?.onAction?(widgetID, action) }
+        if cameFromHold {
+            holdGate.hold(emit)
+        } else {
+            holdGate.tap(deferred: isHoldable, emit)
+        }
     }
 
     /// Picks a container mode by switcher index (see `ContainerMode.allCases`).

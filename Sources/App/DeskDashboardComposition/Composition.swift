@@ -17,6 +17,8 @@ public struct DeskDashboardSystem {
     public let runner: DashboardRunner
     public let indoorTemperature: PushIndoorTemperatureService
     public let music: PushMusicService
+    /// Shared MTG game state, so every life/turn widget reads one game.
+    public let mtgGame: InMemoryMTGGameService
 }
 
 /// Builds the five-widget dashboard with its services and seeded push stores.
@@ -29,6 +31,10 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
     let indoorTemperature = PushIndoorTemperatureService(
         initialReading: TemperatureReading(celsius: 21.5, humidity: 44, timestamp: Date())
     )
+    // One game shared by all the MTG seats — the turn number is common, and life
+    // is per seat keyed by widget id.
+    let mtgGame = InMemoryMTGGameService()
+
     let music = PushMusicService(
         initialNowPlaying: NowPlaying(
             title: "Nightcall",
@@ -73,6 +79,11 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
                 .title("Music")
                 .source("HomePod")
                 .showAlbum(showsAlbum).service(music)
+            LifeCounterWidget(id: "life1", game: mtgGame)
+            LifeCounterWidget(id: "life2", game: mtgGame)
+            LifeCounterWidget(id: "life3", game: mtgGame)
+            LifeCounterWidget(id: "life4", game: mtgGame)
+            TurnCounterWidget(game: mtgGame)
             OutdoorTemperatureWidget()
                 .id("outdoor")
                 .title("Outdoor")
@@ -83,7 +94,8 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
     return DeskDashboardSystem(
         runner: DashboardRunner(dashboard: dashboard),
         indoorTemperature: indoorTemperature,
-        music: music
+        music: music,
+        mtgGame: mtgGame
     )
 }
 

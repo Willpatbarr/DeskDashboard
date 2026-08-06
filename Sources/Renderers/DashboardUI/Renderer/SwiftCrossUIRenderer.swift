@@ -54,7 +54,8 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
         scaleMultiplier: Double = 1,
         windowSize: (width: Int, height: Int)? = nil,
         slideMilliseconds: Double? = nil,
-        frameMilliseconds: Double? = nil
+        frameMilliseconds: Double? = nil,
+        onAction: ((String, String) -> Void)? = nil
     ) {
         let model = DashboardModel(
             theme: theme,
@@ -71,6 +72,7 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
         if let slideMilliseconds, slideMilliseconds >= 0 {
             DashboardLaunch.slideMilliseconds = slideMilliseconds
         }
+        model.onAction = onAction
         if let frameMilliseconds, frameMilliseconds > 0 {
             DashboardLaunch.frameSeconds = frameMilliseconds / 1000
         }
