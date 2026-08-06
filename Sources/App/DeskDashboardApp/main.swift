@@ -112,13 +112,23 @@ let renderer = SwiftCrossUIRenderer(
     scaleMultiplier: scaleMultiplier,
     windowSize: windowSize,
     slideMilliseconds: slideMilliseconds,
-    frameMilliseconds: frameMilliseconds,
-    // Input's return path: the renderer only reports `(id, action)`; routing it is
-    // the app's call, because the app owns the runner.
-    onAction: { widgetID, action in
-        runner.perform(action: action, on: WidgetID(widgetID))
-    }
+    frameMilliseconds: frameMilliseconds
 )
+
+// Input's return path: the renderer only reports `(id, action)`; routing it is the
+// app's call, because the app owns the runner. Wired after construction rather than
+// through `init` so it can repaint this same renderer.
+//
+// The repaint is the point. `runner.start` only publishes a snapshot once a second,
+// but a held button repeats every 0.45s, so a tick draws two or three steps at once
+// — measured on the panel, life read 30 → 50 → 70 → 90 while every individual step
+// was a correct +10. Pushing a snapshot here draws each step as it happens, and also
+// stops a single tap from taking up to a second to appear.
+renderer.onAction = { [unowned renderer] widgetID, action in
+    runner.perform(action: action, on: WidgetID(widgetID))
+    renderer.render(runner.attachedWidgetSnapshots)
+}
+
 renderer.render(runner.attachedWidgetSnapshots)
 runner.start { _ in
     renderer.render(runner.attachedWidgetSnapshots)

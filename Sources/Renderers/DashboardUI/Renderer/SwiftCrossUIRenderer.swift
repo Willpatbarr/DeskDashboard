@@ -78,8 +78,34 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
         }
     }
 
+    /// Where a tile's `(widgetID, action)` goes.
+    ///
+    /// Settable after construction, not just via `init`, so the handler can call
+    /// `render(_:)` on this same renderer. An action has to repaint immediately:
+    /// the observer tick only fires once a second, and a hold repeats faster than
+    /// that, so waiting for the tick draws two or three steps as one jump. See the
+    /// note in `main.swift`.
+    public var onAction: ((String, String) -> Void)? {
+        get { model.onAction }
+        set { model.onAction = newValue }
+    }
+
     /// Publishes a new set of widget snapshots to the UI.
+    ///
+    /// **Identical snapshots are dropped**, because publishing them is not free: any
+    /// change to the model re-runs SwiftCrossUI's whole layout pass, and that pass
+    /// measures every `Text` through `GtkBackend.size(of:whenDisplayedIn:)`, which
+    /// builds and destroys a Pango context per measurement
+    /// (`gtk_widget_create_pango_context` — ~40% of the app's busy time in a stack
+    /// profile). The runner ticks every second, but the clock only changes once a
+    /// minute, so most of those passes recomputed a pixel-identical screen.
+    ///
+    /// Cheap to check: `AttachedWidgetSnapshot` is `Equatable` all the way down, and
+    /// comparing a handful of small structs costs nothing against a layout pass.
+    /// It also keeps the main loop free, so a tap isn't queued behind a pointless
+    /// re-layout.
     public func render(_ snapshots: [AttachedWidgetSnapshot]) {
+        guard snapshots != model.snapshots else { return }
         model.snapshots = snapshots
     }
 
