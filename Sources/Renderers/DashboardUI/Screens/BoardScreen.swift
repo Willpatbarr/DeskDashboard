@@ -27,6 +27,8 @@ struct BoardScreen: View {
     var containerMode: ContainerMode = .authored
     /// Raised as `(widget id, action, cameFromHold)` when a tile reports a gesture.
     var onAction: ((String, String, Bool, Bool) -> Void)? = nil
+    /// Raised when a press ends, so a repeating hold can stop.
+    var onPressEnded: (() -> Void)? = nil
 
     /// Minute-precision, no seconds. Rebuilt each render (snapshots tick ~1s).
     private static let timeFormatter: DateFormatter = {
@@ -92,7 +94,8 @@ struct BoardScreen: View {
                 hidesTitle: row.hidesTitle,
                 onAction: { action, isHold, isHoldable in
                     onAction?(row.id, action, isHold, isHoldable)
-                }
+                },
+                onPressEnded: { onPressEnded?() }
             )
             .tileCorners(palette, rounded: !containerless)
         }

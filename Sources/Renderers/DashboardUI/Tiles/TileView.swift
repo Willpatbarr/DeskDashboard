@@ -38,6 +38,9 @@ struct TileView: View {
     /// id and routes it onward; this view deliberately knows nothing about the
     /// framework side.
     var onAction: ((String, Bool, Bool) -> Void)? = nil
+    /// Raised when a press on a hold-capable region ends, so a repeating hold can
+    /// stop. Separate from `onAction` because it carries no action of its own.
+    var onPressEnded: (() -> Void)? = nil
 
     /// Semantic content for the layout: real content when present, otherwise the
     /// configured title + a placeholder so an unrendered tile isn't blank.
@@ -117,8 +120,12 @@ struct TileView: View {
             let tappable = interpret(child)
                 .onTapGesture { onAction?(action, false, isHoldable) }
             guard let hold else { return AnyView(tappable) }
+            let ended = onPressEnded
             return AnyView(
-                tappable.onTapGesture(gesture: .longPress) { onAction?(hold, true, true) }
+                tappable
+                    .onTapGesture(gesture: .longPress) { onAction?(hold, true, true) }
+                    // Release ends the repeat. GTK only; see `PressReleaseGTK`.
+                    .onPressRelease { ended?() }
             )
 
         case let .centered(children):

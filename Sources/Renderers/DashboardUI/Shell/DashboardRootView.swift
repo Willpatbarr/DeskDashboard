@@ -94,7 +94,8 @@ struct DashboardRootView: View {
                         cameFromHold: isHold,
                         isHoldable: isHoldable
                     )
-                }
+                },
+                onPressEnded: { model.endPress() }
             )
                 .frame(height: inner)
                 .padding(.horizontal, palette.sectionMargin)

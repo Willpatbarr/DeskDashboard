@@ -124,10 +124,15 @@ final class DashboardModel: ObservableObject {
     ) {
         let emit: () -> Void = { [weak self] in self?.onAction?(widgetID, action) }
         if cameFromHold {
-            holdGate.hold(emit)
+            holdGate.holdBegan(emit)
         } else {
             holdGate.tap(deferred: isHoldable, emit)
         }
+    }
+
+    /// The press ended — stop any hold that was repeating.
+    func endPress() {
+        holdGate.pressEnded()
     }
 
     /// Picks a container mode by switcher index (see `ContainerMode.allCases`).
