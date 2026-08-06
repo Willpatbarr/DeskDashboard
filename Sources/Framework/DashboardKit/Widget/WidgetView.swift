@@ -39,6 +39,38 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// nothing. Both are names, so a renderer without a long-press gesture can
     /// honour the tap and ignore the hold.
     case tappable(action: String, hold: String?, WidgetView)
+
+    /// Gives its child a REGION at least `minWidth`×`minHeight`, independently of the
+    /// ink inside it.
+    ///
+    /// Exists because a tap lands on a widget's allocated region, not on its glyphs.
+    /// A `+` drawn 30px tall is a 30px target however much room its tile has, which
+    /// is a miserable thing to hit on a touchscreen. This lets a layout ask for a
+    /// comfortable target without changing what is drawn.
+    ///
+    /// Deliberately a MINIMUM rather than "fill the parent". Two greedy siblings do
+    /// not split leftover space evenly on this backend — measured 116px against 80px
+    /// — which silently pulled a centred value 30px off centre. An explicit minimum
+    /// leaves the surrounding spacers to do the centring, as they already did.
+    ///
+    /// Sizes are in reference-canvas units like every other measurement here; the
+    /// renderer scales them. A renderer with no notion of hit areas can ignore the
+    /// wrapper and draw the child.
+    case region(minWidth: Double, minHeight: Double, WidgetView)
+}
+
+public extension WidgetView {
+    /// A region at least `size`×`size`, for a control whose ink is smaller than a
+    /// fingertip.
+    static func touchTarget(_ size: Double, _ child: WidgetView) -> WidgetView {
+        .region(minWidth: size, minHeight: size, child)
+    }
+
+    /// A full-width band at least `minHeight` tall — a control that should be hit
+    /// anywhere across its strip of the tile, not just on its glyph.
+    static func touchBand(_ minHeight: Double, _ child: WidgetView) -> WidgetView {
+        .region(minWidth: 0, minHeight: minHeight, child)
+    }
 }
 
 public enum Axis: Sendable {

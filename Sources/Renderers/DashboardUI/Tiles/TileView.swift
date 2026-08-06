@@ -186,6 +186,17 @@ struct TileView: View {
         case let .playState(playing):
             return AnyView(playState(playing: playing))
 
+        case let .region(minWidth, minHeight, child):
+            // Authored against the reference canvas, so scale like every other size.
+            let minW = minWidth * palette.scale
+            let minH = minHeight * palette.scale
+            return AnyView(
+                interpret(child).frame(
+                    minWidth: minW > 0 ? minW : nil,
+                    minHeight: minH > 0 ? minH : nil
+                )
+            )
+
         case let .stack(axis, spacing, children):
             let views = children.map(interpret)
             let indexed = Array(views.enumerated())

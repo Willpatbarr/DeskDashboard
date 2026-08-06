@@ -46,10 +46,31 @@ public struct LifeCounterWidget: RenderableWidget, InteractiveWidget {
     }
 
     public func render(environment: DashboardEnvironment) -> WidgetContent {
-        WidgetContent(
+        let life = game.life(for: player)
+        return WidgetContent(
             title: configuration.title,
-            primaryText: "\(game.life(for: player))"
+            primaryText: "\(life)",
+            // The running total of the adjustment in progress, shown beside the life
+            // total until it expires. The service owns both the arithmetic and the
+            // expiry; the widget only formats.
+            secondaryText: game.recentLifeChange(for: player).map(Self.changeLabel),
+            // The reset affordance only exists once this seat has something to
+            // reset, matching the turn counter's RESET badge appearing from turn 1.
+            // Deciding *when* is the widget's call; the layout just draws whatever
+            // accessory it is handed.
+            accessoryText: life == game.startingLife ? nil : Self.resetGlyph
         )
+    }
+
+    /// The reset badge's label. A glyph rather than the turn tile's word, because a
+    /// life tile has three controls stacked in one column and a fourth word would
+    /// read as another value.
+    private static let resetGlyph = "↺"
+
+    /// `+3` / `−5`. The minus is U+2212, matching the decrement control's glyph
+    /// rather than a hyphen, so the two read as the same character on the tile.
+    private static func changeLabel(_ change: Int) -> String {
+        change > 0 ? "+\(change)" : "−\(abs(change))"
     }
 
     public func handle(action: String, environment: DashboardEnvironment) {
