@@ -1,3 +1,5 @@
+// BoardScreen.swift — Screen: renders a board spec as proportional columns of tiles.
+
 import DashboardKit
 import Foundation
 import SwiftCrossUI
@@ -14,61 +16,13 @@ import SwiftCrossUI
 /// - Music uses `.mediaStacked` — artist above a full-size song title that
 ///   wraps, so long titles still fit.
 /// - The temps use `.standard`, unchanged.
-struct CuratedGreenView: View {
-    /// One column: one or more widgets stacked vertically, how wide the column
-    /// is relative to its siblings, and whether its tiles keep their chrome.
-    struct Column: Equatable {
-        /// One widget within the column: which one, how to lay its content out,
-        /// and whether to drop its title label.
-        struct Row: Equatable {
-            let id: String
-            let layout: WidgetLayout
-            let hidesTitle: Bool
-
-            init(_ id: String, _ layout: WidgetLayout, hidesTitle: Bool = false) {
-                self.id = id
-                self.layout = layout
-                self.hidesTitle = hidesTitle
-            }
-        }
-
-        let rows: [Row]
-        /// Relative width, like a CSS `fr` unit.
-        let weight: Double
-        /// Renders the tiles without their chrome — just the content, directly
-        /// on the board's gradient.
-        let containerless: Bool
-
-        /// The common case: a column holding a single widget.
-        init(
-            _ id: String,
-            _ layout: WidgetLayout,
-            _ weight: Double,
-            containerless: Bool = false,
-            hidesTitle: Bool = false
-        ) {
-            self.init(
-                rows: [Row(id, layout, hidesTitle: hidesTitle)],
-                weight,
-                containerless: containerless
-            )
-        }
-
-        /// A column stacking several widgets vertically (equal heights).
-        init(
-            rows: [Row],
-            _ weight: Double,
-            containerless: Bool = false
-        ) {
-            self.rows = rows
-            self.weight = weight
-            self.containerless = containerless
-        }
-    }
-
-    let palette: ThemePalette
+///
+/// This is the *renderer* for a board. The boards themselves — which widgets, in
+/// which order, at which weights — are data, one file each in `Boards/`.
+struct BoardScreen: View {
+    let palette: ThemeToSCUIPalette
     let snapshots: [AttachedWidgetSnapshot]
-    let columns: [Column]
+    let columns: [BoardColumn]
 
     /// Minute-precision, no seconds. Rebuilt each render (snapshots tick ~1s).
     private static let timeFormatter: DateFormatter = {
@@ -109,7 +63,7 @@ struct CuratedGreenView: View {
     /// Rows get EXACT equal heights carved from the column's `height`, not
     /// greedy frames: greedy siblings don't split fairly here (the outdoor temp
     /// ran off the bottom of the panel), same trap as the root view's bands.
-    private func column(_ column: Column, height: Double) -> some View {
+    private func column(_ column: BoardColumn, height: Double) -> some View {
         let count = max(1, column.rows.count)
         let gaps = Double(palette.verticalWidgetGap * (count - 1))
         let rowHeight = height.isFinite && height > gaps
@@ -124,7 +78,7 @@ struct CuratedGreenView: View {
     }
 
     @ViewBuilder
-    private func row(_ row: Column.Row, containerless: Bool) -> some View {
+    private func row(_ row: BoardRow, containerless: Bool) -> some View {
         if let snapshot = resolvedSnapshot(row) {
             TileView(
                 snapshot: snapshot,
@@ -145,7 +99,7 @@ struct CuratedGreenView: View {
     ///
     /// The composed clock widget runs with `showSeconds()`, so its `primaryText`
     /// ticks every second; the board wants a calm "9:21".
-    private func resolvedSnapshot(_ row: Column.Row) -> AttachedWidgetSnapshot? {
+    private func resolvedSnapshot(_ row: BoardRow) -> AttachedWidgetSnapshot? {
         guard let snapshot = snapshot(row.id) else { return nil }
         guard row.id == "clock" else { return snapshot }
 
@@ -162,60 +116,4 @@ struct CuratedGreenView: View {
             )
         )
     }
-}
-
-/// Column specs for the curated boards.
-///
-/// Deliberately *not* statics on `CuratedGreenView`: statics on a `View` inherit
-/// its main-actor isolation, so `DashboardModel.init` couldn't reference them.
-enum BoardColumns {
-    /// Clock, music, indoor, outdoor — all the same width, and the clock keeps the
-    /// original top-left `.bigNumber` treatment (the centred one is the wide board's).
-    static let equalWidths: [CuratedGreenView.Column] = [
-        CuratedGreenView.Column("clock", .bigNumber, 1),
-        CuratedGreenView.Column("music", .mediaStacked, 1),
-        CuratedGreenView.Column("indoor", .standard, 1),
-        CuratedGreenView.Column("outdoor", .standard, 1),
-    ]
-
-    /// Temps narrow on the left, then a wide clock and a roomy music column
-    /// (1fr / 1fr / 3fr / 2fr).
-    static let wideClock: [CuratedGreenView.Column] = [
-        CuratedGreenView.Column("indoor", .standard, 1),
-        CuratedGreenView.Column("outdoor", .standard, 1),
-        CuratedGreenView.Column("clock", .centeredValue, 3),
-        CuratedGreenView.Column("music", .mediaStacked, 2),
-    ]
-
-    /// Everything chrome-less on the gradient: music with the transport row
-    /// (2fr), the centred clock with its label hidden (3fr), and a 1fr column
-    /// of indoor over outdoor temps, each just a centred label + a value sized
-    /// to fill its half.
-    static let focus: [CuratedGreenView.Column] = [
-        CuratedGreenView.Column("music", .nowPlaying, 2, containerless: true),
-        CuratedGreenView.Column("clock", .centeredValue, 3, containerless: true, hidesTitle: true),
-        CuratedGreenView.Column(
-            rows: [
-                CuratedGreenView.Column.Row("indoor", .fittedValue),
-                CuratedGreenView.Column.Row("outdoor", .fittedValue),
-            ],
-            1,
-            containerless: true
-        ),
-    ]
-
-    /// `focus` with the columns reordered — temps first, then music, then the
-    /// clock — for A/B-ing the two arrangements from the switcher.
-    static let focusFlipped: [CuratedGreenView.Column] = [
-        CuratedGreenView.Column(
-            rows: [
-                CuratedGreenView.Column.Row("indoor", .fittedValue),
-                CuratedGreenView.Column.Row("outdoor", .fittedValue),
-            ],
-            1,
-            containerless: true
-        ),
-        CuratedGreenView.Column("music", .nowPlaying, 2, containerless: true),
-        CuratedGreenView.Column("clock", .centeredValue, 3, containerless: true, hidesTitle: true),
-    ]
 }

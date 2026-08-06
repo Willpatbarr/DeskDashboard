@@ -1,3 +1,5 @@
+// DeskDashboardDevApp.swift — Entry point of the dev executable: same composition, dev renderers.
+
 import DashboardDevRenderers
 import DashboardHTTPServer
 import DashboardKit

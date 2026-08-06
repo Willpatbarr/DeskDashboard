@@ -1,3 +1,5 @@
+// MusicWidgetTests.swift — Tests: music widget lifecycle, now-playing formatting and progress.
+
 import Foundation
 import Testing
 import DashboardKit

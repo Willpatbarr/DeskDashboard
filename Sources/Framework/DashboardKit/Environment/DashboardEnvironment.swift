@@ -1,3 +1,5 @@
+// DashboardEnvironment.swift — Per-tick context: ids, theme, layout, refresh rate, services.
+
 //
 //  DashboardEnvironment.swift
 //  DeskDashboard

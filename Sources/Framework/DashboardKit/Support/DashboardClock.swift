@@ -1,3 +1,5 @@
+// DashboardClock.swift — Clock contract plus manual and Timer-backed implementations that drive ticks.
+
 import Foundation
 
 public typealias DashboardClockHandler = (Date) -> Void

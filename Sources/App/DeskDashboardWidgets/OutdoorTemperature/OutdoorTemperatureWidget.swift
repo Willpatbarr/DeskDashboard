@@ -1,3 +1,5 @@
+// OutdoorTemperatureWidget.swift — Outdoor temp DISPLAY layer: renders temp, conditions and location.
+
 import DashboardKit
 import Foundation
 

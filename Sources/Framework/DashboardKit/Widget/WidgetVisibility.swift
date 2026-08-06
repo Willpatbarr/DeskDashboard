@@ -1,3 +1,5 @@
+// WidgetVisibility.swift — Whether a layout decided to show or hide a widget.
+
 //
 //  WidgetVisibility.swift
 //  DeskDashboard

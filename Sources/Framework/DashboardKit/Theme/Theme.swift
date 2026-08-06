@@ -1,3 +1,5 @@
+// Theme.swift — Theme scaffold: the protocol, the token types and their defaults, holding no named values.
+
 // This file is the theme SCAFFOLD, deliberately: the protocol, the token types,
 // and the neutral `.default` each token falls back to. It holds no named
 // palette, type scale or shape set of its own.

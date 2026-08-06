@@ -1,3 +1,5 @@
+// AlarmWidgetTests.swift — Tests: alarm widget lifecycle and which alarm it reports.
+
 import Foundation
 import Testing
 import DashboardKit

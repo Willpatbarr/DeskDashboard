@@ -1,3 +1,5 @@
+// ClockWidgetTests.swift — Tests: clock widget lifecycle and time formatting.
+
 import Foundation
 import Testing
 import DashboardKit

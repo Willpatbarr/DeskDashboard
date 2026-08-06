@@ -1,3 +1,5 @@
+// DevWebRenderer.swift — Dev renderer: serves the dashboard as a live-updating web page.
+
 import DashboardHTTPServer
 import DashboardKit
 import Foundation

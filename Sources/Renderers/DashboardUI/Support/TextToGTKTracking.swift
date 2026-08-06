@@ -1,3 +1,5 @@
+// TextToGTKTracking.swift — Translation: GTK CSS letter-spacing on a `Text`; only file importing Gtk.
+
 import SwiftCrossUI
 
 // This file is the ONLY place in DashboardUI that imports Gtk: the Gtk module

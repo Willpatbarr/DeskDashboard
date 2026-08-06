@@ -1,3 +1,5 @@
+// LayoutRegion.swift — Named region of a layout a widget can be placed into.
+
 //
 //  LayoutRegion.swift
 //  DeskDashboard

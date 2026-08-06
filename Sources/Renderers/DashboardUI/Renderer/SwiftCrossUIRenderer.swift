@@ -1,3 +1,5 @@
+// SwiftCrossUIRenderer.swift — Entry point of the real renderer: snapshots in, app launched.
+
 import DashboardKit
 
 /// The real dashboard renderer, built on SwiftCrossUI.
@@ -25,7 +27,11 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
     private let model: DashboardModel
 
     /// - Parameters:
-    ///   - showsPreviewControls: when true, the UI shows a button that cycles
+    ///   - arrangements: the app's selectable arrangements, in switcher order;
+    ///     index 0 is what boots. Empty means "render the dashboard as its
+    ///     composition describes it" — configured theme, each widget's own
+    ///     layout, in the tile grid.
+    ///   - showsSwitcher: when true, the UI shows a button that cycles
     ///     through built-in theme × layout combinations (the `--preview` flag) —
     ///     for eyeballing configurations, not for the shipping kiosk. It also
     ///     shows the viewport/scale readout in the header.
@@ -43,7 +49,8 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
     ///     real budget; `DD_UI_LOG=1` reports the cadence achieved.
     public init(
         theme: any Theme,
-        showsPreviewControls: Bool = false,
+        arrangements: [Arrangement] = [],
+        showsSwitcher: Bool = false,
         scaleMultiplier: Double = 1,
         windowSize: (width: Int, height: Int)? = nil,
         slideMilliseconds: Double? = nil,
@@ -51,7 +58,8 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
     ) {
         let model = DashboardModel(
             theme: theme,
-            showsPreviewControls: showsPreviewControls,
+            arrangements: arrangements,
+            showsSwitcher: showsSwitcher,
             scaleMultiplier: scaleMultiplier
         )
         self.model = model

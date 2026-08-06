@@ -1,3 +1,5 @@
+// GreenBoardTheme.swift — Theme: gradient palette, larger supporting text; the kiosk's own.
+
 // The curated-board theme: the gradient-clock palette and shape, with larger
 // supporting text. Reuses `ThemeColors.gradientClock` and `ThemeShape.rounded`
 // from `GradientClockTheme.swift` rather than restating them — this is the

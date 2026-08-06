@@ -1,3 +1,5 @@
+// UUIDFactory.swift — Generates the unique ids widgets and dashboards are stamped with.
+
 import Foundation
 
 enum UUIDFactory {

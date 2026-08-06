@@ -1,3 +1,5 @@
+// Composition.swift — The one declarative definition of the appliance: widgets, services, theme.
+
 import DashboardHTTPServer
 import DashboardKit
 import DeskDashboardIngest
@@ -46,7 +48,11 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
     // to the system clock.) The push stores are also handed to the ingest
     // endpoints below so external producers can overwrite them.
     let dashboard = Dashboard()
-        .theme(DarkDeskTheme())
+        // The dashboard's real theme. Arrangements that don't name their own use this,
+        // and the app chrome always sizes from it — so editing this line actually
+        // changes what you see (it previously did not: the renderer's hardcoded
+        // catalogue overrode it for every screen).
+        .theme(GreenBoardTheme())
         .widgets {
             ClockWidget()
                 .id("clock")

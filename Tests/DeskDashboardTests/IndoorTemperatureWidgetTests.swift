@@ -1,3 +1,5 @@
+// IndoorTemperatureWidgetTests.swift — Tests: indoor temperature lifecycle, conversion and staleness.
+
 import Foundation
 import Testing
 import DashboardKit

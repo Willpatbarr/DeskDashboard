@@ -1,3 +1,5 @@
+// DarkDeskTheme.swift — Theme: near-black blues with a cyan accent; also the generic composed-theme box.
+
 // The framework's baseline theme, and the palette it introduces.
 //
 // Pattern for every theme file (see `Theme.swift` for the scaffold): declare the

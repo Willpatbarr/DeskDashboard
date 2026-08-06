@@ -1,3 +1,5 @@
+// ClockWidgetModel.swift — Clock TRANSFORM layer: formats the current time and date for display.
+
 import DashboardKit
 import Foundation
 

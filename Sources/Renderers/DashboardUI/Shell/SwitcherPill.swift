@@ -1,6 +1,8 @@
+// SwitcherPill.swift — The header's arrangement switcher: a pill whose highlight glides between slots.
+
 import SwiftCrossUI
 
-/// Animation state for the pill's sliding highlight, owned by `PreviewPill`
+/// Animation state for the pill's sliding highlight, owned by `SwitcherPill`
 /// rather than by `DashboardModel`.
 ///
 /// That ownership is the whole point: a frame publishes a change on *this*
@@ -135,8 +137,8 @@ struct PillHighlight: Shape {
 /// but keep labels to ~5 characters, and if the preview count grows past ~7,
 /// numbers may need to come back (`segmentWidth` in `DashboardRootView` is
 /// where the math lives).
-struct PreviewPill: View {
-    let palette: ThemePalette
+struct SwitcherPill: View {
+    let palette: ThemeToSCUIPalette
     /// One short label per slot.
     let labels: [String]
     let selected: Int

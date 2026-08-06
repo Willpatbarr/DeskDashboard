@@ -1,3 +1,5 @@
+// AlarmWidget.swift — Alarm DISPLAY layer: renders the model's state into `WidgetContent`.
+
 import DashboardKit
 import Foundation
 

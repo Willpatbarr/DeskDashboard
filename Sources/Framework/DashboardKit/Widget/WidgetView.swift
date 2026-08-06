@@ -1,3 +1,5 @@
+// WidgetView.swift — Backend-agnostic tile structure: semantic nodes and text roles, no fonts or pixels.
+
 /// A backend-agnostic description of a tile's structure — semantic, not visual.
 ///
 /// Widgets never build this directly; a `WidgetLayout` maps a widget's

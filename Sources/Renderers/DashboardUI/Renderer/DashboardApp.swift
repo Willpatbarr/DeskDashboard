@@ -1,3 +1,5 @@
+// DashboardApp.swift — The SwiftCrossUI `App`, launched explicitly rather than via `@main`.
+
 import DefaultBackend
 import SwiftCrossUI
 

@@ -1,3 +1,5 @@
+// MusicWidgetModel.swift — Music TRANSFORM layer: formats track info, advances position.
+
 import DashboardKit
 import Foundation
 

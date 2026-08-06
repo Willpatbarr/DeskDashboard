@@ -1,3 +1,5 @@
+// DefaultTheme.swift — Theme: the framework baseline, owning the `.default` token values.
+
 // The default theme: the `.default` token values every other theme falls back
 // to, plus a theme that takes all of them.
 //

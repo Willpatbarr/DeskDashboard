@@ -1,3 +1,5 @@
+// WidgetModel.swift — Widget model lifecycle: activate, update, tick, deactivate.
+
 //
 //  WidgetModel.swift
 //  DeskDashboard

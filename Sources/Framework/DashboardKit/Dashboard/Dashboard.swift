@@ -1,3 +1,5 @@
+// Dashboard.swift — The dashboard value type: its configuration, attached widgets and their order.
+
 //
 //  Dashboard.swift
 //  DeskDashboard

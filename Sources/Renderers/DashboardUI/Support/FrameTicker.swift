@@ -1,3 +1,5 @@
+// FrameTicker.swift — Timer that hand-steps animations, plus the `DD_UI_LOG` logging helper.
+
 import Foundation
 
 /// A short-lived repeating callback used to hand-animate UI state.

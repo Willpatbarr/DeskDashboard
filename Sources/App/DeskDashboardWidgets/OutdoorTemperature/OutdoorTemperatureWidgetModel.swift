@@ -1,3 +1,5 @@
+// OutdoorTemperatureWidgetModel.swift — Outdoor temp TRANSFORM layer: units, conditions text, staleness.
+
 import DashboardKit
 import Foundation
 

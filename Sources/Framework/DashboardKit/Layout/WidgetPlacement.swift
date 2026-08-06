@@ -1,3 +1,5 @@
+// WidgetPlacement.swift — Where a layout put a widget: visibility, region and grid slot with spans.
+
 //
 //  WidgetPlacement.swift
 //  DeskDashboard

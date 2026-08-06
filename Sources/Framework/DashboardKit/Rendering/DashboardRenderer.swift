@@ -1,3 +1,5 @@
+// DashboardRenderer.swift — Renderer contract: the sink every renderer implements to receive snapshots.
+
 import Foundation
 
 /// A sink for rendered dashboard state. Every renderer — the console/web dev

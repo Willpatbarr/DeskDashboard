@@ -1,3 +1,5 @@
+// GridLayout.swift — Layout: first-fit grid packing that assigns each widget a non-overlapping slot.
+
 public struct GridLayout: Layout, Sendable {
     public let name: String
     public let columns: Int

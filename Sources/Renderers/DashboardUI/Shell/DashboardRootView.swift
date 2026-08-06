@@ -1,3 +1,5 @@
+// DashboardRootView.swift — The shell: reserves the header band, dispatches to a screen.
+
 import DashboardKit
 import SwiftCrossUI
 
@@ -35,8 +37,8 @@ struct DashboardRootView: View {
             let _ = UILog.once("geometry", """
             LAYOUT viewport=\(Int(viewport.width))×\(Int(viewport.height)) \
             scale=\(palette.scale) vScale=\(palette.verticalScale) \
-            pill=\(model.previews.count)×\(segmentWidth(chrome))=\
-            \(model.previews.count * segmentWidth(chrome))w \
+            pill=\(model.arrangements.count)×\(segmentWidth(chrome))=\
+            \(model.arrangements.count * segmentWidth(chrome))w \
             ×\(pillHeight(chrome))h \
             band=\(Int(band)) content=\(Int(viewport.height - band)) \
             margins=\(palette.sectionMargin)/\(palette.verticalSectionMargin) \
@@ -74,29 +76,27 @@ struct DashboardRootView: View {
     ///   survive; with a greedy inner view the bottom inset was being dropped and
     ///   the tiles overran the bottom of the screen.
     @ViewBuilder private func content(
-        _ palette: ThemePalette,
+        _ palette: ThemeToSCUIPalette,
         height: Double
     ) -> some View {
         let inner = max(1, height - Double(palette.verticalSectionMargin * 2))
 
         if model.isMTG {
-            MTGModeView(palette: palette, time: model.clockTime)
+            MTGScreen(palette: palette, time: model.clockTime)
                 .frame(height: inner)
                 .padding(.horizontal, palette.sectionMargin)
                 .padding(.vertical, palette.verticalSectionMargin)
         } else if let columns = model.boardColumns {
-            CuratedGreenView(palette: palette, snapshots: model.snapshots, columns: columns)
+            BoardScreen(palette: palette, snapshots: model.snapshots, columns: columns)
                 .frame(height: inner)
                 .padding(.horizontal, palette.sectionMargin)
                 .padding(.vertical, palette.verticalSectionMargin)
         } else {
             HStack(spacing: palette.widgetGap) {
                 ForEach(tiles, id: \.id.rawValue) { snapshot in
-                    TileView(
-                        snapshot: snapshot,
-                        palette: palette,
-                        layoutOverride: model.layoutOverride
-                    )
+                    // No layout override: the tile grid is the honest default,
+                    // so each widget draws with its own configured layout.
+                    TileView(snapshot: snapshot, palette: palette)
                     .tileCorners(palette)
                 }
             }
@@ -108,7 +108,7 @@ struct DashboardRootView: View {
 
     /// A top-to-bottom gradient when the palette defines one (the gradient-clock
     /// theme), otherwise the flat background color.
-    @ViewBuilder private func background(_ palette: ThemePalette) -> some View {
+    @ViewBuilder private func background(_ palette: ThemeToSCUIPalette) -> some View {
         if let stops = palette.backgroundGradient {
             LinearGradient(
                 colors: stops,
@@ -124,7 +124,7 @@ struct DashboardRootView: View {
     /// the scale derived from it. Shown next to the preview name whenever the
     /// switcher is visible, so what the sizing is doing is verifiable *on the
     /// screen in question* rather than inferred from logs.
-    private func metricsReadout(_ palette: ThemePalette, _ viewport: Viewport) -> String {
+    private func metricsReadout(_ palette: ThemeToSCUIPalette, _ viewport: Viewport) -> String {
         let w = Int(viewport.width.rounded())
         let h = Int(viewport.height.rounded())
         let scale = (palette.scale * 100).rounded() / 100
@@ -132,8 +132,8 @@ struct DashboardRootView: View {
     }
 
     private func header(
-        _ palette: ThemePalette,
-        _ chrome: ThemePalette,
+        _ palette: ThemeToSCUIPalette,
+        _ chrome: ThemeToSCUIPalette,
         _ viewport: Viewport
     ) -> some View {
         HStack {
@@ -142,9 +142,9 @@ struct DashboardRootView: View {
             // dropped — on a kiosk the app's identity isn't in question, and
             // keeping it overflowed 1920px.
             Text(
-                model.showsPreviewControls
-                    ? "\(model.previewName) · \(metricsReadout(palette, viewport))"
-                    : "DeskDashboard · \(model.previewName)"
+                model.showsSwitcher
+                    ? "\(model.arrangementName) · \(metricsReadout(palette, viewport))"
+                    : "DeskDashboard · \(model.arrangementName)"
             )
                 .font(.system(size: chrome.captionSize, weight: palette.bodyWeight))
                 .foregroundColor(palette.secondary)
@@ -154,7 +154,7 @@ struct DashboardRootView: View {
                 // truncate. (Left-edge clipping came from the pill losing this.)
                 .layoutPriority(-1)
             Spacer(minLength: 0)
-            if model.showsPreviewControls {
+            if model.showsSwitcher {
                 previewBar(palette, chrome)
                     .layoutPriority(1)
             }
@@ -174,7 +174,7 @@ struct DashboardRootView: View {
     /// Segment padding. Horizontal follows the type scale; vertical follows the
     /// height scale, so the pill doesn't eat the header's whole height on a short
     /// panel.
-    private func segmentInsets(_ palette: ThemePalette) -> (vertical: Int, horizontal: Int, track: Int) {
+    private func segmentInsets(_ palette: ThemeToSCUIPalette) -> (vertical: Int, horizontal: Int, track: Int) {
         (
             // Generous enough that a digit's box (which always runs taller than
             // its font size) fits inside the slot — an undersized slot is what
@@ -185,7 +185,7 @@ struct DashboardRootView: View {
         )
     }
 
-    private func segmentHeight(_ palette: ThemePalette) -> Int {
+    private func segmentHeight(_ palette: ThemeToSCUIPalette) -> Int {
         Int(palette.captionSize.rounded()) + segmentInsets(palette).vertical * 2
     }
 
@@ -198,8 +198,8 @@ struct DashboardRootView: View {
     /// and overflowed the Pi's 1920px header row, which is why it spent a while
     /// showing bare numbers. SwiftCrossUI exposes no text-measurement API, so
     /// this estimates ~0.62em per glyph at semibold.
-    private func segmentWidth(_ palette: ThemePalette) -> Int {
-        let widest = model.previews.map(\.short.count).max() ?? 1
+    private func segmentWidth(_ palette: ThemeToSCUIPalette) -> Int {
+        let widest = model.arrangements.map(\.short.count).max() ?? 1
         let glyphs = Double(widest) * palette.captionSize * 0.62
         return Int(glyphs.rounded()) + segmentInsets(palette).horizontal * 2
     }
@@ -210,8 +210,8 @@ struct DashboardRootView: View {
     ///
     /// Reserving this explicitly is what guarantees the pill's size, rather than
     /// leaving it to fight the greedy content region for space.
-    private func headerBandHeight(_ palette: ThemePalette, _ viewport: Viewport) -> Double {
-        let tallestElement = model.showsPreviewControls
+    private func headerBandHeight(_ palette: ThemeToSCUIPalette, _ viewport: Viewport) -> Double {
+        let tallestElement = model.showsSwitcher
             ? max(pillHeight(palette), Int(palette.captionSize * 1.3))
             : Int(palette.captionSize * 1.3)
         // A few pixels of slack on top of the exact fit. Sized to the pill's
@@ -226,18 +226,18 @@ struct DashboardRootView: View {
     }
 
     /// The whole control's height, which the header row reserves explicitly.
-    private func pillHeight(_ palette: ThemePalette) -> Int {
-        PreviewPill.height(
+    private func pillHeight(_ palette: ThemeToSCUIPalette) -> Int {
+        SwitcherPill.height(
             slotHeight: segmentHeight(palette),
             trackInset: segmentInsets(palette).track
         )
     }
 
-    private func previewBar(_ palette: ThemePalette, _ chrome: ThemePalette) -> some View {
-        PreviewPill(
+    private func previewBar(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {
+        SwitcherPill(
             palette: palette,
-            labels: model.previews.map(\.short),
-            selected: model.previewIndex,
+            labels: model.arrangements.map(\.short),
+            selected: model.selectedIndex,
             slotWidth: segmentWidth(chrome),
             slotHeight: segmentHeight(chrome),
             trackInset: segmentInsets(chrome).track,

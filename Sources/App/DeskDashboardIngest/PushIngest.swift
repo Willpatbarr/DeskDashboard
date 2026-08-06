@@ -1,3 +1,5 @@
+// PushIngest.swift — HTTP ingest endpoints external producers POST readings to.
+
 import DashboardHTTPServer
 import DeskDashboardWidgets
 import Foundation

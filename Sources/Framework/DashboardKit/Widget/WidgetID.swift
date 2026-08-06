@@ -1,3 +1,5 @@
+// WidgetID.swift — Typed identifier for a widget.
+
 public struct WidgetID: Hashable, Sendable {
     public var rawValue: String
 

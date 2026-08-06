@@ -1,3 +1,5 @@
+// MTGScreen.swift — Screen: interactive Magic life/turn tracker with a mini clock.
+
 import SwiftCrossUI
 
 /// The interactive "MTG mode" screen, modeled on the reference HTML: four
@@ -7,8 +9,8 @@ import SwiftCrossUI
 /// Each counter owns its own local `@State`, so state persists across the
 /// per-tick re-renders (the mini-clock updating doesn't reset the life totals)
 /// but is ephemeral — leaving and re-entering the mode starts a fresh game.
-struct MTGModeView: View {
-    let palette: ThemePalette
+struct MTGScreen: View {
+    let palette: ThemeToSCUIPalette
     /// Live time text from the clock widget, shown in the mini-clock.
     let time: String
 
@@ -36,7 +38,7 @@ struct MTGModeView: View {
 
 /// One player's life total: tap `+`/`−` to adjust, tap the total to reset to 40.
 private struct LifeCounterView: View {
-    let palette: ThemePalette
+    let palette: ThemeToSCUIPalette
     @State private var life = 40
 
     var body: some View {
@@ -73,7 +75,7 @@ private struct LifeCounterView: View {
 
 /// The shared turn number: tap the number to advance, tap RESET to zero it.
 private struct TurnCounterView: View {
-    let palette: ThemePalette
+    let palette: ThemeToSCUIPalette
     @State private var turn = 0
 
     var body: some View {
@@ -106,7 +108,7 @@ private struct TurnCounterView: View {
 
 /// A compact clock panel showing the live time in the accent color.
 private struct MiniClockView: View {
-    let palette: ThemePalette
+    let palette: ThemeToSCUIPalette
     let time: String
 
     var body: some View {

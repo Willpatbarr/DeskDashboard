@@ -1,3 +1,5 @@
+// IndoorTemperatureWidget.swift — Indoor temp DISPLAY layer: renders temperature and humidity.
+
 import DashboardKit
 import Foundation
 

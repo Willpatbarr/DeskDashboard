@@ -1,3 +1,5 @@
+// ThemeMetrics.swift — How a theme's sizes scale to a viewport, and the viewport type itself.
+
 /// The size of the surface the dashboard is drawn on, in points.
 public struct Viewport: Equatable, Sendable {
     public var width: Double

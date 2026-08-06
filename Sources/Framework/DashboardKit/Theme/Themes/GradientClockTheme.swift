@@ -1,3 +1,5 @@
+// GradientClockTheme.swift — Theme: deep-green gradient with thin numerals, used by the MTG screen.
+
 // The gradient-clock look, and the tokens it introduces.
 //
 // `ThemeColors.gradientClock` and `ThemeShape.rounded` are declared here and

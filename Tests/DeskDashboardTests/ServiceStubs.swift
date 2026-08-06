@@ -1,3 +1,5 @@
+// ServiceStubs.swift — Closure-backed service doubles shared by the widget tests.
+
 import DashboardKit
 import DeskDashboardWidgets
 import Foundation

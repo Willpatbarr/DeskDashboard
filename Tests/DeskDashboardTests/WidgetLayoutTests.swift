@@ -1,3 +1,5 @@
+// WidgetLayoutTests.swift — Tests: each tile layout's view tree, plus the layout scaffold's contract.
+
 import DashboardKit
 import Testing
 
@@ -160,4 +162,62 @@ import Testing
             .centered([.text("71°F", role: .display)]),
             .spacer,
         ]))
+}
+
+// MARK: - The scaffold contract
+
+/// Every layout that ships, paired with the name it should carry.
+///
+/// Deliberately a test-side list, not something in the scaffold: keeping it here
+/// means adding a layout still touches only its own file plus this list, rather
+/// than the type every layout depends on.
+private let allLayouts: [(id: String, layout: WidgetLayout)] = [
+    ("standard", .standard),
+    ("bigNumber", .bigNumber),
+    ("stat", .stat),
+    ("compact", .compact),
+    ("minimal", .minimal),
+    ("centeredValue", .centeredValue),
+    ("mediaCompact", .mediaCompact),
+    ("mediaStacked", .mediaStacked),
+    ("nowPlaying", .nowPlaying),
+    ("fittedValue", .fittedValue),
+]
+
+/// Layout identity is its `id`, so a duplicated one — easy to introduce by
+/// copying a layout file — would make two different layouts compare EQUAL, and
+/// silently swap arrangements wherever configs are compared.
+@Test func layoutIDsAreUnique() {
+    let ids = allLayouts.map(\.layout.id)
+    #expect(Set(ids).count == ids.count)
+}
+
+/// Catches the other half of a bad copy-paste: an id that doesn't match the
+/// member it's attached to.
+@Test func eachLayoutCarriesItsOwnName() {
+    for (expected, layout) in allLayouts {
+        #expect(layout.id == expected)
+    }
+}
+
+@Test func layoutsCompareByIdentityNotByClosure() {
+    // Needed because `WidgetConfiguration` and the board's `Column` both
+    // synthesize `Equatable` through this.
+    #expect(WidgetLayout.standard == .standard)
+    #expect(WidgetLayout.standard != .compact)
+    #expect(WidgetConfiguration(layout: .nowPlaying) == WidgetConfiguration(layout: .nowPlaying))
+    #expect(WidgetConfiguration(layout: .nowPlaying) != WidgetConfiguration(layout: .mediaStacked))
+}
+
+/// A layout is only ever *applied*, so the scaffold needs no knowledge of the
+/// arrangements — this proves a layout defined entirely outside DashboardKit
+/// works, which is what makes "one new file" true.
+@Test func aLayoutCanBeDefinedFromOutsideTheFramework() {
+    let custom = WidgetLayout(id: "testOnly") { content in
+        .stack(.vertical, spacing: 1, [.text(content.primaryText, role: .hero)])
+    }
+
+    #expect(custom.makeView(WidgetContent(primaryText: "42"))
+        == .stack(.vertical, spacing: 1, [.text("42", role: .hero)]))
+    #expect(custom != .standard)
 }

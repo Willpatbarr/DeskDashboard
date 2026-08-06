@@ -1,3 +1,5 @@
+// EnvironmentKey.swift — Typed keys for environment values and for services looked up by protocol.
+
 public struct EnvironmentKey<Value>: Sendable {
     public let name: String
 

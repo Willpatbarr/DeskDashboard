@@ -1,3 +1,5 @@
+// HTTPServer.swift — Dependency-free socket HTTP server backing the ingest endpoints.
+
 import Foundation
 #if canImport(Darwin)
 import Darwin

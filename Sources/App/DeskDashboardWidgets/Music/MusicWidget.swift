@@ -1,3 +1,5 @@
+// MusicWidget.swift — Music DISPLAY layer: now-playing, progress and play state.
+
 import DashboardKit
 import Foundation
 

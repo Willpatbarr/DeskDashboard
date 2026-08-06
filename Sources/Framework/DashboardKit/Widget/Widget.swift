@@ -1,3 +1,5 @@
+// Widget.swift — Widget contract and the chainable modifiers (`.title`, `.layout`, `.containerless`, …).
+
 //
 //  Widget.swift
 //  DeskDashboard

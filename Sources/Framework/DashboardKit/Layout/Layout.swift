@@ -1,3 +1,5 @@
+// Layout.swift — Layout contract: decides each widget's visibility and placement (with defaults).
+
 public struct LayoutItem: Sendable {
     public let id: WidgetID
     public let configuration: WidgetConfiguration

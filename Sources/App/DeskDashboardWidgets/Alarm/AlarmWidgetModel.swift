@@ -1,3 +1,5 @@
+// AlarmWidgetModel.swift — Alarm TRANSFORM layer: which alarm is next or firing.
+
 import DashboardKit
 import Foundation
 

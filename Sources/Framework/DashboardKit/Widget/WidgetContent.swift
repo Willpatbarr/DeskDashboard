@@ -1,3 +1,5 @@
+// WidgetContent.swift — What a widget produces: values, progress, play state, metadata.
+
 public protocol RenderableWidget: Widget {
     func render(environment: DashboardEnvironment) -> WidgetContent
 }

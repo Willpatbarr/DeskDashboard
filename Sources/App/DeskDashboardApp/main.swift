@@ -1,3 +1,5 @@
+// main.swift — Entry point of the real kiosk executable: ingest, flags, renderer.
+
 import DashboardHTTPServer
 import DashboardKit
 import DashboardUI
@@ -44,11 +46,10 @@ do {
     log("warning: failed to start ingest server: \(error)")
 }
 
-// The layout/theme switcher (Clock, MTG, etc.) is shown by default; pass
-// `--kiosk` to hide it for the fixed Pi display. (`--preview` still works as an
-// explicit opt-in, so old launch commands keep behaving.)
+// The arrangement switcher is shown by default; pass `--kiosk` to hide it on the
+// fixed Pi display. Cosmetic either way — `dashboardArrangements[0]` renders
+// regardless, so this is not a "preview mode" toggle.
 let showsSwitcher = !CommandLine.arguments.contains("--kiosk")
-    || CommandLine.arguments.contains("--preview")
 
 // Type-scale nudge on top of the viewport-derived scale: `--scale 1.4`, or
 // `DD_UI_SCALE=1.4` (easier for the Pi kiosk — a systemd `Environment=` drop-in
@@ -106,7 +107,8 @@ let frameMilliseconds: Double? = {
 
 let renderer = SwiftCrossUIRenderer(
     theme: runner.dashboard.configuration.theme,
-    showsPreviewControls: showsSwitcher,
+    arrangements: dashboardArrangements,
+    showsSwitcher: showsSwitcher,
     scaleMultiplier: scaleMultiplier,
     windowSize: windowSize,
     slideMilliseconds: slideMilliseconds,

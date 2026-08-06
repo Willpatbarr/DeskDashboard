@@ -1,3 +1,5 @@
+// IndoorTemperatureWidgetModel.swift — Indoor temp TRANSFORM layer: unit conversion and staleness.
+
 import DashboardKit
 import Foundation
 

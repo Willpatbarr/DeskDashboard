@@ -1,3 +1,5 @@
+// DashboardBuilder.swift — Result builder behind the `.widgets { … }` declarative syntax.
+
 /// A SwiftUI-style result builder for declaring a dashboard's widgets:
 ///
 /// ```swift

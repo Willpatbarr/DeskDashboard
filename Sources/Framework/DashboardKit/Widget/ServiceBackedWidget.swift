@@ -1,3 +1,5 @@
+// ServiceBackedWidget.swift — Opt-in protocol for widgets whose model a service feeds.
+
 /// A widget whose display is driven by a `WidgetModel` fed from a service.
 ///
 /// This captures the lifecycle every service-backed widget shares — resolve the

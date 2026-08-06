@@ -1,3 +1,5 @@
+// ClockWidget.swift — Clock DISPLAY layer: renders the formatted time into `WidgetContent`.
+
 import DashboardKit
 import Foundation
 

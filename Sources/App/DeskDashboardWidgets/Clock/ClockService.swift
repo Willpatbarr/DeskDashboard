@@ -1,3 +1,5 @@
+// ClockService.swift — Clock DATA layer: the time-source contract plus the system clock implementation.
+
 import DashboardKit
 import Foundation
 

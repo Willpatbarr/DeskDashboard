@@ -1,3 +1,5 @@
+// DashboardModel.swift — Observable state: snapshots, selected arrangement, resolved palettes.
+
 import DashboardKit
 import SwiftCrossUI
 
@@ -9,61 +11,23 @@ import SwiftCrossUI
 /// call — same input (`[AttachedWidgetSnapshot]`), different sink.
 final class DashboardModel: ObservableObject {
     @Published var snapshots: [AttachedWidgetSnapshot]
-    /// Index into `previews`; advanced by `nextPreview()` (the toggle button).
-    @Published private(set) var previewIndex = 0
+    /// Index into `arrangements`; set by `select(_:)` (a switcher tap).
+    @Published private(set) var selectedIndex = 0
 
-    /// Whether to show the preview toggle button (the `--preview` flag).
-    let showsPreviewControls: Bool
-    /// Curated theme × layout combinations to cycle through. Index 0 is the
-    /// real configuration (the composition's theme, each widget's own layout).
-    let previews: [Preview]
+    /// Whether the header shows the arrangement switcher. Cosmetic only — it does
+    /// NOT change what renders, which is `arrangements[selectedIndex]` either way.
+    let showsSwitcher: Bool
+    /// The app's arrangements, in switcher order. Index 0 is what the kiosk boots
+    /// into. Supplied by the app, not owned here.
+    let arrangements: [Arrangement]
 
-    struct Preview {
-        let name: String
-        /// Short label shown in the pill selector segment.
-        let short: String
-        let theme: any Theme
-        /// A layout to force on every tile, or `nil` to use each widget's own.
-        let layout: WidgetLayout?
-        /// A dedicated full-screen mode that replaces the widget-tile grid, or
-        /// `nil` for the ordinary tile layout.
-        let screen: Screen?
-
-        /// Full-screen modes that swap out the normal tile grid.
-        enum Screen: Equatable {
-            /// Interactive Magic: The Gathering life/turn tracker.
-            case mtg
-            /// Curated single-row board with proportional column widths.
-            case board([CuratedGreenView.Column])
-        }
-
-        init(
-            name: String,
-            short: String,
-            theme: any Theme,
-            layout: WidgetLayout? = nil,
-            screen: Screen? = nil
-        ) {
-            self.name = name
-            self.short = short
-            self.theme = theme
-            self.layout = layout
-            self.screen = screen
-        }
-    }
-
-    // Themes are defined in DashboardKit (`Theme/Themes/`), one file each, so a
-    // new one is a new file there plus a `Preview` entry below — not an edit
-    // here *and* in the theme scaffold.
-    private static let gradientTheme = GradientClockTheme()
-    private static let boardTheme = GreenBoardTheme()
-
-    /// The composition's real theme, kept aside from `previews` so the app chrome
-    /// (title line, switcher pill) can size itself from something that does *not*
-    /// change when you pick a preview. Previews carry their own typography
-    /// (caption 13/14/18), so chrome sized from the selected preview's palette
-    /// visibly resized itself on every switch.
-    private let chromeTheme: any Theme
+    /// The dashboard's own configured theme (`Dashboard.configuration.theme`).
+    ///
+    /// Two jobs: it's the fallback for any arrangement that doesn't name a theme,
+    /// and it always sizes the chrome. That second part is deliberate — an
+    /// arrangement carrying different typography (caption 13/14/18) would
+    /// otherwise resize the title and pill on every switch.
+    private let dashboardTheme: any Theme
 
     /// Multiplied into the viewport-derived scale before sizes are resolved.
     /// Set from `--scale N` / `DD_UI_SCALE` so type can be dialed in on a real
@@ -73,58 +37,57 @@ final class DashboardModel: ObservableObject {
     init(
         theme: any Theme,
         snapshots: [AttachedWidgetSnapshot] = [],
-        showsPreviewControls: Bool = false,
+        arrangements: [Arrangement] = [],
+        showsSwitcher: Bool = false,
         scaleMultiplier: Double = 1
     ) {
         self.snapshots = snapshots
-        self.showsPreviewControls = showsPreviewControls
-        self.chromeTheme = theme
+        self.showsSwitcher = showsSwitcher
+        self.dashboardTheme = theme
         self.scaleMultiplier = scaleMultiplier > 0 ? scaleMultiplier : 1
-        // Index 0 is what the kiosk shows at boot, so the everyday board leads.
-        self.previews = [
-            Preview(name: "Green · board", short: "Board",
-                    theme: Self.boardTheme, screen: .board(BoardColumns.equalWidths)),
-            Preview(name: "Green · wide clock", short: "Wide",
-                    theme: Self.boardTheme, screen: .board(BoardColumns.wideClock)),
-            Preview(name: "Green · focus", short: "Focus",
-                    theme: Self.boardTheme, screen: .board(BoardColumns.focus)),
-            Preview(name: "Green · focus flipped", short: "Flip",
-                    theme: Self.boardTheme, screen: .board(BoardColumns.focusFlipped)),
-            Preview(name: "Gradient · MTG", short: "MTG",
-                    theme: Self.gradientTheme, screen: .mtg),
-        ]
+        // With none supplied, the dashboard renders the way its composition
+        // describes it: the configured theme, each widget's own layout, in the
+        // tile grid. That is the honest default rather than a hidden catalogue.
+        self.arrangements = arrangements.isEmpty
+            ? [Arrangement(name: "Dashboard", short: "Main")]
+            : arrangements
     }
 
-    private var current: Preview { previews[previewIndex] }
+    private var current: Arrangement { arrangements[selectedIndex] }
 
     /// The current preview's theme resolved for a window of `viewport` size —
     /// colors as authored, sizes scaled to the screen. Called from the root
     /// view's `GeometryReader`, so it re-resolves whenever the window resizes.
-    func palette(for viewport: Viewport) -> ThemePalette {
-        ThemePalette(
-            theme: current.theme,
+    func palette(for viewport: Viewport) -> ThemeToSCUIPalette {
+        ThemeToSCUIPalette(
+            theme: current.theme ?? dashboardTheme,
             viewport: viewport,
             scaleMultiplier: scaleMultiplier
         )
     }
-    /// Palette for the app chrome: sizes that stay put across preview switches.
-    /// Colours still come from `palette(for:)` so the chrome matches the theme on
-    /// screen — it's only the geometry that must not move.
-    func chromePalette(for viewport: Viewport) -> ThemePalette {
-        ThemePalette(
-            theme: chromeTheme,
+    /// Palette for the app chrome (title line, switcher): geometry that must not
+    /// move when the arrangement — or the app's theme — changes. Colours still
+    /// come from `palette(for:)`, so the chrome matches what's on screen; only
+    /// the sizes come from here.
+    ///
+    /// Deliberately the framework DEFAULT typography, not `dashboardTheme`. A
+    /// content theme's caption size is tuned for tile legibility — `GreenBoardTheme`
+    /// uses 18 against the default 13 — and sizing chrome from it inflated the pill
+    /// and stole a band of height from the tiles the moment the composition's theme
+    /// started counting for real.
+    func chromePalette(for viewport: Viewport) -> ThemeToSCUIPalette {
+        ThemeToSCUIPalette(
+            theme: DefaultTheme(),
             viewport: viewport,
             scaleMultiplier: scaleMultiplier
         )
     }
 
-    /// A layout forced on every tile for the current preview, or `nil`.
-    var layoutOverride: WidgetLayout? { current.layout }
-    var previewName: String { current.name }
-    /// Whether the current preview is the interactive MTG mode.
+    var arrangementName: String { current.name }
+    /// Whether the current arrangement is the interactive MTG mode.
     var isMTG: Bool { current.screen == .mtg }
-    /// The board's column spec when the current preview is a board, else `nil`.
-    var boardColumns: [CuratedGreenView.Column]? {
+    /// The board's column spec when the current arrangement is a board, else `nil`.
+    var boardColumns: [BoardColumn]? {
         if case let .board(columns) = current.screen { columns } else { nil }
     }
 
@@ -134,14 +97,14 @@ final class DashboardModel: ObservableObject {
         snapshots.first { $0.id.rawValue == "clock" }?.content?.primaryText ?? "--:--"
     }
 
-    /// Jump straight to a preview by index (a segment tap). Out-of-range is
+    /// Jump straight to an arrangement by index (a segment tap). Out-of-range is
     /// ignored. This is the hook a real layout switcher would drive too.
     ///
     /// Selection is instant; the pill owns its own highlight animation (see
     /// `PillAnimator`) so a slide never re-renders the tiles.
     func select(_ index: Int) {
-        guard previews.indices.contains(index) else { return }
-        previewIndex = index
+        guard arrangements.indices.contains(index) else { return }
+        selectedIndex = index
     }
 }
 

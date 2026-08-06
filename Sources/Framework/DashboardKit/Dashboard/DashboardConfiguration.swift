@@ -1,3 +1,5 @@
+// DashboardConfiguration.swift — A dashboard's settings: id, theme, layout, refresh, services.
+
 public struct DashboardConfiguration {
     public var id: DashboardID
     public var theme: any Theme

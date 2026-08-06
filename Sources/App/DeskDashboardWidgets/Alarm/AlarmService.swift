@@ -1,3 +1,5 @@
+// AlarmService.swift — Alarm DATA layer: the alarm value type, service contract and its in-memory store.
+
 import DashboardKit
 import Foundation
 

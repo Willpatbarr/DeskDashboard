@@ -17,14 +17,14 @@ The look of a tile is produced by three separable pieces:
    No fonts or colors. Also in `DashboardKit`.
 3. **Renderer** — resolves the two together. The SwiftCrossUI renderer
    (`TileView`) maps each **role** (`.hero`, `.title`, …) to a concrete
-   font + color pulled from the active theme's `ThemePalette`.
+   font + color pulled from the active theme's `ThemeToSCUIPalette`.
 
 So: **layout says "this is the hero value"; theme says "hero = 70pt thin,
 primary color"; the renderer draws it.** A new layout works in every renderer
 for free; a new theme restyles every layout for free.
 
 ```
-WidgetContent ──(WidgetLayout)──▶ WidgetView (roles) ──(TileView + ThemePalette)──▶ pixels
+WidgetContent ──(WidgetLayout)──▶ WidgetView (roles) ──(TileView + ThemeToSCUIPalette)──▶ pixels
                                                               ▲
                                                           Theme tokens
 ```
@@ -36,7 +36,7 @@ WidgetContent ──(WidgetLayout)──▶ WidgetView (roles) ──(TileView +
 | Theme tokens (colors/type/spacing/shape) | `Sources/Framework/DashboardKit/Theme/Theme.swift` |
 | Layout structures | `Sources/Framework/DashboardKit/Widget/WidgetLayout.swift` |
 | Semantic tree + roles (only if adding a role) | `Sources/Framework/DashboardKit/Widget/WidgetView.swift` |
-| Token → SwiftCrossUI value | `Sources/Renderers/DashboardUI/ThemePalette.swift` |
+| Token → SwiftCrossUI value | `Sources/Renderers/DashboardUI/ThemeToSCUIPalette.swift` |
 | Role → concrete font/color | `Sources/Renderers/DashboardUI/TileView.swift` |
 | Make it selectable (pill switcher) | `Sources/Renderers/DashboardUI/DashboardModel.swift` |
 | Per-widget default layout | `Sources/App/DeskDashboardComposition/Composition.swift` |
@@ -103,10 +103,10 @@ If you add a field to `ThemeColors`/`ThemeTypography`/etc. (like
 `backgroundGradient` was added), you must also:
 
 - give it a default in the token's `init` (keeps existing call sites compiling),
-- resolve it in `ThemePalette` (hex → `Color`, number → value, …),
+- resolve it in `ThemeToSCUIPalette` (hex → `Color`, number → value, …),
 - consume it in the view (`DashboardRootView`/`TileView`).
 
-If you're only using existing tokens, skip this — `ThemePalette` already maps
+If you're only using existing tokens, skip this — `ThemeToSCUIPalette` already maps
 everything.
 
 ---
@@ -169,7 +169,7 @@ visual treatment (say a "display" role bigger than `.hero`), add a case to
 
 Ordinary layouts are read-only tiles. If you want something interactive (like
 MTG mode's tap counters), that can't be expressed by `WidgetView` (it has no
-buttons/state). Build it as a dedicated SwiftCrossUI view (see `MTGModeView.swift`)
+buttons/state). Build it as a dedicated SwiftCrossUI view (see `MTGScreen.swift`)
 with local `@State`, and branch to it in `DashboardRootView.content`. Use
 `.onTapGesture` on styled `Text`/stacks for full visual control.
 

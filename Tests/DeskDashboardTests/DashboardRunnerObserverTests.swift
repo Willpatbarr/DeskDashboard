@@ -1,3 +1,5 @@
+// DashboardRunnerObserverTests.swift — Tests: the runner ticks widgets and notifies observers.
+
 import Foundation
 import Testing
 import DeskDashboardWidgets

@@ -1,3 +1,5 @@
+// WidgetPriority.swift — A widget's relative importance to a layout that has to drop something.
+
 public struct WidgetPriority: Comparable, Sendable {
     public var rawValue: Int
 

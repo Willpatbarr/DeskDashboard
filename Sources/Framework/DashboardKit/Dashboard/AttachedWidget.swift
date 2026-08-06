@@ -1,3 +1,5 @@
+// AttachedWidget.swift — A widget bound into a running dashboard, plus the snapshot renderers consume.
+
 //
 //  AttachedWidget.swift
 //  DeskDashboard

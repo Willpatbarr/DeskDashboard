@@ -20,9 +20,25 @@ Sync code with **tar over SSH**, not rsync (macOS ships openrsync, which hangs o
 `-c` / `--out-format`):
 
 ```bash
-tar -cf - Sources Tests | ssh willbarr@192.168.4.244 \
+COPYFILE_DISABLE=1 tar -cf - Sources Tests | ssh willbarr@192.168.4.244 \
   'cd ~/Desktop/DeskDashboard-MacMiniDev && tar -xf -'
 ```
+
+Two traps in that one line:
+
+- **`COPYFILE_DISABLE=1` is not optional.** Without it macOS `tar` emits an
+  AppleDouble `._Foo.swift` sidecar for every file carrying an extended
+  attribute. They don't break the build (SwiftPM skips dot-files), so they
+  accumulate silently — 41 of them had piled up by 2026-08-05 — and they *do*
+  corrupt any `find`/`grep` audit of the tree. Clean up with
+  `find Sources Tests -name '._*' -delete` on the Pi.
+- **`tar -xf` never deletes.** After moving or renaming files, the Pi keeps the
+  copies at their old paths, so the next build sees duplicate declarations.
+  `rm -rf` the affected directory on the Pi *before* extracting.
+
+And when diffing file lists between the two machines, sort both with
+`LC_ALL=C sort` — macOS and Linux collate `+` differently, which makes `comm`
+report identical filenames as missing from both sides.
 
 ## 2. The loop that makes UI work possible
 
@@ -81,7 +97,7 @@ SwiftCrossUI's GTK backend behaves unlike SwiftUI in ways that will eat your day
 
 - **`.cornerRadius` must be applied by the PARENT.** Inside a child `View`
   struct's own body it doesn't clip that view's composited background. Hence
-  `tileCorners(_:)` in `ThemePalette.swift`, called at every tile call site.
+  `tileCorners(_:)` in `ThemeToSCUIPalette.swift`, called at every tile call site.
 - **A bare `HStack`/`VStack` with no background reports no size.** Drop the
   background or the explicit `.frame(height:)` from the preview pill and the whole
   control vanishes *and stops receiving taps*. Same trap collapses any stack used
@@ -98,7 +114,7 @@ SwiftCrossUI's GTK backend behaves unlike SwiftUI in ways that will eat your day
 - **Real letter-spacing IS reachable on GTK** despite SwiftCrossUI having no
   tracking API: `Text.inspect(.afterUpdate) { (label: Gtk.Label) in ... }`
   (GtkBackend-only modifier) exposes the label's per-widget CSS class, which
-  accepts GTK 4's `letter-spacing`. See `DisplayTracking.swift` — and keep the
+  accepts GTK 4's `letter-spacing`. See `TextToGTKTracking.swift` — and keep the
   `import Gtk` quarantined there; Gtk exports its own `Color`/`Font` and makes
   every other file's type lookup ambiguous. `.afterUpdate` is required because
   `updateTextView` clears+re-sets CSS on every update (in `computeLayout`,
@@ -140,7 +156,7 @@ config are in git, so a fresh kiosk install reverts to PibotoLt.
 - `~/.config/gtk-4.0/settings.ini` (`gtk-font-name`) **does nothing** here. The
   working lever is user CSS: `~/.config/gtk-4.0/gtk.css` containing
   `* { font-family: "SF Pro Display"; }`.
-- `Font.Weight(cssWeight:)` in `ThemePalette.swift` had `ultraLight`/`thin`
+- `Font.Weight(cssWeight:)` in `ThemeToSCUIPalette.swift` had `ultraLight`/`thin`
   swapped, which capped weight-100 headings at GTK CSS 300 (Light). Fixed; the
   theme's thin look depends on it.
 
@@ -148,10 +164,10 @@ config are in git, so a fresh kiosk install reverts to PibotoLt.
 
 - Panel is **1920×440** — an ultrawide strip, 1.5× the reference width but 0.55×
   its height. Type scales off **width**; vertical spacing off **height**
-  (`ThemePalette.vertical*`). Never scale vertical spacing by the type scale.
+  (`ThemeToSCUIPalette.vertical*`). Never scale vertical spacing by the type scale.
 - Three previews: **1 Board** (equal columns), **2 Wide clock** (1fr/1fr/3fr/2fr,
   temps · clock · music), **3 MTG**. Index 0 is what the kiosk boots into.
-- Board columns are data (`BoardColumns` in `CuratedGreenView.swift`); adding an
+- Board columns are data (`BoardColumns` in `BoardScreen.swift`); adding an
   arrangement is a few lines.
 - `WidgetLayout.centeredValue` (wide board's clock): title top-left, value +
   subtitle centred horizontally, top-aligned with neighbouring values. It carries
@@ -172,5 +188,3 @@ config are in git, so a fresh kiosk install reverts to PibotoLt.
 - Font install + `gtk.css` aren't reproducible; could be baked into
   `scripts/install-kiosk-pi.sh`.
 - The dev web renderer still scales padding off width only (the native UI doesn't).
-- `docs/## What changed.md` and `docs/1. CalendarGridEventChip.md` are stray files
-  that got committed early in the session.

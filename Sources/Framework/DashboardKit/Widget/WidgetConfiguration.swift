@@ -1,3 +1,5 @@
+// WidgetConfiguration.swift — A widget's settings: id, title, size, priority, layout and chrome options.
+
 public struct WidgetConfiguration: Equatable, Sendable {
     public var preferredID: WidgetID?
     public var title: String?

@@ -1,3 +1,5 @@
+// RefreshRate.swift — How often a widget wants re-rendering, in seconds or minutes.
+
 public struct RefreshRate: Equatable, Sendable {
     public var seconds: Double
 

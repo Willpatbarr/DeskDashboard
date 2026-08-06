@@ -1,3 +1,5 @@
+// OutdoorTemperatureWidgetTests.swift — Tests: outdoor temperature lifecycle, conditions and staleness.
+
 import Foundation
 import Testing
 import DashboardKit

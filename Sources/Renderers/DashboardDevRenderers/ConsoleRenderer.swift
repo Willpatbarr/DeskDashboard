@@ -1,3 +1,5 @@
+// ConsoleRenderer.swift — Dev renderer: draws snapshots as text tiles in the terminal.
+
 import DashboardKit
 import Foundation
 

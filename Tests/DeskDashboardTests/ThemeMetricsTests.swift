@@ -1,3 +1,5 @@
+// ThemeMetricsTests.swift — Tests: viewport scaling, and the theme scaffold's defaults contract.
+
 import DashboardKit
 import Testing
 

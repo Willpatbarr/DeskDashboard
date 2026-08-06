@@ -1,3 +1,5 @@
+// DashboardID.swift — Typed identifier for a dashboard.
+
 public struct DashboardID: Hashable, Sendable {
     public var rawValue: String
 

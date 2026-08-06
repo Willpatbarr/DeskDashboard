@@ -1,3 +1,5 @@
+// DeskDashboardTests.swift — Tests: widget modifiers, attachment lifecycle, layout and environment.
+
 import Foundation
 import Testing
 @testable import DashboardKit

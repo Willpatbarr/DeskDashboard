@@ -1,3 +1,5 @@
+// DashboardRunner.swift — Drives a dashboard: ticks widgets, publishes snapshots.
+
 import Foundation
 
 public final class DashboardRunner {
