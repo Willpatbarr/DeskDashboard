@@ -148,6 +148,16 @@ struct TileView: View {
             }.first ?? 0
             let lift = Int((leadingSize * 0.11).rounded())
 
+            // Fast path: one child, nothing to lift. The stack below exists to space
+            // and align SIBLINGS, and a lone child has none — but SwiftCrossUI still
+            // pays for the whole VStack + ForEach subtree on every layout pass, and
+            // `computeStackLayout` is the hottest frame in a profile of this app.
+            // Most `.centered` uses in `lifeCounter` are a single `.tappable`, whose
+            // `leadingSize` is 0, so they land here.
+            if views.count == 1, lift == 0 {
+                return AnyView(views[0].frame(maxWidth: .infinity))
+            }
+
             return AnyView(
                 // Negative, because the two labels' own boxes already leave ~50px
                 // between the inks at this size; this trims it to ~44px. (−0.13 /
