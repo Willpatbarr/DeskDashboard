@@ -20,6 +20,9 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// Everything else is leading-aligned, so this is how a layout asks for the
     /// centred treatment without changing how the rest of the tree is laid out.
     case centered([WidgetView])
+    /// A hairline rule across the tile's width, in the theme's `divider` colour.
+    /// Separates a tile's label from its body, or its body from its footer.
+    case divider
     /// A thin horizontal progress line, filled to the given fraction (0…1).
     case progressBar(Double)
     /// A small play (true) / pause (false) glyph.
@@ -43,10 +46,11 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// Gives its child a REGION at least `minWidth`×`minHeight`, independently of the
     /// ink inside it.
     ///
-    /// Exists because a tap lands on a widget's allocated region, not on its glyphs.
-    /// A `+` drawn 30px tall is a 30px target however much room its tile has, which
-    /// is a miserable thing to hit on a touchscreen. This lets a layout ask for a
-    /// comfortable target without changing what is drawn.
+    /// Two uses, both about a region outgrowing its ink. A tap lands on a widget's
+    /// allocated region, not on its glyphs — a `+` drawn 30px tall is a 30px target
+    /// however much room its tile has, which is miserable to hit on a touchscreen.
+    /// And a label offered a single line's height will ellipsize rather than wrap,
+    /// so reserving two lines is how a layout says "this one is allowed to run on".
     ///
     /// Deliberately a MINIMUM rather than "fill the parent". Two greedy siblings do
     /// not split leftover space evenly on this backend — measured 116px against 80px

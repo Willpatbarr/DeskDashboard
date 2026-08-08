@@ -304,6 +304,7 @@ private func shape(of node: WidgetView) -> String {
     case .text: "text"
     case .badge: "badge"
     case .spacer: "spacer"
+    case .divider: "divider"
     case .fittedText: "fitted"
     case .progressBar: "progress"
     case .playState: "playState"

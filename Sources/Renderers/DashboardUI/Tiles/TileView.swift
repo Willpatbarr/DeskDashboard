@@ -72,6 +72,9 @@ struct TileView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(plain ? Color.clear : palette.surface)
             .cornerRadius(plain ? 0 : Int(palette.cornerRadius.rounded()))
+        // The outline is NOT applied here — see `tileBorder` in `TileCorners.swift`.
+        // Chrome composited inside a child view's own body doesn't take on this
+        // backend; an `.overlay` here blanked every tile on the board.
     }
 
     // MARK: - Interpreter (WidgetView -> SwiftCrossUI)
@@ -175,6 +178,23 @@ struct TileView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .padding(.top, -lift)
+            )
+
+        case .divider:
+            // An empty stack WITH a background, the same shape `progressBar` uses:
+            // a bare stack reports no size on this backend and vanishes, but one
+            // carrying a background and an explicit height is a reliable rule.
+            // Height is pinned top and bottom so it can't be stretched by a
+            // greedy sibling — a rule that grows into a slab is a memorable bug.
+            // A hairline is a hairline: 1px, NOT scaled by the type scale. Scaling
+            // it rounded to 2px on the panel at 1.5×, which reads as a divider bar
+            // rather than a rule and sat heavier than the 1px tile outline it lines
+            // up with. Sizes here normally scale; this one is a device pixel.
+            let rule = 1.0
+            return AnyView(
+                HStack(spacing: 0) {}
+                    .frame(maxWidth: .infinity, minHeight: rule, maxHeight: rule)
+                    .background(palette.divider)
             )
 
         case let .progressBar(fraction):

@@ -28,6 +28,8 @@ let dashboardArrangements: [Arrangement] = [
                 screen: .board(BoardColumns.focusFlipped)),
     Arrangement(name: "Green · flip centered", short: "Ctr",
                 screen: .board(BoardColumns.focusFlippedCentered)),
+    Arrangement(name: "Ruled · board", short: "Ruled",
+                theme: RuledGreenTheme(), screen: .board(BoardColumns.ruled)),
     Arrangement(name: "Gradient · MTG", short: "MTG",
                 theme: GradientClockTheme(), screen: .board(BoardColumns.mtg)),
 ]
