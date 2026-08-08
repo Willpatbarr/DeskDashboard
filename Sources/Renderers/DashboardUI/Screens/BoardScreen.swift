@@ -98,6 +98,7 @@ struct BoardScreen: View {
                 onPressEnded: { onPressEnded?() }
             )
             .tileCorners(palette, rounded: !containerless)
+            .tileBorder(palette, rounded: !containerless)
         }
     }
 

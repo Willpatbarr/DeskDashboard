@@ -26,7 +26,12 @@ public extension ThemeColors {
         accent: "#8FD79A",
         text: "#FFFFFF",
         mutedText: "#6F9E78",
-        backgroundGradient: ["#193326", "#0F2018", "#08110D"]
+        backgroundGradient: ["#193326", "#0F2018", "#08110D"],
+        // Authored brighter than it draws: a 1px stroke is antialiased and only
+        // ~68% covers its pixel, so it blends with what is behind it. This is the
+        // value that renders a ~#2F5240 hairline over this gradient's mid stop.
+        // See `RuledGreenTheme`, where the same compensation is derived in full.
+        border: "#3E6A53"
     )
 }
 

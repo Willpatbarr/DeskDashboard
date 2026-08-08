@@ -24,4 +24,24 @@ extension View {
     func tileCorners(_ palette: ThemeToSCUIPalette, rounded: Bool) -> some View {
         cornerRadius(rounded ? Int(palette.cornerRadius.rounded()) : 0)
     }
+
+    /// Outlines a tile in the theme's `border` colour.
+    ///
+    /// Drawn as CSS on the tile's own widget — see `cssBorder`, which explains at
+    /// length why the obvious `.overlay` of a stroked shape cannot be used here.
+    /// A theme with no border passes `nil` and nothing is drawn, and a containerless
+    /// tile does the same.
+    func tileBorder(_ palette: ThemeToSCUIPalette, rounded: Bool) -> some View {
+        cssBorder(
+            hex: rounded ? palette.borderHex : nil,
+            width: palette.borderWidth,
+            radius: rounded ? palette.cornerRadius : 0
+        )
+    }
+
+    /// `tileBorder` at an explicit radius, for chrome that isn't a tile — the
+    /// switcher pills are capsules, so their radius is half their height.
+    func pillBorder(_ palette: ThemeToSCUIPalette, radius: Double) -> some View {
+        cssBorder(hex: palette.borderHex, width: palette.borderWidth, radius: radius)
+    }
 }
