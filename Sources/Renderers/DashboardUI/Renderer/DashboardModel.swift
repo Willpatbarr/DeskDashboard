@@ -16,6 +16,9 @@ final class DashboardModel: ObservableObject {
     /// Whether board tiles draw their chrome, overriding what each board authored.
     /// Driven by the header's second pill; `.authored` leaves boards as written.
     @Published private(set) var containerMode: ContainerMode = .authored
+    /// Colour variant applied to every palette, chrome included, so the whole
+    /// screen moves together rather than the board drifting from its own header.
+    @Published private(set) var hueMode: HueMode = .original
 
     /// Whether the header shows the arrangement switcher. Cosmetic only — it does
     /// NOT change what renders, which is `arrangements[selectedIndex]` either way.
@@ -69,7 +72,8 @@ final class DashboardModel: ObservableObject {
         ThemeToSCUIPalette(
             theme: current.theme ?? dashboardTheme,
             viewport: viewport,
-            scaleMultiplier: scaleMultiplier
+            scaleMultiplier: scaleMultiplier,
+            colorsOverride: hueMode.colors
         )
     }
     /// Palette for the app chrome (title line, switcher): geometry that must not
@@ -86,7 +90,8 @@ final class DashboardModel: ObservableObject {
         ThemeToSCUIPalette(
             theme: DefaultTheme(),
             viewport: viewport,
-            scaleMultiplier: scaleMultiplier
+            scaleMultiplier: scaleMultiplier,
+            colorsOverride: hueMode.colors
         )
     }
 
@@ -140,6 +145,13 @@ final class DashboardModel: ObservableObject {
         let modes = ContainerMode.allCases
         guard modes.indices.contains(index) else { return }
         containerMode = modes[index]
+    }
+
+    /// Picks a hue by switcher index (see `HueMode.allCases`).
+    func selectHue(_ index: Int) {
+        let modes = HueMode.allCases
+        guard modes.indices.contains(index) else { return }
+        hueMode = modes[index]
     }
 }
 

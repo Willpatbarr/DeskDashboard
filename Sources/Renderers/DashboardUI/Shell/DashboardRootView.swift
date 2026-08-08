@@ -182,6 +182,9 @@ struct DashboardRootView: View {
                 // and `minLength` is only its floor, so one placed between the pills
                 // expanded to fill the row — shoving the toggle against the left
                 // margin and squeezing the title down to an ellipsis.
+                hueBar(palette, chrome)
+                    .padding(.trailing, chrome.widgetGap)
+                    .layoutPriority(1)
                 containerBar(palette, chrome)
                     .padding(.trailing, chrome.widgetGap)
                     .layoutPriority(1)
@@ -286,6 +289,26 @@ struct DashboardRootView: View {
             onSelect: { model.selectContainerMode($0) }
         )
         .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
+        .pillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
+    }
+
+    /// Rotates the whole palette's hue. Built exactly like `containerBar` so it
+    /// inherits the pill's geometry and every panel-measured inset.
+    private func hueBar(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {
+        let modes = HueMode.allCases
+        return SwitcherPill(
+            palette: palette,
+            labels: modes.map(\.label),
+            selected: modes.firstIndex(of: model.hueMode) ?? 0,
+            slotWidth: segmentWidth(chrome, widestLabel: modes.map(\.label.count).max() ?? 5),
+            slotHeight: segmentHeight(chrome),
+            trackInset: segmentInsets(chrome).track,
+            fontSize: chrome.captionSize,
+            slideMilliseconds: DashboardLaunch.slideMilliseconds,
+            onSelect: { model.selectHue($0) }
+        )
+        .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
+        .pillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
     }
 
     private func previewBar(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {
@@ -306,6 +329,7 @@ struct DashboardRootView: View {
         // exceed it — the AppKit backend hides a view whose radius beats its
         // size.
         .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
+        .pillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
     }
 
     // MARK: - Tile ordering
