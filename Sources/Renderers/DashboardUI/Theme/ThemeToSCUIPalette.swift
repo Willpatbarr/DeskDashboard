@@ -25,11 +25,21 @@ struct ThemeToSCUIPalette: Sendable {
     let accent: Color
     let text: Color
     let muted: Color
+    /// Hairline rules inside a tile (`WidgetView.divider`).
+    let divider: Color
+    /// Outline around a tile, or `nil` when the theme asks for none.
+    let border: Color?
+    /// The same outline as a CSS colour string. The GTK border is drawn as a CSS
+    /// property on the widget itself rather than as an overlaid shape — see
+    /// `TileBorderGTK` for why — and that needs the hex, not a `Color`.
+    let borderHex: String?
 
     let widgetGap: Int
     let tilePadding: Int
     let sectionMargin: Int
     let cornerRadius: Double
+    /// Stroke width for the tile outline, scaled like every other size.
+    let borderWidth: Double
 
     /// Vertical counterparts of `tilePadding` / `sectionMargin`, scaled off the
     /// viewport's **height** instead of its width.
@@ -63,10 +73,13 @@ struct ThemeToSCUIPalette: Sendable {
     ///   - scaleMultiplier: a manual nudge applied on top of the viewport-derived
     ///     scale (`--scale N` / `DD_UI_SCALE`), for dialing type in on a real
     ///     display without a rebuild.
+    ///   - colorsOverride: a palette to draw in instead of the theme's own, for
+    ///     the header's colour-variant pill. `nil` leaves the theme as authored.
     init(
         theme: any Theme,
         viewport: Viewport = .reference,
-        scaleMultiplier: Double = 1
+        scaleMultiplier: Double = 1,
+        colorsOverride: ThemeColors? = nil
     ) {
         let sizes = theme.sizes(for: viewport, multiplier: scaleMultiplier)
         scale = sizes.scale
@@ -78,7 +91,7 @@ struct ThemeToSCUIPalette: Sendable {
             * (scaleMultiplier > 0 ? scaleMultiplier : 1)
         verticalScale = vertical
 
-        let colors = theme.colors
+        let colors = colorsOverride ?? theme.colors
         background = Color(hex: colors.background) ?? .black
         let stops = colors.backgroundGradient.compactMap { Color(hex: $0) }
         backgroundGradient = stops.count >= 2 ? stops : nil
@@ -88,12 +101,16 @@ struct ThemeToSCUIPalette: Sendable {
         accent = Color(hex: colors.accent) ?? .blue
         text = Color(hex: colors.text) ?? .white
         muted = Color(hex: colors.mutedText) ?? .gray
+        divider = Color(hex: colors.divider) ?? Color(white: 1, opacity: 0.14)
+        border = colors.border.isEmpty ? nil : Color(hex: colors.border)
+        borderHex = colors.border.isEmpty ? nil : colors.border
 
         let spacing = sizes.spacing
         widgetGap = Int(spacing.widgetGap.rounded())
         tilePadding = Int(spacing.tilePadding.rounded())
         sectionMargin = Int(spacing.sectionMargin.rounded())
         cornerRadius = sizes.shape.cornerRadius
+        borderWidth = max(1, sizes.shape.borderWidth)
 
         let authored = theme.spacing
         verticalTilePadding = max(2, Int((authored.tilePadding * vertical).rounded()))

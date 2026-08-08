@@ -83,6 +83,13 @@ public struct ThemeColors: Equatable, Sendable {
     /// Optional top-to-bottom background gradient stops (`#RRGGBB`). When empty,
     /// the flat `background` color is used instead.
     public var backgroundGradient: [String]
+    /// Hairline rules inside a tile (`WidgetView.divider`). `#RRGGBBAA` is
+    /// accepted, and is what this wants — a rule reads best as a few percent of
+    /// the text colour rather than as a colour of its own.
+    public var divider: String
+    /// Outline drawn around a tile, `#RRGGBBAA` accepted. Empty means no outline,
+    /// which is what every theme predating it wants.
+    public var border: String
 
     public init(
         background: String,
@@ -92,7 +99,9 @@ public struct ThemeColors: Equatable, Sendable {
         accent: String,
         text: String,
         mutedText: String,
-        backgroundGradient: [String] = []
+        backgroundGradient: [String] = [],
+        divider: String = "#FFFFFF24",
+        border: String = ""
     ) {
         self.background = background
         self.surface = surface
@@ -102,6 +111,8 @@ public struct ThemeColors: Equatable, Sendable {
         self.text = text
         self.mutedText = mutedText
         self.backgroundGradient = backgroundGradient
+        self.divider = divider
+        self.border = border
     }
 
     // Named palettes live with the themes that introduce them, under `Themes/`.
