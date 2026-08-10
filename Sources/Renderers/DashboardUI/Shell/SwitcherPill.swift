@@ -152,6 +152,11 @@ struct SwitcherPill: View {
     let fontSize: Double
     /// Total slide duration; 0 disables the animation.
     let slideMilliseconds: Double
+    /// The track's fill. Defaults to the theme surface, which is what reads as a
+    /// pill against the dashboard's background — but a pill sitting ON the accent
+    /// (the tile editor) needs a dark track instead, or it vanishes into its own
+    /// backdrop.
+    var trackColor: Color? = nil
     let onSelect: (Int) -> Void
 
     @State private var animator = PillAnimator()
@@ -209,7 +214,7 @@ struct SwitcherPill: View {
         // dropping it hides the control.
         .frame(height: Double(slotHeight))
         .padding(trackInset)
-        .background(palette.surface)
+        .background(trackColor ?? palette.surface)
         .cornerRadius(max(0, min(pillHeight / 2 - 1, slotHeight / 2)))
     }
 

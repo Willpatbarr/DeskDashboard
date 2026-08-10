@@ -88,6 +88,9 @@ struct DashboardRootView: View {
                 snapshots: model.snapshots,
                 columns: columns,
                 containerMode: model.containerMode,
+                isEditing: model.isEditing,
+                alignments: model.alignments,
+                onSelectAlignment: { id, index in model.setAlignment(index, for: id) },
                 onAction: { id, action, isHold, isHoldable in
                     model.perform(
                         widgetID: id,
@@ -109,6 +112,7 @@ struct DashboardRootView: View {
                     TileView(
                         snapshot: snapshot,
                         palette: palette,
+                        alignment: model.alignment(for: snapshot.id.rawValue),
                         onAction: { action, isHold, isHoldable in
                             model.perform(
                                 widgetID: snapshot.id.rawValue,
@@ -117,6 +121,12 @@ struct DashboardRootView: View {
                                 isHoldable: isHoldable
                             )
                         }
+                    )
+                    .editScrim(
+                        palette,
+                        active: model.isEditing,
+                        alignment: model.alignment(for: snapshot.id.rawValue),
+                        onSelectAlignment: { model.setAlignment($0, for: snapshot.id.rawValue) }
                     )
                     .tileCorners(palette)
                 }
@@ -157,39 +167,17 @@ struct DashboardRootView: View {
         }
     }
 
-    /// `1920×1080 @1.35×` — the viewport the layout system actually reported and
-    /// the scale derived from it. Shown next to the preview name whenever the
-    /// switcher is visible, so what the sizing is doing is verifiable *on the
-    /// screen in question* rather than inferred from logs.
-    private func metricsReadout(_ palette: ThemeToSCUIPalette, _ viewport: Viewport) -> String {
-        let w = Int(viewport.width.rounded())
-        let h = Int(viewport.height.rounded())
-        let scale = (palette.scale * 100).rounded() / 100
-        return "\(w)×\(h) @\(scale)×"
-    }
-
     private func header(
         _ palette: ThemeToSCUIPalette,
         _ chrome: ThemeToSCUIPalette,
         _ viewport: Viewport
     ) -> some View {
         HStack {
-            // With the switcher visible the pill needs most of the row (nine
-            // uniform slots ≈ 1320px at 1.5×), so the "DeskDashboard" prefix is
-            // dropped — on a kiosk the app's identity isn't in question, and
-            // keeping it overflowed 1920px.
-            Text(
-                model.showsSwitcher
-                    ? "\(model.arrangementName) · \(metricsReadout(palette, viewport))"
-                    : "DeskDashboard · \(model.arrangementName)"
-            )
-                .font(.system(size: chrome.captionSize, weight: palette.bodyWeight))
-                .foregroundColor(palette.secondary)
-                .lineLimit(1)
-                // The pill wins any contest for the row's width: it has a fixed
-                // size and gets clipped if squeezed, whereas the title can simply
-                // truncate. (Left-edge clipping came from the pill losing this.)
-                .layoutPriority(-1)
+            // The header's left slot used to be the arrangement name plus a
+            // metrics readout; it's the Edit toggle now. Everything the readout
+            // told you is still in the `DD_UI_LOG=1` geometry line above.
+            editBar(palette, chrome)
+                .layoutPriority(1)
             Spacer(minLength: 0)
             if model.showsSwitcher {
                 // Container toggle first, arrangement switcher second — the
@@ -267,9 +255,9 @@ struct DashboardRootView: View {
     /// Reserving this explicitly is what guarantees the pill's size, rather than
     /// leaving it to fight the greedy content region for space.
     private func headerBandHeight(_ palette: ThemeToSCUIPalette, _ viewport: Viewport) -> Double {
-        let tallestElement = model.showsSwitcher
-            ? max(pillHeight(palette), Int(palette.captionSize * 1.3))
-            : Int(palette.captionSize * 1.3)
+        // The Edit pill is in the row whether or not the switcher is, so the band
+        // is pill-height either way — it can't shrink to a text line any more.
+        let tallestElement = max(pillHeight(palette), Int(palette.captionSize * 1.3))
         // A few pixels of slack on top of the exact fit. Sized to the pill's
         // height plus its margins alone, the band left zero room, so any rounding
         // in the backend shaved the pill's bottom edge against the tile region.
@@ -287,6 +275,25 @@ struct DashboardRootView: View {
             slotHeight: segmentHeight(palette),
             trackInset: segmentInsets(palette).track
         )
+    }
+
+    /// The Edit toggle, sitting where the title used to. Same geometry chain as
+    /// the switcher pills so it lines up with them across the row.
+    private func editBar(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {
+        EditPill(
+            palette: palette,
+            label: "Edit",
+            isOn: model.isEditing,
+            slotWidth: segmentWidth(chrome, widestLabel: 4),
+            slotHeight: segmentHeight(chrome),
+            trackInset: segmentInsets(chrome).track,
+            fontSize: chrome.captionSize,
+            onTap: { model.toggleEditing() }
+        )
+        .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
+        // `alwaysPillBorder`, not `pillBorder`: with no track fill the outline is
+        // the only thing drawing this control when it's off.
+        .alwaysPillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
     }
 
     /// The container toggle: the same pill control as the arrangement switcher,

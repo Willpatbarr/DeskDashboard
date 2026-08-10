@@ -33,6 +33,10 @@ struct TileView: View {
     /// Suppresses the widget's title label for this render (a board-level
     /// choice — every layout already omits an absent title).
     var hidesTitle: Bool = false
+    /// Which edge this tile's contents line up on. Applied by the interpreter to
+    /// every vertical run, so it works for every layout without any of them
+    /// knowing about it — see `TileAlignment`.
+    var alignment: TileAlignment = .leading
     /// Raised when a `.tappable` node in this tile is tapped or held: the action
     /// name, plus whether it came from a hold. The caller pairs it with the widget
     /// id and routes it onward; this view deliberately knows nothing about the
@@ -69,7 +73,7 @@ struct TileView: View {
         return interpret(layout.makeView(content))
             .padding(.horizontal, palette.tilePadding)
             .padding(.vertical, palette.verticalTilePadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment.topAligned)
             .background(plain ? Color.clear : palette.surface)
             .cornerRadius(plain ? 0 : Int(palette.cornerRadius.rounded()))
         // The outline is NOT applied here — see `tileBorder` in `TileCorners.swift`.
@@ -165,7 +169,7 @@ struct TileView: View {
             // Most `.centered` uses in `lifeCounter` are a single `.tappable`, whose
             // `leadingSize` is 0, so they land here.
             if views.count == 1, lift == 0 {
-                return AnyView(views[0].frame(maxWidth: .infinity))
+                return AnyView(views[0].frame(maxWidth: .infinity, alignment: alignment.topAligned))
             }
 
             return AnyView(
@@ -173,10 +177,13 @@ struct TileView: View {
                 // between the inks at this size; this trims it to ~44px. (−0.13 /
                 // ~26px read too tight under the single-run tracked clock —
                 // measured 27px ink gap on the panel, 2026-08-04.)
-                VStack(alignment: .center, spacing: Int((largest * -0.03).rounded())) {
+                // `.centered` names the layout's INTENT (a value group that owns
+                // its tile), not a hard-coded centre — an edited tile aligns its
+                // group like any other run.
+                VStack(alignment: alignment.horizontal, spacing: Int((largest * -0.03).rounded())) {
                     ForEach(indexed, id: \.offset) { $0.element }
                 }
-                .frame(maxWidth: .infinity)
+                .frame(maxWidth: .infinity, alignment: alignment.topAligned)
                 .padding(.top, -lift)
             )
 
@@ -226,9 +233,10 @@ struct TileView: View {
             switch axis {
             case .vertical:
                 return AnyView(
-                    VStack(alignment: .leading, spacing: gap) {
+                    VStack(alignment: alignment.horizontal, spacing: gap) {
                         ForEach(indexed, id: \.offset) { $0.element }
                     }
+                    .frame(maxWidth: .infinity, alignment: alignment.topAligned)
                 )
             case .horizontal:
                 return AnyView(

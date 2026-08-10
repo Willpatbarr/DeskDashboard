@@ -25,6 +25,12 @@ struct BoardScreen: View {
     let columns: [BoardColumn]
     /// Overrides each column's authored `containerless` flag; `.authored` keeps it.
     var containerMode: ContainerMode = .authored
+    /// Veils every tile while the header's Edit toggle is on.
+    var isEditing: Bool = false
+    /// Per-widget content alignment, keyed by widget id; missing ids draw leading.
+    var alignments: [String: TileAlignment] = [:]
+    /// Raised as `(widget id, pill index)` when a tile's alignment pill is tapped.
+    var onSelectAlignment: ((String, Int) -> Void)? = nil
     /// Raised as `(widget id, action, cameFromHold)` when a tile reports a gesture.
     var onAction: ((String, String, Bool, Bool) -> Void)? = nil
     /// Raised when a press ends, so a repeating hold can stop.
@@ -92,10 +98,17 @@ struct BoardScreen: View {
                 layoutOverride: row.layout,
                 containerless: containerless,
                 hidesTitle: row.hidesTitle,
+                alignment: alignments[row.id] ?? .leading,
                 onAction: { action, isHold, isHoldable in
                     onAction?(row.id, action, isHold, isHoldable)
                 },
                 onPressEnded: { onPressEnded?() }
+            )
+            .editScrim(
+                palette,
+                active: isEditing,
+                alignment: alignments[row.id] ?? .leading,
+                onSelectAlignment: { onSelectAlignment?(row.id, $0) }
             )
             .tileCorners(palette, rounded: !containerless)
             .tileBorder(palette, rounded: !containerless)

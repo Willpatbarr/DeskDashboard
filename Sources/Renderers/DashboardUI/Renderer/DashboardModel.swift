@@ -19,6 +19,17 @@ final class DashboardModel: ObservableObject {
     /// Colour variant applied to every palette, chrome included, so the whole
     /// screen moves together rather than the board drifting from its own header.
     @Published private(set) var hueMode: HueMode = .original
+    /// Edit mode: the header's Edit button is lit and every widget wears a scrim.
+    /// Purely presentational for now — nothing about the widgets themselves
+    /// changes yet.
+    @Published private(set) var isEditing = false
+    /// Per-widget content alignment, keyed by widget id. Absent means the tile
+    /// keeps the leading alignment every layout has always drawn with, so the
+    /// dashboard looks identical until something is actually edited.
+    ///
+    /// In memory only for now — nothing here is written back to the widget's
+    /// configuration or persisted across launches.
+    @Published private(set) var alignments: [String: TileAlignment] = [:]
 
     /// Whether the header shows the arrangement switcher. Cosmetic only — it does
     /// NOT change what renders, which is `arrangements[selectedIndex]` either way.
@@ -147,6 +158,23 @@ final class DashboardModel: ObservableObject {
         let modes = ContainerMode.allCases
         guard modes.indices.contains(index) else { return }
         containerMode = modes[index]
+    }
+
+    /// This widget's chosen alignment, or the leading default.
+    func alignment(for widgetID: String) -> TileAlignment {
+        alignments[widgetID] ?? .leading
+    }
+
+    /// Records an alignment pick from a tile's edit overlay (a pill index).
+    func setAlignment(_ index: Int, for widgetID: String) {
+        let all = TileAlignment.allCases
+        guard all.indices.contains(index) else { return }
+        alignments[widgetID] = all[index]
+    }
+
+    /// Flips edit mode. Tapping the header's Edit button both ways.
+    func toggleEditing() {
+        isEditing.toggle()
     }
 
     /// Picks a hue by switcher index (see `HueMode.allCases`).

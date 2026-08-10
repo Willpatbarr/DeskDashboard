@@ -44,4 +44,17 @@ extension View {
     func pillBorder(_ palette: ThemeToSCUIPalette, radius: Double) -> some View {
         cssBorder(hex: palette.borderHex, width: palette.borderWidth, radius: radius)
     }
+
+    /// `pillBorder` that is never absent: falls back to the accent when the theme
+    /// defines no border colour.
+    ///
+    /// For the Edit button, whose deselected state is an OUTLINE with no fill —
+    /// on a theme with no border and no track there'd be nothing left to see.
+    func alwaysPillBorder(_ palette: ThemeToSCUIPalette, radius: Double) -> some View {
+        cssBorder(
+            hex: palette.borderHex ?? palette.accentHex,
+            width: palette.borderWidth,
+            radius: radius
+        )
+    }
 }

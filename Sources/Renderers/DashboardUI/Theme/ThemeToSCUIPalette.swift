@@ -33,6 +33,9 @@ struct ThemeToSCUIPalette: Sendable {
     /// property on the widget itself rather than as an overlaid shape — see
     /// `TileBorderGTK` for why — and that needs the hex, not a `Color`.
     let borderHex: String?
+    /// The accent as a CSS colour string, for chrome that must draw an outline
+    /// even when the theme defines no border (the header's Edit button).
+    let accentHex: String
 
     let widgetGap: Int
     let tilePadding: Int
@@ -104,6 +107,7 @@ struct ThemeToSCUIPalette: Sendable {
         divider = Color(hex: colors.divider) ?? Color(white: 1, opacity: 0.14)
         border = colors.border.isEmpty ? nil : Color(hex: colors.border)
         borderHex = colors.border.isEmpty ? nil : colors.border
+        accentHex = colors.accent
 
         let spacing = sizes.spacing
         widgetGap = Int(spacing.widgetGap.rounded())

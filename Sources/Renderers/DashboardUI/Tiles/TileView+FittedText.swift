@@ -26,7 +26,12 @@ extension TileView {
             // taller than its frame pushes its glyphs down and out (the
             // 78°F ran off the bottom of the panel at `min(widthBound, h)`).
             let size = max(8, min(widthBound, h * 0.72))
-            VStack(alignment: .center, spacing: 0) {
+            // Horizontally, follow the tile's chosen alignment — this node has its
+            // own greedy frame, so it does NOT inherit the interpreter's stack
+            // alignment the way an ordinary text run does (which is why the
+            // fitted temps stayed centred while everything around them moved).
+            // Vertically it stays Spacer-centred in its region regardless.
+            VStack(alignment: alignment.horizontal, spacing: 0) {
                 Spacer(minLength: 0)
                 // Same corrective wrapper as `tightenedText`: glyphs sit
                 // LOW in a big label's box on this backend, so centring
@@ -45,7 +50,10 @@ extension TileView {
                 .padding(.top, -Int((size * 0.60).rounded()))
                 Spacer(minLength: 0)
             }
-            .frame(maxWidth: .infinity)
+            .frame(
+                maxWidth: .infinity,
+                alignment: Alignment(horizontal: alignment.horizontal, vertical: .center)
+            )
         }
     }
 }
