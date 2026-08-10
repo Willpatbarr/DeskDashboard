@@ -58,7 +58,12 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
         // and the app chrome always sizes from it — so editing this line actually
         // changes what you see (it previously did not: the renderer's hardcoded
         // catalogue overrode it for every screen).
-        .theme(GreenBoardTheme())
+        // `RuledGreenTheme`, not `GreenBoardTheme`: the ruled take on the green
+        // board — flat, outlined tiles, one green for all tile chrome — is now what
+        // every board wears, not just the "Ruled" arrangement. `GreenBoardTheme`
+        // (gradient surfaces, caption 18) is kept for reference and is currently
+        // unused.
+        .theme(RuledGreenTheme())
         .widgets {
             ClockWidget()
                 .id("clock")

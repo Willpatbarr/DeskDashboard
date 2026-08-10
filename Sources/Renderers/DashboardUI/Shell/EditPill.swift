@@ -1,8 +1,8 @@
-// EditPill.swift — The header's Edit toggle: one switcher slot that lights when on.
+// EditPill.swift — A header toggle button: one switcher slot that lights when on.
 
 import SwiftCrossUI
 
-/// A single-slot pill built to match `SwitcherPill` exactly: same track inset,
+/// One boolean, drawn as a single-slot pill built to match `SwitcherPill` exactly: same track inset,
 /// same slot geometry, same optical rise on the label. The only difference is
 /// that it has nowhere to slide to — its fill is either the accent (on) or the
 /// track's own surface (off).

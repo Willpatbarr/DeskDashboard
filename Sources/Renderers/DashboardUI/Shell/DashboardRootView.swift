@@ -147,8 +147,7 @@ struct DashboardRootView: View {
         _ palette: ThemeToSCUIPalette,
         _ viewport: Viewport
     ) -> some View {
-        let override = ProcessInfo.processInfo.environment["DD_BG_IMAGE"]
-        if let path = (override?.isEmpty == false ? override : model.backgroundImage) {
+        if model.showsWallpaper, let path = model.wallpaper {
             // Sized explicitly rather than left greedy: `.background` gives its
             // child the parent's proposal, and a `.resizable()` image with no
             // frame reports its intrinsic pixel size — which on a 1920-wide
@@ -177,6 +176,12 @@ struct DashboardRootView: View {
             // metrics readout; it's the Edit toggle now. Everything the readout
             // told you is still in the `DD_UI_LOG=1` geometry line above.
             editBar(palette, chrome)
+                // Trailing PADDING, never a `Spacer` — a Spacer between two pills
+                // is flexible and expands to eat the row (see the note further
+                // down for the version of this that broke the header).
+                .padding(.trailing, chrome.widgetGap)
+                .layoutPriority(1)
+            imageBar(palette, chrome)
                 .layoutPriority(1)
             Spacer(minLength: 0)
             if model.showsSwitcher {
@@ -293,6 +298,23 @@ struct DashboardRootView: View {
         .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
         // `alwaysPillBorder`, not `pillBorder`: with no track fill the outline is
         // the only thing drawing this control when it's off.
+        .alwaysPillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
+    }
+
+    /// The wallpaper toggle, built exactly like `editBar` so the two read as a
+    /// pair of buttons rather than two one-off controls.
+    private func imageBar(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {
+        EditPill(
+            palette: palette,
+            label: "Image",
+            isOn: model.showsBackgroundImage,
+            slotWidth: segmentWidth(chrome, widestLabel: 5),
+            slotHeight: segmentHeight(chrome),
+            trackInset: segmentInsets(chrome).track,
+            fontSize: chrome.captionSize,
+            onTap: { model.toggleBackgroundImage() }
+        )
+        .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
         .alwaysPillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
     }
 

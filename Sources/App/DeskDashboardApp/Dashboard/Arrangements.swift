@@ -34,8 +34,11 @@ let dashboardArrangements: [Arrangement] = [
                 screen: .board(BoardColumns.focusFlipped)),
     Arrangement(name: "Green · flip centered", short: "Ctr",
                 screen: .board(BoardColumns.focusFlippedCentered)),
+    // No theme of its own any more: the ruled green theme is the composition's, so
+    // naming it here would just restate the default. What still makes this
+    // arrangement distinct is its column spec.
     Arrangement(name: "Ruled · board", short: "Ruled",
-                theme: RuledGreenTheme(), screen: .board(BoardColumns.ruled)),
+                screen: .board(BoardColumns.ruled)),
     Arrangement(name: "Gradient · MTG", short: "MTG",
                 theme: GradientClockTheme(), screen: .board(BoardColumns.mtg)),
 ]

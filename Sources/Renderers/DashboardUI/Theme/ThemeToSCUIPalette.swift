@@ -78,11 +78,17 @@ struct ThemeToSCUIPalette: Sendable {
     ///     display without a rebuild.
     ///   - colorsOverride: a palette to draw in instead of the theme's own, for
     ///     the header's colour-variant pill. `nil` leaves the theme as authored.
+    ///   - surfaceOpacity: multiplier on the tile surface's alpha, for drawing
+    ///     panels over a wallpaper. Every theme in the app authors an OPAQUE
+    ///     surface (the ruled green is explicitly flat), which sits on a photo
+    ///     like a sticker — so the wallpaper toggle thins the panels rather than
+    ///     each theme having to carry a second translucent surface colour.
     init(
         theme: any Theme,
         viewport: Viewport = .reference,
         scaleMultiplier: Double = 1,
-        colorsOverride: ThemeColors? = nil
+        colorsOverride: ThemeColors? = nil,
+        surfaceOpacity: Double = 1
     ) {
         let sizes = theme.sizes(for: viewport, multiplier: scaleMultiplier)
         scale = sizes.scale
@@ -98,7 +104,8 @@ struct ThemeToSCUIPalette: Sendable {
         background = Color(hex: colors.background) ?? .black
         let stops = colors.backgroundGradient.compactMap { Color(hex: $0) }
         backgroundGradient = stops.count >= 2 ? stops : nil
-        surface = Color(hex: colors.surface) ?? Color(white: 0.1)
+        surface = (Color(hex: colors.surface) ?? Color(white: 0.1))
+            .opacity(surfaceOpacity)
         primary = Color(hex: colors.primary) ?? .white
         secondary = Color(hex: colors.secondary) ?? .gray
         accent = Color(hex: colors.accent) ?? .blue

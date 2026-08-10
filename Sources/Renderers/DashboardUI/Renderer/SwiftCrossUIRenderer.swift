@@ -1,6 +1,7 @@
 // SwiftCrossUIRenderer.swift — Entry point of the real renderer: snapshots in, app launched.
 
 import DashboardKit
+import Foundation
 
 /// The real dashboard renderer, built on SwiftCrossUI.
 ///
@@ -72,6 +73,8 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
         if let slideMilliseconds, slideMilliseconds >= 0 {
             DashboardLaunch.slideMilliseconds = slideMilliseconds
         }
+        let bgOverride = ProcessInfo.processInfo.environment["DD_BG_IMAGE"]
+        DashboardLaunch.backgroundImageOverride = bgOverride?.isEmpty == false ? bgOverride : nil
         model.onAction = onAction
         if let frameMilliseconds, frameMilliseconds > 0 {
             DashboardLaunch.frameSeconds = frameMilliseconds / 1000

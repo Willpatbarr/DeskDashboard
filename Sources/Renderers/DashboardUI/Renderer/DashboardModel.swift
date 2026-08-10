@@ -23,6 +23,10 @@ final class DashboardModel: ObservableObject {
     /// Purely presentational for now — nothing about the widgets themselves
     /// changes yet.
     @Published private(set) var isEditing = false
+    /// Whether the arrangement's wallpaper is drawn. Off falls back to whatever
+    /// the theme would have drawn without one (its gradient, or a flat colour) —
+    /// the image is an override, so hiding it just stops overriding.
+    @Published private(set) var showsBackgroundImage = true
     /// Per-widget content alignment, keyed by widget id. Absent means the tile
     /// keeps the leading alignment every layout has always drawn with, so the
     /// dashboard looks identical until something is actually edited.
@@ -84,9 +88,22 @@ final class DashboardModel: ObservableObject {
             theme: current.theme ?? dashboardTheme,
             viewport: viewport,
             scaleMultiplier: scaleMultiplier,
-            colorsOverride: hueMode.colors
+            colorsOverride: hueMode.colors,
+            // Panels thin out over a wallpaper so the photo reads through them.
+            // Not a theme change: every theme here authors an opaque surface (the
+            // ruled green is flat by design), and an opaque panel on a photo looks
+            // stuck on rather than laid over.
+            surfaceOpacity: showsWallpaper ? Self.wallpaperSurfaceOpacity : 1
         )
     }
+
+    /// How much of the tile surface survives over a wallpaper.
+    static let wallpaperSurfaceOpacity = 0.55
+
+    /// Whether a wallpaper is actually being drawn right now — the toggle is on
+    /// AND there's an image to draw. Panels only thin out when there's something
+    /// behind them to show.
+    var showsWallpaper: Bool { showsBackgroundImage && wallpaper != nil }
     /// Palette for the app chrome (title line, switcher): geometry that must not
     /// move when the arrangement — or the app's theme — changes. Colours still
     /// come from `palette(for:)`, so the chrome matches what's on screen; only
@@ -109,6 +126,25 @@ final class DashboardModel: ObservableObject {
     var arrangementName: String { current.name }
     /// The current arrangement's wallpaper path, if it has one.
     var backgroundImage: String? { current.backgroundImage }
+
+    /// The wallpaper to draw when the header's Image toggle is on — the
+    /// arrangement's own if it authored one, otherwise the first one any
+    /// arrangement authored.
+    ///
+    /// The fallback is what lets the toggle work on EVERY board rather than only
+    /// the one board with a photo attached. It reads the app's own arrangements
+    /// rather than hard-coding a path, so the renderer still ships no assets of
+    /// its own and an app with no wallpaper anywhere simply has nothing to show.
+    ///
+    /// `DD_BG_IMAGE` outranks both, and is resolved HERE rather than in the view
+    /// so that `showsWallpaper` — which decides whether the panels thin out — sees
+    /// the same answer the background does.
+    var wallpaper: String? {
+        if let override = DashboardLaunch.backgroundImageOverride, !override.isEmpty {
+            return override
+        }
+        return current.backgroundImage ?? arrangements.compactMap(\.backgroundImage).first
+    }
     /// The board's column spec when the current arrangement is a board, else `nil`.
     var boardColumns: [BoardColumn]? {
         if case let .board(columns) = current.screen { columns } else { nil }
@@ -177,6 +213,11 @@ final class DashboardModel: ObservableObject {
         isEditing.toggle()
     }
 
+    /// Shows or hides the arrangement's wallpaper (the header's Image button).
+    func toggleBackgroundImage() {
+        showsBackgroundImage.toggle()
+    }
+
     /// Picks a hue by switcher index (see `HueMode.allCases`).
     func selectHue(_ index: Int) {
         let modes = HueMode.allCases
@@ -211,6 +252,12 @@ enum DashboardLaunch {
     /// the animation off (instant jump). Set from `DD_UI_SLIDE_MS`, so a display
     /// that renders frames too slowly can be tuned or opted out without a rebuild
     /// — which matters when the target is a Pi and each build is minutes.
+    /// `DD_BG_IMAGE`: a wallpaper path that outranks every arrangement's own, for
+    /// trying a file without a rebuild. Stashed here by the renderer rather than
+    /// read where it's used, because this module's model file deliberately does
+    /// not import Foundation (its `ObservableObject` collides with SwiftCrossUI's).
+    nonisolated(unsafe) static var backgroundImageOverride: String?
+
     nonisolated(unsafe) static var slideMilliseconds: Double = 300
 
     /// Seconds between hand-stepped animation frames. Same reasoning as
