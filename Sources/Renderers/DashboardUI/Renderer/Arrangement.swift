@@ -26,6 +26,19 @@ public struct Arrangement: Sendable {
     /// The screen that fills the content region, or `nil` for the ordinary tile
     /// grid laid out from each widget's `WidgetSize` and its own `layout`.
     public let screen: Screen?
+    /// An absolute path to a photo to draw behind everything, or `nil` for the
+    /// theme's own flat/gradient background.
+    ///
+    /// Deliberately on the *arrangement* rather than the `Theme`: a wallpaper is a
+    /// per-board presentation choice, and putting it here lets one board carry a
+    /// photo without forking a whole theme (and without every other board that
+    /// shares that theme inheriting it).
+    ///
+    /// `png`, `jpg` or `webp` only — SwiftCrossUI's `Image` cannot decode heic, so
+    /// an Apple wallpaper must be converted first. Nothing scales or crops it at
+    /// render time (there is no aspect-fill on this backend), so pre-crop the file
+    /// to the panel's aspect or it will draw stretched.
+    public let backgroundImage: String?
 
     /// The screens the renderer knows how to draw.
     ///
@@ -42,11 +55,13 @@ public struct Arrangement: Sendable {
         name: String,
         short: String,
         theme: (any Theme)? = nil,
-        screen: Screen? = nil
+        screen: Screen? = nil,
+        backgroundImage: String? = nil
     ) {
         self.name = name
         self.short = short
         self.theme = theme
         self.screen = screen
+        self.backgroundImage = backgroundImage
     }
 }

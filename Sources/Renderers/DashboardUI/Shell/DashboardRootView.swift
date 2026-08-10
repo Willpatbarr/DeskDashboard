@@ -1,6 +1,7 @@
 // DashboardRootView.swift — The shell: reserves the header band, dispatches to a screen.
 
 import DashboardKit
+import Foundation
 import SwiftCrossUI
 
 /// Root view: lays the widget tiles out from their `GridLayout` slots, the same
@@ -64,7 +65,7 @@ struct DashboardRootView: View {
                     .frame(width: viewport.width, height: max(1, viewport.height - band))
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .background(background(palette))
+            .background(background(palette, viewport))
         }
     }
 
@@ -128,8 +129,24 @@ struct DashboardRootView: View {
 
     /// A top-to-bottom gradient when the palette defines one (the gradient-clock
     /// theme), otherwise the flat background color.
-    @ViewBuilder private func background(_ palette: ThemeToSCUIPalette) -> some View {
-        if let stops = palette.backgroundGradient {
+    ///
+    /// An arrangement's `backgroundImage` outranks both — see `Arrangement` for
+    /// why the wallpaper lives there rather than on the `Theme`. `DD_BG_IMAGE`
+    /// overrides everything, for trying a file without a rebuild.
+    @ViewBuilder private func background(
+        _ palette: ThemeToSCUIPalette,
+        _ viewport: Viewport
+    ) -> some View {
+        let override = ProcessInfo.processInfo.environment["DD_BG_IMAGE"]
+        if let path = (override?.isEmpty == false ? override : model.backgroundImage) {
+            // Sized explicitly rather than left greedy: `.background` gives its
+            // child the parent's proposal, and a `.resizable()` image with no
+            // frame reports its intrinsic pixel size — which on a 1920-wide
+            // wallpaper drags the whole window's layout out to the image.
+            Image(URL(fileURLWithPath: path))
+                .resizable()
+                .frame(width: viewport.width, height: viewport.height)
+        } else if let stops = palette.backgroundGradient {
             LinearGradient(
                 colors: stops,
                 startPoint: .top,

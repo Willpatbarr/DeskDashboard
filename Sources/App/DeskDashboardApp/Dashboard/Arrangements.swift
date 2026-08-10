@@ -20,8 +20,14 @@ import DashboardUI
 let dashboardArrangements: [Arrangement] = [
     Arrangement(name: "Green · board", short: "Board",
                 screen: .board(BoardColumns.equalWidths)),
+    // The one board with a photo behind it. The path is absolute and points at
+    // the Pi's checkout, because that is the only machine this board is looked at
+    // on; `DD_BG_IMAGE` overrides it for a Mac dev run. `Assets/tea-mist-wide.png`
+    // is the Apple "Tea Mist" wallpaper pre-cropped to the panel's 1920×438 strip
+    // — nothing crops it at render time, so an uncropped file draws stretched.
     Arrangement(name: "Green · wide clock", short: "Wide",
-                screen: .board(BoardColumns.wideClock)),
+                screen: .board(BoardColumns.wideClock),
+                backgroundImage: "/home/willbarr/Desktop/DeskDashboard-MacMiniDev/Assets/tea-mist-wide.png"),
     Arrangement(name: "Green · focus", short: "Focus",
                 screen: .board(BoardColumns.focus)),
     Arrangement(name: "Green · focus flipped", short: "Flip",

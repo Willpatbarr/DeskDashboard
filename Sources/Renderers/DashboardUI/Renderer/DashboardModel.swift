@@ -96,6 +96,8 @@ final class DashboardModel: ObservableObject {
     }
 
     var arrangementName: String { current.name }
+    /// The current arrangement's wallpaper path, if it has one.
+    var backgroundImage: String? { current.backgroundImage }
     /// The board's column spec when the current arrangement is a board, else `nil`.
     var boardColumns: [BoardColumn]? {
         if case let .board(columns) = current.screen { columns } else { nil }
