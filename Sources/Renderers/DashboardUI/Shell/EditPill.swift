@@ -33,7 +33,10 @@ struct EditPill: View {
 
         return Text(label)
             .font(.system(size: fontSize, weight: .semibold))
-            .foregroundColor(isOn ? palette.background : palette.accent)
+            .foregroundColor(
+                (isOn ? palette.background : palette.accent)
+                    .opacity(SwitcherPill.labelOpacity)
+            )
             .lineLimit(1)
             .frame(width: Double(slotWidth), height: Double(slotHeight))
             .padding(.top, -opticalRise)
@@ -47,7 +50,15 @@ struct EditPill: View {
             // paints it. Surface is translucent in most themes, so painting it
             // twice composited to a visibly lighter pill than the switchers'
             // (measured 42,80,62 against their 34,67,51 on the gradient board).
-            .background(isOn ? palette.accent : Color.clear)
+            // Thinned over a wallpaper by the same `SwitcherPill.fillOpacity` as
+            // that pill's highlight — a lit toggle and a selected slot are the
+            // same shape to the eye, so only one of them staying solid would read
+            // as a mistake.
+            .background(
+                isOn
+                    ? palette.accent.opacity(SwitcherPill.fillOpacity(palette))
+                    : Color.clear
+            )
             .cornerRadius(max(0, slotHeight / 2 - 1))
             .onTapGesture { onTap() }
             .padding(trackInset)

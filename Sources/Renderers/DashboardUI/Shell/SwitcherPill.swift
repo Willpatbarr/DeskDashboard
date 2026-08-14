@@ -170,6 +170,31 @@ struct SwitcherPill: View {
         slotHeight + trackInset * 2
     }
 
+    /// How opaque a pill label is — shared with `EditPill` so every word in the
+    /// header carries the same weight.
+    ///
+    /// Deliberately NOT `palette.fillOpacity`, and deliberately not conditional on
+    /// the wallpaper. The fills thin to 0.55 over a photo, which a caption-sized
+    /// label cannot survive; this is a slight softening that lets the chrome's text
+    /// settle into its backdrop instead of sitting on top of it at full strength,
+    /// and it holds on a flat background too.
+    static let labelOpacity = 0.85
+
+    /// Opacity for a lit fill — this pill's travelling highlight and `EditPill`'s
+    /// on state — given the palette it's drawn from.
+    ///
+    /// A notch thinner than the panels' `fillOpacity` rather than equal to it,
+    /// because a highlight is the only fill here that stacks: it sits on the pill's
+    /// own translucent track, so at the panels' alpha it composites to more coverage
+    /// than a panel does and reads heavier than everything around it.
+    ///
+    /// Untouched when `fillOpacity` is 1 — off a wallpaper there is nothing behind
+    /// the header to see through, and a lit slot that can't quite commit to being
+    /// lit just looks unfinished.
+    static func fillOpacity(_ palette: ThemeToSCUIPalette) -> Double {
+        palette.fillOpacity < 1 ? palette.fillOpacity * 0.8 : 1
+    }
+
     var body: some View {
         // Idempotent: the animator ignores a target it is already heading to, so
         // both taps and programmatic selection changes animate through one path.
@@ -191,7 +216,11 @@ struct SwitcherPill: View {
                 width: Double(slotWidth),
                 cornerRadius: Double(max(0, slotHeight / 2 - 1))
             )
-            .fill(palette.accent)
+            // Thinned along with the panels (see `fillOpacity(_:)`), so over a
+            // wallpaper the selected slot is glass like everything else rather
+            // than the one solid shape on the board. Off a wallpaper this is the
+            // flat accent it always was.
+            .fill(palette.accent.opacity(Self.fillOpacity(palette)))
             .frame(width: rowWidth, height: Double(slotHeight))
 
             HStack(spacing: 0) {
@@ -228,7 +257,10 @@ struct SwitcherPill: View {
             .font(.system(size: fontSize, weight: .semibold))
             // Flip the label to the dark background colour once the highlight is
             // mostly over it, so it stays legible against the accent.
-            .foregroundColor(covered ? palette.background : palette.accent)
+            .foregroundColor(
+                (covered ? palette.background : palette.accent)
+                    .opacity(Self.labelOpacity)
+            )
             // A wrapped label grows the header's height, which is what pushed
             // the tiles off-screen before. Truncate instead, always.
             .lineLimit(1)

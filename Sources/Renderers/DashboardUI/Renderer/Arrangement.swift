@@ -49,6 +49,11 @@ public struct Arrangement: Sendable {
     public enum Screen: Equatable, Sendable {
         /// A single-row board with proportional column widths — see `BoardColumn`.
         case board([BoardColumn])
+        /// A board of stacked full-width bands, each its own row of columns with a
+        /// proportional height — see `BoardBand`. Use this when a widget has to
+        /// span the whole board above or below others; `.board` is the one-band
+        /// shorthand and renders through the same path.
+        case bands([BoardBand])
     }
 
     public init(

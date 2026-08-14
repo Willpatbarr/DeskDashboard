@@ -82,11 +82,11 @@ struct DashboardRootView: View {
     ) -> some View {
         let inner = max(1, height - Double(palette.verticalSectionMargin * 2))
 
-        if let columns = model.boardColumns {
+        if let bands = model.boardBands {
             BoardScreen(
                 palette: palette,
                 snapshots: model.snapshots,
-                columns: columns,
+                bands: bands,
                 containerMode: model.containerMode,
                 isEditing: model.isEditing,
                 alignments: model.alignments,
@@ -125,7 +125,7 @@ struct DashboardRootView: View {
                     .editScrim(
                         palette,
                         active: model.isEditing,
-                        alignment: model.alignment(for: snapshot.id.rawValue),
+                        alignment: model.alignment(for: snapshot.id.rawValue) ?? .leading,
                         onSelectAlignment: { model.setAlignment($0, for: snapshot.id.rawValue) }
                     )
                     .tileCorners(palette)

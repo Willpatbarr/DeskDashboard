@@ -33,10 +33,33 @@ struct TileView: View {
     /// Suppresses the widget's title label for this render (a board-level
     /// choice — every layout already omits an absent title).
     var hidesTitle: Bool = false
-    /// Which edge this tile's contents line up on. Applied by the interpreter to
-    /// every vertical run, so it works for every layout without any of them
-    /// knowing about it — see `TileAlignment`.
-    var alignment: TileAlignment = .leading
+    /// Which edge this tile's contents line up on, or `nil` for "as the layout
+    /// draws it". Applied by the interpreter to every vertical run, so it works
+    /// for every layout without any of them knowing about it — see `TileAlignment`.
+    ///
+    /// Optional rather than defaulting to `.leading` because the default is
+    /// per-NODE, not per-tile: a `.centered` group and a `.fittedText` value
+    /// centre themselves (that is what those nodes are for), while an ordinary
+    /// stack runs leading. Forcing one tile-wide default shoved the focus board's
+    /// full-width clock into the left margin.
+    var alignment: TileAlignment? = nil
+
+    /// The alignment for an ordinary run: what was chosen, else leading.
+    var runAlignment: TileAlignment { alignment ?? .leading }
+    /// The alignment for a node that centres itself by default (`.centered`,
+    /// `.fittedText`): what was chosen, else centre.
+    var centredAlignment: TileAlignment { alignment ?? .center }
+
+    /// Centres the content in the tile's height instead of pinning it to the top.
+    ///
+    /// For a tile much SHORTER than usual: the focus board's bottom strip is one
+    /// line of text in ~69px, and top-aligned that line sat ~5px above the tile's
+    /// centre with all the slack below it.
+    var centersVertically: Bool = false
+    /// Sizes the tile to its content's width instead of filling the space offered.
+    /// Set by a `hugsContent` board column — the tile itself has to stop being
+    /// greedy, or the column's own intrinsic width means nothing.
+    var hugsWidth: Bool = false
     /// Raised when a `.tappable` node in this tile is tapped or held: the action
     /// name, plus whether it came from a hold. The caller pairs it with the widget
     /// id and routes it onward; this view deliberately knows nothing about the
@@ -48,7 +71,11 @@ struct TileView: View {
 
     /// Semantic content for the layout: real content when present, otherwise the
     /// configured title + a placeholder so an unrendered tile isn't blank.
-    private var content: WidgetContent {
+    ///
+    /// Not private: `BoardScreen` needs the same resolved content to estimate a
+    /// content-hugging column's width, and resolving it twice by hand would be two
+    /// places to keep in step.
+    var layoutContent: WidgetContent {
         WidgetContent(
             title: hidesTitle ? nil : (snapshot.content?.title ?? snapshot.configuration.title),
             primaryText: snapshot.content?.primaryText ?? "…",
@@ -70,10 +97,14 @@ struct TileView: View {
         // background wrapper anyway: a stack with no background reports no size
         // on the GTK backend.
         let plain = containerless || snapshot.configuration.isContainerless
-        return interpret(layout.makeView(content))
+        return interpret(layout.makeView(layoutContent))
             .padding(.horizontal, palette.tilePadding)
             .padding(.vertical, palette.verticalTilePadding)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: alignment.topAligned)
+            .frame(
+                maxWidth: hugsWidth ? nil : .infinity,
+                maxHeight: .infinity,
+                alignment: runAlignment.aligned(centeredVertically: centersVertically)
+            )
             .background(plain ? Color.clear : palette.surface)
             .cornerRadius(plain ? 0 : Int(palette.cornerRadius.rounded()))
         // The outline is NOT applied here — see `tileBorder` in `TileCorners.swift`.
@@ -169,7 +200,7 @@ struct TileView: View {
             // Most `.centered` uses in `lifeCounter` are a single `.tappable`, whose
             // `leadingSize` is 0, so they land here.
             if views.count == 1, lift == 0 {
-                return AnyView(views[0].frame(maxWidth: .infinity, alignment: alignment.topAligned))
+                return AnyView(views[0].frame(maxWidth: .infinity, alignment: centredAlignment.topAligned))
             }
 
             return AnyView(
@@ -180,10 +211,10 @@ struct TileView: View {
                 // `.centered` names the layout's INTENT (a value group that owns
                 // its tile), not a hard-coded centre — an edited tile aligns its
                 // group like any other run.
-                VStack(alignment: alignment.horizontal, spacing: Int((largest * -0.03).rounded())) {
+                VStack(alignment: centredAlignment.horizontal, spacing: Int((largest * -0.03).rounded())) {
                     ForEach(indexed, id: \.offset) { $0.element }
                 }
-                .frame(maxWidth: .infinity, alignment: alignment.topAligned)
+                .frame(maxWidth: .infinity, alignment: centredAlignment.topAligned)
                 .padding(.top, -lift)
             )
 
@@ -233,12 +264,20 @@ struct TileView: View {
             switch axis {
             case .vertical:
                 return AnyView(
-                    VStack(alignment: alignment.horizontal, spacing: gap) {
+                    VStack(alignment: runAlignment.horizontal, spacing: gap) {
                         ForEach(indexed, id: \.offset) { $0.element }
                     }
-                    .frame(maxWidth: .infinity, alignment: alignment.topAligned)
+                    .frame(maxWidth: .infinity, alignment: runAlignment.topAligned)
                 )
             case .horizontal:
+                // No per-child baseline correction here. Mixed type sizes on one
+                // line were nudged onto a shared BASELINE for a while, which is
+                // typographically conventional but reads as misaligned in a short
+                // tile: what the eye centres on is each run's ink, and the stack
+                // already lines up ink centres to within a pixel on its own
+                // (measured: label centre 392.5 against value centre 391.5). Two
+                // sizes can share a baseline or a centre, not both — this board
+                // wants centres.
                 return AnyView(
                     HStack(spacing: gap) {
                         ForEach(indexed, id: \.offset) { $0.element }

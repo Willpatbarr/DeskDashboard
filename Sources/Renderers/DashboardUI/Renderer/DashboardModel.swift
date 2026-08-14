@@ -28,8 +28,8 @@ final class DashboardModel: ObservableObject {
     /// the image is an override, so hiding it just stops overriding.
     @Published private(set) var showsBackgroundImage = true
     /// Per-widget content alignment, keyed by widget id. Absent means the tile
-    /// keeps the leading alignment every layout has always drawn with, so the
-    /// dashboard looks identical until something is actually edited.
+    /// draws however its layout draws it, so the dashboard looks identical until
+    /// something is actually edited.
     ///
     /// In memory only for now — nothing here is written back to the widget's
     /// configuration or persisted across launches.
@@ -145,9 +145,16 @@ final class DashboardModel: ObservableObject {
         }
         return current.backgroundImage ?? arrangements.compactMap(\.backgroundImage).first
     }
-    /// The board's column spec when the current arrangement is a board, else `nil`.
-    var boardColumns: [BoardColumn]? {
-        if case let .board(columns) = current.screen { columns } else { nil }
+    /// The board's bands when the current arrangement is a board, else `nil`.
+    ///
+    /// A plain `.board` becomes ONE band of weight 1, so the renderer draws every
+    /// board through the same path — see `BoardBand` for why that matters here.
+    var boardBands: [BoardBand]? {
+        switch current.screen {
+        case let .board(columns): [BoardBand(columns)]
+        case let .bands(bands): bands
+        case nil: nil
+        }
     }
 
 
@@ -196,9 +203,10 @@ final class DashboardModel: ObservableObject {
         containerMode = modes[index]
     }
 
-    /// This widget's chosen alignment, or the leading default.
-    func alignment(for widgetID: String) -> TileAlignment {
-        alignments[widgetID] ?? .leading
+    /// This widget's chosen alignment, or `nil` for "however its layout draws it"
+    /// (see `TileView.alignment` — the default is per-node, not per-tile).
+    func alignment(for widgetID: String) -> TileAlignment? {
+        alignments[widgetID]
     }
 
     /// Records an alignment pick from a tile's edit overlay (a pill index).

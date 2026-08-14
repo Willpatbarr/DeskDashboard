@@ -36,9 +36,17 @@ enum TileAlignment: String, CaseIterable {
         }
     }
 
-    /// The tile's own content frame keeps its contents pinned to the TOP; only
-    /// the horizontal component is up for choice here.
+    /// The tile's own content frame pins its contents to the TOP by default; only
+    /// the horizontal component is chosen from the edit overlay.
     var topAligned: Alignment {
         Alignment(horizontal: horizontal, vertical: .top)
+    }
+
+    /// `topAligned`, or vertically centred instead. Centring is opt-in per tile
+    /// (`BoardRow.centersVertically`) rather than the default: most layouts fill
+    /// their tile's height — a footer pinned under a spacer, say — so centring
+    /// them changes nothing, but the ones that DON'T fill it would all shift.
+    func aligned(centeredVertically: Bool) -> Alignment {
+        Alignment(horizontal: horizontal, vertical: centeredVertically ? .center : .top)
     }
 }

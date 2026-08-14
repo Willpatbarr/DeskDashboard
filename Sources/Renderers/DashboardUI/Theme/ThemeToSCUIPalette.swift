@@ -37,6 +37,16 @@ struct ThemeToSCUIPalette: Sendable {
     /// even when the theme defines no border (the header's Edit button).
     let accentHex: String
 
+    /// How much of an opaque chrome fill survives here: 1 normally, `surfaceOpacity`
+    /// over a wallpaper.
+    ///
+    /// Kept as a value rather than only being folded into `surface`, because the
+    /// controls that need thinning don't all paint themselves from `surface` — the
+    /// switcher pill's travelling highlight is `accent`. Left solid, it was the one
+    /// opaque shape on a board wearing a photo: every panel and every track read as
+    /// glass and the selected slot as a sticker.
+    let fillOpacity: Double
+
     let widgetGap: Int
     let tilePadding: Int
     let sectionMargin: Int
@@ -104,6 +114,7 @@ struct ThemeToSCUIPalette: Sendable {
         background = Color(hex: colors.background) ?? .black
         let stops = colors.backgroundGradient.compactMap { Color(hex: $0) }
         backgroundGradient = stops.count >= 2 ? stops : nil
+        fillOpacity = surfaceOpacity
         surface = (Color(hex: colors.surface) ?? Color(white: 0.1))
             .opacity(surfaceOpacity)
         primary = Color(hex: colors.primary) ?? .white

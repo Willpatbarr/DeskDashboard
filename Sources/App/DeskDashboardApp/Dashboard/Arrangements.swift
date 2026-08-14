@@ -29,7 +29,7 @@ let dashboardArrangements: [Arrangement] = [
                 screen: .board(BoardColumns.wideClock),
                 backgroundImage: "/home/willbarr/Desktop/DeskDashboard-MacMiniDev/Assets/tea-mist-wide.png"),
     Arrangement(name: "Green · focus", short: "Focus",
-                screen: .board(BoardColumns.focus)),
+                screen: .bands(BoardColumns.focus)),
     Arrangement(name: "Green · focus flipped", short: "Flip",
                 screen: .board(BoardColumns.focusFlipped)),
     Arrangement(name: "Green · flip centered", short: "Ctr",

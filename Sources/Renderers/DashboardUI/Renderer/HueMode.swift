@@ -27,12 +27,19 @@ import DashboardKit
 /// from the numerals, never a true value — so each variant takes its hue from its
 /// own accent and its lightness and saturation from the green board. That keeps all
 /// five reading with the same weight.
+///
+/// `.slate` is the exception to "each is carried by its accent": it is the same
+/// structure at saturation ZERO, for wearing over a wallpaper. A photo brings its
+/// own hues and a tinted panel either agrees with them or fights them, board by
+/// board — a neutral one does neither. It's the only variant that authors an alpha
+/// on its surface (see `colors`).
 enum HueMode: CaseIterable {
     case original
     case teal
     case blue
     case plum
     case amber
+    case slate
 
     /// Switcher labels — kept to ≤5 characters, as the pill sizes every slot to the
     /// widest one and the header already carries two other pills.
@@ -43,6 +50,7 @@ enum HueMode: CaseIterable {
         case .blue: "Blue"
         case .plum: "Plum"
         case .amber: "Amber"
+        case .slate: "Slate"
         }
     }
 
@@ -83,6 +91,25 @@ enum HueMode: CaseIterable {
                 background: "#101010", surface: "#1C1C1C", primary: "#FFFFFF",
                 secondary: "#D1BA99", accent: "#D7AC6D", text: "#FFFFFF",
                 mutedText: "#D1BA99", divider: "#D1BA99", border: "#675337"
+            )
+        case .slate:
+            // Amber's lightness at almost no saturation, so it sits in the same
+            // family as the other four. Not a dead neutral: every value leans
+            // ~16/255 blue over red, with green halfway, which is enough to read
+            // as cool without becoming the blue variant. The pairs below are
+            // luminance-matched to the flat greys they replaced (each within ~1
+            // of its old Rec.601 value), so this is a hue shift only — nothing
+            // here got lighter or darker.
+            //
+            // The surface carries an alpha the others don't: 0xD9 ≈ 0.85. Over a
+            // wallpaper that COMPOUNDS with the 0.55 the model already applies
+            // (`Color.opacity` multiplies), landing near 0.47 — thinner than any
+            // other variant, which is the point of this one. With the wallpaper
+            // off it merely darkens the surface toward the background by a shade.
+            ThemeColors(
+                background: "#0F1013", surface: "#1A1C20D9", primary: "#FFFFFF",
+                secondary: "#B3BAC5", accent: "#C6CDD8", text: "#FFFFFF",
+                mutedText: "#B3BAC5", divider: "#B3BAC5", border: "#535A63"
             )
         }
     }

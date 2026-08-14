@@ -31,7 +31,7 @@ extension TileView {
             // alignment the way an ordinary text run does (which is why the
             // fitted temps stayed centred while everything around them moved).
             // Vertically it stays Spacer-centred in its region regardless.
-            VStack(alignment: alignment.horizontal, spacing: 0) {
+            VStack(alignment: centredAlignment.horizontal, spacing: 0) {
                 Spacer(minLength: 0)
                 // Same corrective wrapper as `tightenedText`: glyphs sit
                 // LOW in a big label's box on this backend, so centring
@@ -52,7 +52,7 @@ extension TileView {
             }
             .frame(
                 maxWidth: .infinity,
-                alignment: Alignment(horizontal: alignment.horizontal, vertical: .center)
+                alignment: Alignment(horizontal: centredAlignment.horizontal, vertical: .center)
             )
         }
     }
