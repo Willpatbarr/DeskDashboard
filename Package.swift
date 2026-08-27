@@ -3,6 +3,7 @@
 
 // Stacked PR test: comment #1
 // Stacked PR test: comment #2
+// Stacked PR test: comment #3
 import PackageDescription
 
 let package = Package(
