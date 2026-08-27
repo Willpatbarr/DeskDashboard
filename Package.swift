@@ -2,6 +2,7 @@
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
 // Stacked PR test: comment #1
+// Stacked PR test: comment #2
 import PackageDescription
 
 let package = Package(
