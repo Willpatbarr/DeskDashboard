@@ -13,6 +13,26 @@ public struct ClaudeSession: Equatable, Sendable {
     public var project: String?
     /// Model slug, e.g. `claude-opus-5`.
     public var model: String?
+    /// The column this session would sit in if the PR column didn't exist —
+    /// `working` | `needs-you` | `idle`. The card's dot is painted with THIS
+    /// rather than its own column's colour, so a card parked in "PR Open"
+    /// still shows whether it is running, waiting on you, or quiet.
+    public var attention: String?
+    /// Where the work is: `planning` | `implementing` | `review` | `done`.
+    /// The daemon derives it; nil when an older daemon is pushing.
+    public var stage: String?
+    /// Why the agent is stopped on a human: `question` | `plan` |
+    /// `changes-requested`, else nil. Supersedes `askPending`, which the
+    /// daemon still sends as an alias so an un-rebuilt Pi keeps working.
+    public var blockedOn: String?
+    /// The session's git branch, when it has one.
+    public var branch: String?
+    /// Pull request facts, when the session has one open.
+    public var prNumber: Int?
+    public var prState: String?
+    /// GitHub's review verdict — `CHANGES_REQUESTED`, `APPROVED`, … Only this
+    /// comes from `gh`; everything else above is local metadata.
+    public var prReviewDecision: String?
     /// Column id assigned by the daemon's (user-configurable) column rules —
     /// e.g. `working` / `needs-you` / `idle`, but the set is open.
     public var column: String
@@ -27,6 +47,13 @@ public struct ClaudeSession: Equatable, Sendable {
         title: String,
         project: String? = nil,
         model: String? = nil,
+        attention: String? = nil,
+        stage: String? = nil,
+        blockedOn: String? = nil,
+        branch: String? = nil,
+        prNumber: Int? = nil,
+        prState: String? = nil,
+        prReviewDecision: String? = nil,
         column: String,
         stalled: Bool = false,
         askPending: Bool = false,
@@ -38,6 +65,13 @@ public struct ClaudeSession: Equatable, Sendable {
         self.title = title
         self.project = project
         self.model = model
+        self.attention = attention
+        self.stage = stage
+        self.blockedOn = blockedOn
+        self.branch = branch
+        self.prNumber = prNumber
+        self.prState = prState
+        self.prReviewDecision = prReviewDecision
         self.column = column
         self.stalled = stalled
         self.askPending = askPending

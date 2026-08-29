@@ -28,7 +28,6 @@ public extension WidgetLayout {
     /// `label⟨US⟩count⟨US⟩color⟨US⟩rendered` per column (⟨RS⟩-joined), and
     /// `rendered` is how the walk below finds each column's slice.
     static let claudeSessions = Self(id: "claudeSessions") { content in
-        let columnCount = 3
 
         // The web dashboard's palette (public/index.html :root), verbatim.
         let columnWell = "#15181d"
@@ -36,19 +35,45 @@ public extension WidgetLayout {
         let textBright = "#e8eaed"
         let textDim = "#9aa0a8"
         let flagColor = "#fbbf24"
+        let planColor = "#c4b5fd"
+        let changesColor = "#f87171"
         let line = "#2a2f37"
 
-        let headers = (content.secondaryText ?? "")
-            .split(separator: "\u{1E}", omittingEmptySubsequences: false)
-            .map { record in
-                record.split(separator: "\u{1F}", omittingEmptySubsequences: false)
-                    .map(String.init)
+        /// Blocked reasons and their words, matching the web board's `.flag`
+        /// rules. A blocked card says what it is blocked ON; a stalled one is
+        /// only a suspicion, so it keeps its question mark.
+        func flagStyle(_ kind: String) -> (String, String) {
+            switch kind {
+            case "question": ("question waiting", flagColor)
+            case "plan": ("plan approval", planColor)
+            case "changes-requested": ("changes requested", changesColor)
+            case "stalled": ("stalled?", changesColor)
+            default: ("", textDim)
             }
+        }
+
+        /// Stage tokens, short because a card line also carries project, model
+        /// and a PR number. Colours are the web board's `.chip.stage.*` text
+        /// colours.
+        func stageStyle(_ stage: String) -> (String, String) {
+            switch stage {
+            case "planning": ("PLAN", planColor)
+            case "implementing": ("IMPL", "#86e0a3")
+            case "review": ("REVIEW", "#fcd34d")
+            case "done": ("DONE", "#8b929c")
+            default: ("", textDim)
+            }
+        }
+
+        // However many the daemon pushed — the board's columns are config, not
+        // a constant, so a fourth one needs no Pi rebuild.
+        let headers = ClaudeColumnHeader.all(in: content.secondaryText ?? "")
+            .filter { !$0[.label].isEmpty }
+        let columnCount = headers.count
 
         func rendered(_ columnIndex: Int) -> Int {
-            guard headers.indices.contains(columnIndex),
-                  headers[columnIndex].indices.contains(3) else { return 0 }
-            return Int(headers[columnIndex][3]) ?? 0
+            guard headers.indices.contains(columnIndex) else { return 0 }
+            return Int(headers[columnIndex][.rendered]) ?? 0
         }
 
         // Where each column's cards start in the flat metadata list.
@@ -60,11 +85,11 @@ public extension WidgetLayout {
         }
 
         let columns: [WidgetView] = (0 ..< columnCount).map { columnIndex in
-            let header = headers.indices.contains(columnIndex) ? headers[columnIndex] : []
-            let label = header.indices.contains(0) ? header[0] : ""
-            let count = header.indices.contains(1) ? header[1] : ""
-            let accent = header.indices.contains(2) && !header[2].isEmpty
-                ? header[2] : textDim
+            let header = headers.indices.contains(columnIndex)
+                ? headers[columnIndex] : ClaudeColumnHeader("")
+            let label = header[.label]
+            let count = header[.count]
+            let accent = header[.colorHex].isEmpty ? textDim : header[.colorHex]
             let start = offsets[columnIndex]
 
             // The staleness flag lives in the first column's header now that
@@ -74,19 +99,17 @@ public extension WidgetLayout {
             let slots: [WidgetView] = (0 ..< rendered(columnIndex)).compactMap { slotIndex in
                 let flatIndex = start + slotIndex
                 guard flatIndex < content.metadata.count else { return nil }
-                let entry = content.metadata[flatIndex]
-                let fields = entry.value
-                    .split(separator: "\u{1F}", omittingEmptySubsequences: false)
-                    .map(String.init)
-                let age = fields.indices.contains(0) ? fields[0] : ""
-                let sessionID = fields.indices.contains(1) ? fields[1] : ""
-                let project = fields.indices.contains(2) ? fields[2] : ""
-                let model = fields.indices.contains(3) ? fields[3] : ""
-                let activity = fields.indices.contains(4) ? fields[4] : ""
-                let flag = fields.indices.contains(5) ? fields[5] : ""
-
-                let meta = [project, model].filter { !$0.isEmpty }
+                let card = ClaudeCard(content.metadata[flatIndex].value)
+                let sessionID = card[.sessionID]
+                let meta = [card[.project], card[.model]].filter { !$0.isEmpty }
                     .joined(separator: " · ")
+                let (flagText, flagHex) = flagStyle(card[.flag])
+                let (stageText, stageHex) = stageStyle(card[.stage])
+                let changesRequested = card[.changesRequested] == "1"
+                let prHex = changesRequested ? changesColor : textDim
+                // The dot says what STATE the session is in, which is only the
+                // same as its column's accent outside the PR column.
+                let dotHex = card[.accentHex].isEmpty ? accent : card[.accentHex]
 
                 return .tappable(
                     action: "claude.focus.\(sessionID)", hold: nil,
@@ -98,17 +121,24 @@ public extension WidgetLayout {
                                   // card is caption-sized: `.secondary` maps to
                                   // bodySize (24 → 36px on the panel), far too
                                   // heavy for a card this size.
-                                  .coloredText("●", role: .caption, hex: accent),
-                                  .coloredText(entry.label, role: .caption, hex: textBright),
+                                  .coloredText("●", role: .caption, hex: dotHex),
+                                  .coloredText(content.metadata[flatIndex].label,
+                                               role: .caption, hex: textBright),
                                   .spacer,
-                                  .coloredText(age, role: .caption, hex: textDim),
+                                  .coloredText(card[.age], role: .caption, hex: textDim),
                               ]),
                               .stack(.horizontal, spacing: 6, [
+                                  .coloredText(stageText, role: .caption, hex: stageHex),
                                   .coloredText(meta, role: .caption, hex: textDim),
-                                  .coloredText(flag, role: .caption, hex: flagColor),
+                                  .spacer,
+                                  .coloredText(card[.pullRequest], role: .caption, hex: prHex),
+                              ]),
+                              .stack(.horizontal, spacing: 6, [
+                                  .coloredText(flagText, role: .caption, hex: flagHex),
+                                  .coloredText(flagText.isEmpty ? card[.activity] : "",
+                                               role: .caption, hex: textDim),
                                   .spacer,
                               ]),
-                              .coloredText(activity, role: .caption, hex: textDim),
                           ]))
                 )
             }

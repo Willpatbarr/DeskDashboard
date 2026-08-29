@@ -21,17 +21,29 @@ public final class SimulatedClaudeSessionsService: ClaudeSessionsService, @unche
             sessions: [
                 ClaudeSession(
                     id: "sim-1", title: "MMA-1234 directory refactor", project: "MemberTools",
-                    model: "claude-opus-5", column: "working", agentCount: 2,
+                    model: "claude-opus-5", stage: "implementing", branch: "MMA-1234",
+                    column: "working", agentCount: 2,
                     lastActivity: "Running gradle build", ageSeconds: 8 + elapsed
                 ),
                 ClaudeSession(
                     id: "sim-2", title: "Calendar zoom polish", project: "MemberTools",
-                    model: "claude-fable-5", column: "needs-you", askPending: true,
-                    lastActivity: "Question waiting", ageSeconds: 260 + elapsed
+                    model: "claude-fable-5", stage: "planning", blockedOn: "plan",
+                    column: "needs-you", askPending: false,
+                    lastActivity: "Plan awaiting approval", ageSeconds: 260 + elapsed
+                ),
+                // The case the whole reshape exists for: a PR the reviewer sent
+                // back, which no local metadata knows about.
+                ClaudeSession(
+                    id: "sim-3", title: "Directory list UX", project: "MemberTools",
+                    model: "claude-opus-5", stage: "review", blockedOn: "changes-requested",
+                    branch: "MMA-5466", prNumber: 2070, prState: "OPEN",
+                    prReviewDecision: "CHANGES_REQUESTED", column: "needs-you",
+                    lastActivity: "PR #2070 changes requested", ageSeconds: 900 + elapsed
                 ),
                 ClaudeSession(
-                    id: "sim-3", title: "XML wiki sync", project: "XMLWiki",
-                    model: "claude-opus-5", column: "idle", lastActivity: "Done",
+                    id: "sim-4", title: "XML wiki sync", project: "XMLWiki",
+                    model: "claude-opus-5", stage: "done", prNumber: 2044,
+                    prState: "MERGED", column: "idle", lastActivity: "Done",
                     ageSeconds: 7500 + elapsed
                 ),
             ],

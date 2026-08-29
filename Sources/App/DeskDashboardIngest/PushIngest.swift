@@ -81,8 +81,17 @@ public enum PushIngest {
             var title: String
             var project: String?
             var model: String?
+            var attention: String?
+            var stage: String?
+            var blockedOn: String?
+            var branch: String?
+            var prNumber: Int?
+            var prState: String?
+            var prReviewDecision: String?
             var state: String
             var stalled: Bool?
+            /// Legacy alias for `blockedOn == "question"`; still sent so a Pi
+            /// running an older build keeps flagging pending questions.
             var askPending: Bool?
             var agentCount: Int?
             var lastActivity: String?
@@ -128,6 +137,13 @@ public enum PushIngest {
                             title: session.title,
                             project: session.project,
                             model: session.model,
+                            attention: session.attention,
+                            stage: session.stage,
+                            blockedOn: session.blockedOn,
+                            branch: session.branch,
+                            prNumber: session.prNumber,
+                            prState: session.prState,
+                            prReviewDecision: session.prReviewDecision,
                             column: session.state,
                             stalled: session.stalled ?? false,
                             askPending: session.askPending ?? false,

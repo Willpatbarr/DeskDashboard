@@ -11,26 +11,36 @@ import Foundation
 /// constant node tree — see LifeCounterLayout's note; a board that grew a row
 /// mid-press would cancel the in-flight gesture.
 public final class ClaudeSessionsWidgetModel: WidgetModel {
-    /// Kanban shape. Also the layout's contract: the model pads/truncates to
-    /// exactly `columnCount` columns of `slotCount` rows each.
-    public static let columnCount = 3
+    /// Most columns the tile will draw. A CEILING, not a shape: the board
+    /// renders exactly as many columns as the daemon pushes, because those are
+    /// user-configurable (`columns.js`) and adding one shouldn't need a Pi
+    /// rebuild. Beyond this they'd be too narrow to read on the strip.
+    public static let maxColumns = 5
     /// Most cards a column will render. Not a fitting constraint any more —
     /// the column scrolls — just a sane ceiling on how much a push can ask the
     /// tile to build.
     public static let slotCount = 12
 
     /// One display row, pre-formatted. `sessionID` is empty for blank slots.
+    ///
+    /// `flag` and `stage` are KINDS, not labels: the layout owns the words and
+    /// the colours, this owns which one applies.
     public struct Row: Equatable, Sendable {
         public var title: String
         public var project: String
         public var model: String
         public var activity: String
         public var flag: String
+        public var stage: String
+        public var pullRequest: String
+        public var changesRequested: Bool
+        public var accentHex: String
         public var age: String
         public var sessionID: String
 
         static let blank = Row(
-            title: "", project: "", model: "", activity: "", flag: "", age: "", sessionID: ""
+            title: "", project: "", model: "", activity: "", flag: "", stage: "",
+            pullRequest: "", changesRequested: false, accentHex: "", age: "", sessionID: ""
         )
     }
 
@@ -52,15 +62,14 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
     /// few seconds, so a quiet minute means the producer is gone.
     private let staleAfter: TimeInterval
 
-    /// `columnCount` column headers — label, count, accent — blanks for absent
-    /// columns.
-    private(set) var columns: [ColumnDisplay] = Array(repeating: .blank, count: columnCount)
-    /// `columnCount` columns of up to `slotCount` rows each. Variable length:
+    /// One header per column the daemon pushed — label, count, accent.
+    private(set) var columns: [ColumnDisplay] = []
+    /// One entry per column, holding up to `slotCount` rows. Variable length:
     /// the columns scroll, so blank slots would only add dead space to scroll
     /// through. (Blank padding was the fixed-height era's trick for keeping the
     /// node tree constant — see the layout's note on why that rule was about
     /// HOLD gestures, which these tap-only cards don't use.)
-    private(set) var grid: [[Row]] = Array(repeating: [], count: columnCount)
+    private(set) var grid: [[Row]] = []
     private(set) var countsLine: String = "Waiting for Mac…"
     private(set) var isStale = false
 
@@ -87,8 +96,8 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
 
     func refresh(at date: Date) {
         guard let reading = service.reading() else {
-            columns = Array(repeating: .blank, count: Self.columnCount)
-            grid = Array(repeating: [], count: Self.columnCount)
+            columns = []
+            grid = []
             countsLine = "Waiting for Mac…"
             isStale = false
             return
@@ -97,8 +106,8 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
         isStale = date.timeIntervalSince(reading.receivedAt) > staleAfter
 
         // The daemon's column set is user-configurable and open-ended; the tile
-        // shows the first `columnCount` of them, in the daemon's order.
-        let shown = Array(reading.columns.prefix(Self.columnCount))
+        // draws them all, in the daemon's order, up to what fits.
+        let shown = Array(reading.columns.prefix(Self.maxColumns))
 
         var displays: [ColumnDisplay] = []
         var cells: [[Row]] = []
@@ -113,21 +122,23 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
             ))
             let rows = sessions.prefix(Self.slotCount).map { session in
                 Row(
-                    title: Self.rowTitle(session),
+                    title: Self.rowTitle(session, columns: shown.count),
                     project: session.project ?? "",
                     model: Self.modelLabel(session.model),
                     // Compact columns drop the activity line, like the web board.
-                    activity: column.compact ? "" : Self.activityLabel(session),
-                    flag: Self.flagLabel(session),
+                    activity: column.compact ? "" : Self.activityLabel(session, columns: shown.count),
+                    flag: Self.flagKind(session),
+                    stage: session.stage ?? "",
+                    pullRequest: session.prNumber.map { "#\($0)" } ?? "",
+                    changesRequested: session.prReviewDecision == "CHANGES_REQUESTED",
+                    // Looked up from the board's OWN columns, so recolouring a
+                    // column in config recolours these dots with it.
+                    accentHex: Self.attentionColor(session, in: reading),
                     age: Self.ageLabel(session.ageSeconds),
                     sessionID: session.id
                 )
             }
             cells.append(Array(rows))
-        }
-        while displays.count < Self.columnCount {
-            displays.append(.blank)
-            cells.append([])
         }
         columns = displays
         grid = cells
@@ -140,37 +151,56 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
         countsLine = counts.isEmpty ? "No sessions" : counts.joined(separator: " · ")
     }
 
+    /// The colour for a card's dot: the accent of the column named by the
+    /// session's `attention`, or nothing when the daemon didn't say (older
+    /// daemon) — the layout then falls back to the card's own column.
+    static func attentionColor(_ session: ClaudeSession, in reading: ClaudeSessionsReading) -> String {
+        guard let attention = session.attention, !attention.isEmpty else { return "" }
+        return reading.columns.first { $0.id == attention }?.colorHex ?? ""
+    }
+
     /// The model chip's text, shortened the way the web board shortens it.
     static func modelLabel(_ model: String?) -> String {
         (model ?? "").replacingOccurrences(of: "claude-", with: "")
     }
 
     /// The activity line, truncated to the card like the title is.
-    static func activityLabel(_ session: ClaudeSession) -> String {
+    static func activityLabel(_ session: ClaudeSession, columns: Int = 3) -> String {
         guard let activity = session.lastActivity, !activity.isEmpty else { return "" }
-        if activity.count > maxTitleLength + 8 {
-            return String(activity.prefix(maxTitleLength + 7)) + "…"
+        let limit = maxTitleLength(columns: columns) + 8
+        if activity.count > limit {
+            return String(activity.prefix(limit - 1)) + "…"
         }
         return activity
     }
 
-    /// The card's warning flag — the web board's wording.
-    static func flagLabel(_ session: ClaudeSession) -> String {
-        if session.askPending { return "question waiting" }
-        if session.stalled { return "stalled?" }
+    /// Why this card wants attention, as a KIND the layout renders.
+    ///
+    /// `blockedOn` is the daemon's real signal; `askPending` is the alias it
+    /// still sends for Pis running an older build, so it is only consulted when
+    /// `blockedOn` is absent. Being blocked outranks being stalled: "waiting on
+    /// you" is actionable, "quiet for a while" is a guess.
+    static func flagKind(_ session: ClaudeSession) -> String {
+        if let blockedOn = session.blockedOn, !blockedOn.isEmpty { return blockedOn }
+        if session.askPending { return "question" }
+        if session.stalled { return "stalled" }
         return ""
     }
 
-    /// Longest title a slot may carry. GTK labels don't wrap or ellipsize here,
-    /// so an unbounded title would widen its whole column past its third of the
-    /// tile — the model truncates instead, sized to a kanban column at the
-    /// panel's secondary type (~34 glyphs fits with the age readout beside it).
-    static let maxTitleLength = 34
+    /// Longest title a slot may carry, for a board of `columnCount` columns.
+    /// GTK labels don't wrap or ellipsize here, so an unbounded title would
+    /// widen its column and shove its neighbours — the model truncates instead.
+    /// ~100 glyphs span the strip at caption size, so each column gets its
+    /// share minus room for the age readout beside it.
+    static func maxTitleLength(columns: Int) -> Int {
+        max(14, 100 / max(1, columns) - 5)
+    }
 
-    static func rowTitle(_ session: ClaudeSession) -> String {
+    static func rowTitle(_ session: ClaudeSession, columns: Int = 3) -> String {
         var title = session.title
-        if title.count > maxTitleLength {
-            title = String(title.prefix(maxTitleLength - 1)) + "…"
+        let limit = maxTitleLength(columns: columns)
+        if title.count > limit {
+            title = String(title.prefix(limit - 1)) + "…"
         }
         if session.agentCount > 0 {
             title += " ⚙\(session.agentCount)"

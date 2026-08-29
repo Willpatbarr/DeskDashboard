@@ -6,12 +6,10 @@ import Foundation
 /// The Claude Code session kanban. Each slot is one session; tapping a slot
 /// asks the Mac's AgentManager daemon to raise Claude.app on that session.
 ///
-/// The grid travels to the layout through `metadata`: one entry per slot in
-/// column-major order (`columnCount × slotCount` entries, blanks included so
-/// the count is constant), the visible line in `label` and `age⟨US⟩sessionID`
-/// packed into `value`. Column headers ride in `secondaryText`, ⟨US⟩-joined.
-/// (`WidgetContent` has no grid type — the metadata pairs are the one
-/// structured channel a layout can read.)
+/// The grid travels to the layout through `metadata` — one entry per card, in
+/// column order — with the column headers in `secondaryText`. `WidgetContent`
+/// has no grid type, so the metadata pairs are the one structured channel a
+/// layout can read; `ClaudeCardPacking` owns what goes where.
 public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
     /// Action-name vocabulary shared with `ClaudeSessionsLayout`.
     public enum Action {
@@ -21,13 +19,6 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
         public static let none = "claude.none"
     }
 
-    /// Separates the packed fields inside a metadata value and the header
-    /// fields inside `secondaryText` (U+001F, the unit separator — never
-    /// appears in any field).
-    public static let fieldSeparator = "\u{1F}"
-    /// Separates one column's header fields from the next inside
-    /// `secondaryText` (U+001E, the record separator).
-    public static let columnSeparator = "\u{1E}"
 
     public var configuration: WidgetConfiguration
     public var boundService: (any ClaudeSessionsService)?
@@ -58,24 +49,20 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
     // MARK: - Rendering
 
     public func render(environment: DashboardEnvironment) -> WidgetContent {
-        let grid = model?.grid
-            ?? Array(repeating: [], count: ClaudeSessionsWidgetModel.columnCount)
-        let columns = model?.columns
-            ?? Array(repeating: .blank, count: ClaudeSessionsWidgetModel.columnCount)
+        let grid = model?.grid ?? []
+        let columns = model?.columns ?? []
 
-        // Header record per column: label ⟨US⟩ count ⟨US⟩ colorHex, columns
-        // joined by ⟨RS⟩. Blank columns carry empty strings so the layout's
-        // node count never changes.
-        // Columns are variable length now, so each header record carries how
-        // many cards follow it; the layout walks `metadata` by those offsets.
+        // Field ORDER for both of these lives in `ClaudeCardPacking`, which the
+        // layout reads back through — see there for why it isn't spelled out
+        // in two places.
         let headers = columns.enumerated().map { index, column in
-            [
-                column.label,
-                column.label.isEmpty ? "" : "\(column.count)",
-                column.colorHex,
-                "\(index < grid.count ? grid[index].count : 0)",
-            ].joined(separator: Self.fieldSeparator)
-        }.joined(separator: Self.columnSeparator)
+            ClaudeColumnField.pack([
+                .label: column.label,
+                .count: column.label.isEmpty ? "" : "\(column.count)",
+                .colorHex: column.colorHex,
+                .rendered: "\(index < grid.count ? grid[index].count : 0)",
+            ])
+        }.joined(separator: ClaudeColumnField.columnSeparator)
 
         return WidgetContent(
             title: configuration.title,
@@ -86,10 +73,18 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
                 column.map { row in
                     WidgetContentMetadata(
                         label: row.title,
-                        value: [
-                            row.age, row.sessionID, row.project,
-                            row.model, row.activity, row.flag,
-                        ].joined(separator: Self.fieldSeparator)
+                        value: ClaudeCardField.pack([
+                            .age: row.age,
+                            .sessionID: row.sessionID,
+                            .project: row.project,
+                            .model: row.model,
+                            .activity: row.activity,
+                            .flag: row.flag,
+                            .stage: row.stage,
+                            .pullRequest: row.pullRequest,
+                            .changesRequested: row.changesRequested ? "1" : "",
+                            .accentHex: row.accentHex,
+                        ])
                     )
                 }
             }

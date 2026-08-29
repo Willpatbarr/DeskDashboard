@@ -41,9 +41,9 @@ private func reading(_ sessions: [ClaudeSession]) -> ClaudeSessionsReading {
     let model = ClaudeSessionsWidgetModel(service: service)
     model.refresh(at: Date())
 
-    // Always `columnCount` columns, but each holds only its real sessions —
-    // the columns scroll, so blank padding would just be dead scroll space.
-    #expect(model.grid.count == ClaudeSessionsWidgetModel.columnCount)
+    // One entry per column the daemon pushed, each holding only its real
+    // sessions — the columns scroll, so blank padding would be dead space.
+    #expect(model.grid.count == 3)
     #expect(model.grid.map(\.count) == [1, 0, 1])
     #expect(model.grid[0][0].sessionID == "local_a")   // working column
     #expect(model.grid[2][0].sessionID == "local_b")   // idle column
@@ -65,13 +65,18 @@ private func reading(_ sessions: [ClaudeSession]) -> ClaudeSessionsReading {
     #expect(model.countsLine == "1 working · 0 needs you · 2 idle")
 }
 
-@Test func longTitlesAreTruncatedForTheColumn() {
+@Test func longTitlesAreTruncatedToTheColumnWidth() {
     let long = String(repeating: "x", count: 60)
     let session = ClaudeSession(id: "a", title: long, column: "working", agentCount: 2)
 
-    let title = ClaudeSessionsWidgetModel.rowTitle(session)
-    #expect(title.hasSuffix("… ⚙2"))
-    #expect(title.count <= ClaudeSessionsWidgetModel.maxTitleLength + 3)
+    let threeUp = ClaudeSessionsWidgetModel.rowTitle(session, columns: 3)
+    let fiveUp = ClaudeSessionsWidgetModel.rowTitle(session, columns: 5)
+
+    #expect(threeUp.hasSuffix("… ⚙2"))
+    #expect(threeUp.count <= ClaudeSessionsWidgetModel.maxTitleLength(columns: 3) + 3)
+    // A narrower board truncates harder — the title has to fit its column, and
+    // GTK will not ellipsize it for us.
+    #expect(fiveUp.count < threeUp.count)
 }
 
 @Test func aQuietProducerFlagsTheBoardStale() {
@@ -204,3 +209,62 @@ private func snapshotContent(_ dashboard: Dashboard, _ id: WidgetID) -> WidgetCo
     dashboard.attachedWidgetSnapshots.first { $0.id == id }?.content ?? WidgetContent(primaryText: "")
 }
 
+
+// MARK: - Stage and PR (the reshaped session model)
+
+@Test func blockedOnOutranksTheLegacyAliasAndStalled() {
+    // `blockedOn` is the daemon's real signal; `askPending` is the alias it
+    // keeps sending so an un-rebuilt Pi still flags questions. A session that
+    // is BOTH blocked and quiet reports why it's blocked, not that it's quiet.
+    let plan = ClaudeSession(
+        id: "a", title: "A", blockedOn: "plan", column: "needs-you", stalled: true
+    )
+    let legacy = ClaudeSession(id: "b", title: "B", column: "needs-you", askPending: true)
+    let quiet = ClaudeSession(id: "c", title: "C", column: "working", stalled: true)
+    let calm = ClaudeSession(id: "d", title: "D", column: "idle")
+
+    #expect(ClaudeSessionsWidgetModel.flagKind(plan) == "plan")
+    #expect(ClaudeSessionsWidgetModel.flagKind(legacy) == "question")
+    #expect(ClaudeSessionsWidgetModel.flagKind(quiet) == "stalled")
+    #expect(ClaudeSessionsWidgetModel.flagKind(calm) == "")
+}
+
+@Test func stageAndPullRequestSurviveThePackingRoundTrip() {
+    // The packing is positional, so this is the test that a field added in one
+    // place and read in another still lines up — see `ClaudeCardPacking`.
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(
+            id: "local_a", title: "Under review", project: "MemberTools",
+            model: "claude-opus-5", stage: "review", blockedOn: "changes-requested",
+            branch: "MMA-5466", prNumber: 2070, prState: "OPEN",
+            prReviewDecision: "CHANGES_REQUESTED", column: "needs-you", ageSeconds: 30
+        ),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date(timeIntervalSinceNow: 2))
+
+    let content = snapshotContent(dashboard, id)
+    let card = ClaudeCard(content.metadata[0].value)
+
+    #expect(card[.sessionID] == "local_a")
+    #expect(card[.stage] == "review")
+    #expect(card[.pullRequest] == "#2070")
+    #expect(card[.changesRequested] == "1")
+    #expect(card[.flag] == "changes-requested")
+    #expect(card[.model] == "opus-5")
+}
+
+@Test func aSessionWithNoPullRequestPacksEmptyFields() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_b", title: "Just working", column: "working", ageSeconds: 3),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date(timeIntervalSinceNow: 2))
+
+    let card = ClaudeCard(snapshotContent(dashboard, id).metadata[0].value)
+    #expect(card[.pullRequest].isEmpty)
+    #expect(card[.changesRequested].isEmpty)
+    #expect(card[.stage].isEmpty)
+}
