@@ -38,8 +38,8 @@ extension ThemeToSCUIPalette {
             return estimatedWidth(of: child)
         case let .coloredText(string, role, _):
             return Double(string.count) * style(for: role).size * Self.glyphWidthRatio
-        case let .card(_, _, _, padding, child):
-            return estimatedWidth(of: child) + padding * scale * 2
+        case let .card(style, child):
+            return estimatedWidth(of: child) + style.padding * scale * 2
         case let .scroll(_, child):
             return estimatedWidth(of: child)
         case let .columns(spacing, children):

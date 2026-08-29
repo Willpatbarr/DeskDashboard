@@ -155,6 +155,9 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
     /// session's `attention`, or nothing when the daemon didn't say (older
     /// daemon) — the layout then falls back to the card's own column.
     static func attentionColor(_ session: ClaudeSession, in reading: ClaudeSessionsReading) -> String {
+        // What the daemon resolved, when it did — a stage-based board has no
+        // attention column to look one up from.
+        if let pushed = session.attentionColor, !pushed.isEmpty { return pushed }
         guard let attention = session.attention, !attention.isEmpty else { return "" }
         return reading.columns.first { $0.id == attention }?.colorHex ?? ""
     }
@@ -190,10 +193,11 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
     /// Longest title a slot may carry, for a board of `columnCount` columns.
     /// GTK labels don't wrap or ellipsize here, so an unbounded title would
     /// widen its column and shove its neighbours — the model truncates instead.
-    /// ~100 glyphs span the strip at caption size, so each column gets its
-    /// share minus room for the age readout beside it.
+    /// Calibrated from the measured three-column fit (34 glyphs): ~117 glyphs
+    /// span the strip at caption size, less a few per column for the age
+    /// readout sharing the line.
     static func maxTitleLength(columns: Int) -> Int {
-        max(14, 100 / max(1, columns) - 5)
+        max(12, 117 / max(1, columns) - 5)
     }
 
     static func rowTitle(_ session: ClaudeSession, columns: Int = 3) -> String {

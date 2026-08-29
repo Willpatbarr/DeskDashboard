@@ -69,15 +69,12 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// column colours arrive in the push) rather than theming.
     case coloredText(String, role: TextRole, hex: String)
 
-    /// A rounded, hex-coloured container — a card. `cornerRadius` and `padding`
-    /// are reference-canvas units, scaled by the renderer like every other size.
-    /// A card whose hex matches its backdrop is invisible: that is the intended
-    /// way to keep blank slots in the tree (the GTK structural-stability rule)
-    /// without showing empty boxes.
-    /// `borderHex` draws a hairline outline (nil = none); like everything else
-    /// here it is a VALUE, so blanks can drop their outline without changing
-    /// the tree's shape.
-    case card(hex: String, borderHex: String?, cornerRadius: Double, padding: Double, WidgetView)
+    /// A rounded, hex-coloured container — a card. See `CardStyle`.
+    ///
+    /// A card whose fill matches its backdrop is invisible: that is the
+    /// intended way to keep a placeholder in the tree without showing an empty
+    /// box.
+    case card(CardStyle, WidgetView)
 
     /// Makes its child scrollable, clipped to the height it is given.
     ///
@@ -110,6 +107,41 @@ public extension WidgetView {
     /// anywhere across its strip of the tile, not just on its glyph.
     static func touchBand(_ minHeight: Double, _ child: WidgetView) -> WidgetView {
         .region(minWidth: 0, minHeight: minHeight, child)
+    }
+}
+
+/// How a `.card` is painted. A struct rather than a pile of associated values
+/// because cards grew a border, then a leading accent bar, and a six-field
+/// enum case reads as a phone number at the call site.
+///
+/// Sizes are reference-canvas units, scaled by the renderer like every other
+/// measurement here.
+public struct CardStyle: Equatable, Sendable {
+    /// Fill colour, `#rrggbb`.
+    public var hex: String
+    /// Hairline outline, or nil for none.
+    public var borderHex: String?
+    /// A thicker bar down the LEADING edge — the web board's coloured card
+    /// border. nil leaves the outline uniform.
+    public var accentHex: String?
+    public var accentWidth: Double
+    public var cornerRadius: Double
+    public var padding: Double
+
+    public init(
+        hex: String,
+        borderHex: String? = nil,
+        accentHex: String? = nil,
+        accentWidth: Double = 3,
+        cornerRadius: Double = 8,
+        padding: Double = 5
+    ) {
+        self.hex = hex
+        self.borderHex = borderHex
+        self.accentHex = accentHex
+        self.accentWidth = accentWidth
+        self.cornerRadius = cornerRadius
+        self.padding = padding
     }
 }
 

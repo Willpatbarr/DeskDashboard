@@ -18,6 +18,10 @@ public struct ClaudeSession: Equatable, Sendable {
     /// rather than its own column's colour, so a card parked in "PR Open"
     /// still shows whether it is running, waiting on you, or quiet.
     public var attention: String?
+    /// The dot's colour, already resolved by the daemon. Sent rather than
+    /// looked up because a stage-based board has no attention COLUMN to borrow
+    /// a colour from; nil falls back to that lookup, then to the column accent.
+    public var attentionColor: String?
     /// Where the work is: `planning` | `implementing` | `review` | `done`.
     /// The daemon derives it; nil when an older daemon is pushing.
     public var stage: String?
@@ -48,6 +52,7 @@ public struct ClaudeSession: Equatable, Sendable {
         project: String? = nil,
         model: String? = nil,
         attention: String? = nil,
+        attentionColor: String? = nil,
         stage: String? = nil,
         blockedOn: String? = nil,
         branch: String? = nil,
@@ -66,6 +71,7 @@ public struct ClaudeSession: Equatable, Sendable {
         self.project = project
         self.model = model
         self.attention = attention
+        self.attentionColor = attentionColor
         self.stage = stage
         self.blockedOn = blockedOn
         self.branch = branch

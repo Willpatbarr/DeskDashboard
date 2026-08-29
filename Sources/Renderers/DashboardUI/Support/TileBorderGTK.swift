@@ -37,18 +37,44 @@ import SwiftCrossUI
         /// tiles drawn as hard rectangles.
         ///
         /// No-op off GTK, so the Mac dev build simply draws no outline.
-        func cssBorder(hex: String?, width: Double, radius: Double) -> some View {
-            let spec = hex.map { "\(max(1, Int(width.rounded())))px solid \($0)" } ?? "none"
+        /// `leadingAccent` thickens and recolours the LEFT edge only — the web
+        /// board's coloured card border.
+        ///
+        /// Written as the `border-width` / `border-style` / `border-color`
+        /// LONGHANDS rather than the `border` shorthand plus a `border-left`
+        /// override. The shorthand would win or lose depending on which order
+        /// the two landed in the widget's CSS block, and that order is not
+        /// something this can rely on; the longhands don't overlap, so the
+        /// result is the same however they're serialised.
+        func cssBorder(
+            hex: String?,
+            width: Double,
+            radius: Double,
+            leadingAccent: (hex: String, width: Double)? = nil
+        ) -> some View {
+            let edge = max(1, Int(width.rounded()))
+            let leadEdge = leadingAccent.map { max(1, Int($0.width.rounded())) } ?? edge
+            let style = (hex == nil && leadingAccent == nil) ? "none" : "solid"
+            let widths = "\(edge)px \(edge)px \(edge)px \(leadEdge)px"
+            let base = hex ?? "transparent"
+            let colors = "\(base) \(base) \(base) \(leadingAccent?.hex ?? base)"
             let corner = "\(max(0, Int(radius.rounded())))px"
             return inspect(.afterUpdate) { (widget: Gtk.Widget) in
-                widget.css.set(property: CSSProperty(key: "border", value: spec))
+                widget.css.set(property: CSSProperty(key: "border-style", value: style))
+                widget.css.set(property: CSSProperty(key: "border-width", value: widths))
+                widget.css.set(property: CSSProperty(key: "border-color", value: colors))
                 widget.css.set(property: CSSProperty(key: "border-radius", value: corner))
             }
         }
     }
 #else
     extension View {
-        func cssBorder(hex _: String?, width _: Double, radius _: Double) -> some View {
+        func cssBorder(
+            hex _: String?,
+            width _: Double,
+            radius _: Double,
+            leadingAccent _: (hex: String, width: Double)? = nil
+        ) -> some View {
             self
         }
     }

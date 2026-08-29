@@ -199,12 +199,15 @@ struct TileView: View {
                 }
             )
 
-        case let .card(hex, borderHex, cornerRadius, padding, child):
+        case let .card(style, child):
             // The `.padding` / `.background` / `.cornerRadius` chain is the same
             // ceremony the tile chrome itself uses — a stack with no background
             // reports no size on the GTK backend.
-            let pad = max(0, Int((padding * palette.scale).rounded()))
-            let radius = max(0, Int((cornerRadius * palette.scale).rounded()))
+            let pad = max(0, Int((style.padding * palette.scale).rounded()))
+            let radius = max(0, Int((style.cornerRadius * palette.scale).rounded()))
+            let accent = style.accentHex.map {
+                (hex: $0, width: style.accentWidth * palette.scale)
+            }
             return AnyView(
                 interpret(child, insideScroll: insideScroll)
                     .padding(pad)
@@ -212,11 +215,16 @@ struct TileView: View {
                         maxWidth: .infinity,
                         alignment: runAlignment.aligned(centeredVertically: false)
                     )
-                    .background(Color(hex: hex) ?? palette.surface)
+                    .background(Color(hex: style.hex) ?? palette.surface)
                     .cornerRadius(radius)
                     // Always called, nil writes "none" — widgets are reused
                     // across re-renders (see `cssBorder`'s own note).
-                    .cssBorder(hex: borderHex, width: 1, radius: Double(radius))
+                    .cssBorder(
+                        hex: style.borderHex,
+                        width: 1,
+                        radius: Double(radius),
+                        leadingAccent: accent
+                    )
             )
 
         case .spacer:

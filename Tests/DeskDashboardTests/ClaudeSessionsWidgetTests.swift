@@ -174,7 +174,7 @@ private func tapActions(_ node: WidgetView) -> [String] {
         children.flatMap(tapActions)
     case let .region(_, _, child):
         tapActions(child)
-    case let .card(_, _, _, _, child):
+    case let .card(_, child):
         tapActions(child)
     case let .scroll(_, child):
         tapActions(child)
@@ -196,7 +196,7 @@ private func collectHolds(_ node: WidgetView, into holds: inout [String?]) {
         for child in children { collectHolds(child, into: &holds) }
     case let .region(_, _, child):
         collectHolds(child, into: &holds)
-    case let .card(_, _, _, _, child):
+    case let .card(_, child):
         collectHolds(child, into: &holds)
     case let .scroll(_, child):
         collectHolds(child, into: &holds)

@@ -82,6 +82,7 @@ public enum PushIngest {
             var project: String?
             var model: String?
             var attention: String?
+            var attentionColor: String?
             var stage: String?
             var blockedOn: String?
             var branch: String?
@@ -138,6 +139,7 @@ public enum PushIngest {
                             project: session.project,
                             model: session.model,
                             attention: session.attention,
+                            attentionColor: session.attentionColor,
                             stage: session.stage,
                             blockedOn: session.blockedOn,
                             branch: session.branch,

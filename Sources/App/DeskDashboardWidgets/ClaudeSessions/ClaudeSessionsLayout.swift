@@ -37,6 +37,10 @@ public extension WidgetLayout {
         let flagColor = "#fbbf24"
         let planColor = "#c4b5fd"
         let changesColor = "#f87171"
+        // PR numbers are blue whatever the review says — "there is a PR here"
+        // is the fact the number carries; the flag line below says if it needs
+        // you, in red.
+        let prColor = "#60a5fa"
         let line = "#2a2f37"
 
         /// Blocked reasons and their words, matching the web board's `.flag`
@@ -48,19 +52,6 @@ public extension WidgetLayout {
             case "plan": ("plan approval", planColor)
             case "changes-requested": ("changes requested", changesColor)
             case "stalled": ("stalled?", changesColor)
-            default: ("", textDim)
-            }
-        }
-
-        /// Stage tokens, short because a card line also carries project, model
-        /// and a PR number. Colours are the web board's `.chip.stage.*` text
-        /// colours.
-        func stageStyle(_ stage: String) -> (String, String) {
-            switch stage {
-            case "planning": ("PLAN", planColor)
-            case "implementing": ("IMPL", "#86e0a3")
-            case "review": ("REVIEW", "#fcd34d")
-            case "done": ("DONE", "#8b929c")
             default: ("", textDim)
             }
         }
@@ -104,34 +95,33 @@ public extension WidgetLayout {
                 let meta = [card[.project], card[.model]].filter { !$0.isEmpty }
                     .joined(separator: " · ")
                 let (flagText, flagHex) = flagStyle(card[.flag])
-                let (stageText, stageHex) = stageStyle(card[.stage])
-                let changesRequested = card[.changesRequested] == "1"
-                let prHex = changesRequested ? changesColor : textDim
-                // The dot says what STATE the session is in, which is only the
-                // same as its column's accent outside the PR column.
+                // The BAR says what state the session is in — with stage-based
+                // columns that is a different fact from which column it's in.
                 let dotHex = card[.accentHex].isEmpty ? accent : card[.accentHex]
 
                 return .tappable(
                     action: "claude.focus.\(sessionID)", hold: nil,
-                    .card(hex: cardFace, borderHex: line, cornerRadius: 8, padding: 5,
+                    .card(CardStyle(hex: cardFace, borderHex: line, accentHex: dotHex,
+                                    cornerRadius: 8, padding: 5),
                           .stack(.vertical, spacing: 2, [
                               .stack(.horizontal, spacing: 6, [
-                                  // The column accent, standing in for the web
-                                  // card's coloured left border. Everything in a
-                                  // card is caption-sized: `.secondary` maps to
-                                  // bodySize (24 → 36px on the panel), far too
-                                  // heavy for a card this size.
-                                  .coloredText("●", role: .caption, hex: dotHex),
+                                  // Attention state is the bar down this card's
+                                  // leading edge (the web board's treatment), so
+                                  // no glyph for it here. Everything in a card is
+                                  // caption-sized: `.secondary` maps to bodySize
+                                  // (24 → 36px on the panel), far too heavy for
+                                  // a card this size.
                                   .coloredText(content.metadata[flatIndex].label,
                                                role: .caption, hex: textBright),
                                   .spacer,
                                   .coloredText(card[.age], role: .caption, hex: textDim),
                               ]),
                               .stack(.horizontal, spacing: 6, [
-                                  .coloredText(stageText, role: .caption, hex: stageHex),
+                                  // No stage token: the COLUMN names the stage,
+                                  // so repeating it on every card is noise.
                                   .coloredText(meta, role: .caption, hex: textDim),
                                   .spacer,
-                                  .coloredText(card[.pullRequest], role: .caption, hex: prHex),
+                                  .coloredText(card[.pullRequest], role: .caption, hex: prColor),
                               ]),
                               .stack(.horizontal, spacing: 6, [
                                   .coloredText(flagText, role: .caption, hex: flagHex),
@@ -143,7 +133,8 @@ public extension WidgetLayout {
                 )
             }
 
-            return .card(hex: columnWell, borderHex: line, cornerRadius: 12, padding: 6,
+            return .card(CardStyle(hex: columnWell, borderHex: line,
+                                   cornerRadius: 12, padding: 6),
                          .stack(.vertical, spacing: 4, [
                              .stack(.horizontal, spacing: 8, [
                                  .coloredText(label.uppercased(), role: .caption, hex: accent),

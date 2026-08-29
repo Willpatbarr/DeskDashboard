@@ -322,8 +322,8 @@ private func shape(of node: WidgetView) -> String {
         "columns[\(children.map(shape(of:)).joined(separator: ","))]"
     case let .scroll(_, child):
         "scroll[\(shape(of: child))]"
-    case let .card(_, _, cornerRadius, padding, child):
-        "card(\(cornerRadius),\(padding))[\(shape(of: child))]"
+    case let .card(style, child):
+        "card(\(style.cornerRadius),\(style.padding))[\(shape(of: child))]"
     }
 }
 
