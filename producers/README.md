@@ -7,6 +7,7 @@ stays pure-Foundation; anything Apple- or hardware-specific lives out here.
 | Producer | Reads | POSTs to |
 |----------|-------|----------|
 | `now-playing-push.py` | HomePod now-playing via [pyatv](https://pyatv.dev) (`atvscript`) | `POST /ingest/now-playing` |
+| AgentManager (`~/Developer/AgentManager`, its own repo) | Claude Code sessions on the Mac | `POST /ingest/claude-sessions` (enable with `AM_PI_INGEST_URL`); its `/api/focus/<id>` is the tap-back target — set `DD_AGENTMANAGER_URL` on the Pi |
 
 (Indoor temperature has its own producer elsewhere; Outdoor is pull-based and
 needs no producer — the app fetches Open-Meteo itself.)

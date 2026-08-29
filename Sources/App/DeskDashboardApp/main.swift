@@ -35,8 +35,10 @@ let runner = system.runner
 let ingestServer = HTTPServer(port: parsePort(CommandLine.arguments))
 registerPushIngest(
     on: ingestServer.registerPost,
+    registerGet: ingestServer.register,
     indoorTemperature: system.indoorTemperature,
-    music: system.music
+    music: system.music,
+    claudeSessions: system.claudeSessions
 )
 do {
     try ingestServer.start()

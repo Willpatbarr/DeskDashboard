@@ -19,6 +19,8 @@ public struct DeskDashboardSystem {
     public let music: PushMusicService
     /// Shared MTG game state, so every life/turn widget reads one game.
     public let mtgGame: InMemoryMTGGameService
+    /// Claude session board pushed from the Mac's AgentManager daemon.
+    public let claudeSessions: PushClaudeSessionsService
 }
 
 /// Builds the five-widget dashboard with its services and seeded push stores.
@@ -48,6 +50,14 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
     )
     let alarms = LocalAlarmStore()
     alarms.add(Alarm(id: "demo", label: "Demo alarm", date: Date().addingTimeInterval(120)))
+
+    // Claude session board. The focus back-channel needs the Mac's address;
+    // `DD_AGENTMANAGER_URL` is set per machine (systemd drop-in on the Pi,
+    // shell env on a Mac dev run). Unset = board displays, taps log a warning.
+    let claudeSessions = PushClaudeSessionsService(
+        agentManagerBaseURL: ProcessInfo.processInfo.environment["DD_AGENTMANAGER_URL"]
+            .flatMap(URL.init(string:))
+    )
 
     // Each widget carries its own service via `.service(…)`, so the data source
     // reads right next to the widget it feeds. (Clock has none — it falls back
@@ -94,13 +104,19 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
                 .title("Outdoor")
                 .location("Rexburg, ID")
                 .service(OpenMeteoOutdoorService())
+            ClaudeSessionsWidget()
+                .id("claude")
+                .title("Claude")
+                .layout(.claudeSessions)
+                .service(claudeSessions)
         }
 
     return DeskDashboardSystem(
         runner: DashboardRunner(dashboard: dashboard),
         indoorTemperature: indoorTemperature,
         music: music,
-        mtgGame: mtgGame
+        mtgGame: mtgGame,
+        claudeSessions: claudeSessions
     )
 }
 
@@ -108,11 +124,19 @@ public func makeDeskDashboardSystem(showsAlbum: Bool = true) -> DeskDashboardSys
 /// hook (works with `DevWebRenderer.registerPost` or a bare `HTTPServer`).
 public func registerPushIngest(
     on registerPost: PushIngest.RegisterPost,
+    registerGet: PushIngest.RegisterGet? = nil,
     indoorTemperature: PushIndoorTemperatureService,
-    music: PushMusicService
+    music: PushMusicService,
+    claudeSessions: PushClaudeSessionsService
 ) {
     PushIngest.registerIndoorTemperature(registerPost: registerPost, store: indoorTemperature)
     PushIngest.registerNowPlaying(registerPost: registerPost, store: music)
+    PushIngest.registerClaudeSessions(registerPost: registerPost, store: claudeSessions)
+    // The focus-tap pickup queue needs a GET route; the dev web renderer has
+    // none (and no tap input either), so it's optional.
+    if let registerGet {
+        PushIngest.registerClaudeFocusQueue(registerGet: registerGet, store: claudeSessions)
+    }
 }
 
 /// Parses `--port N` from the argument list, defaulting to 8642.

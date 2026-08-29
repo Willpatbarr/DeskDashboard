@@ -33,7 +33,8 @@ struct DeskDashboardDevApp {
         registerPushIngest(
             on: renderer.registerPost,
             indoorTemperature: system.indoorTemperature,
-            music: system.music
+            music: system.music,
+            claudeSessions: system.claudeSessions
         )
 
         do {

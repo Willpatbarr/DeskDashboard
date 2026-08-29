@@ -14,6 +14,8 @@ public enum PushIngest {
     /// `(path, handler)` — matches both `DevWebRenderer.registerPost(path:handler:)`
     /// and `HTTPServer.registerPost(path:handler:)`.
     public typealias RegisterPost = (String, @escaping (Data) -> HTTPResponse) -> Void
+    /// `(path, handler)` for bare GET routes — matches `HTTPServer.register(path:handler:)`.
+    public typealias RegisterGet = (String, @escaping () -> HTTPResponse) -> Void
 
     // MARK: - Indoor temperature (`/ingest/indoor-temperature`)
 
@@ -62,6 +64,112 @@ public enum PushIngest {
                 body: Data(echo.utf8)
             )
         }
+    }
+
+    // MARK: - Claude sessions (`/ingest/claude-sessions`)
+
+    /// Accepts the AgentManager daemon's snapshot:
+    /// `{ "columns": [{id, label}], "sessions": [{id, title, project?, state,
+    /// stalled?, askPending?, agentCount?, lastActivity?, ageSeconds}] }`,
+    /// stores it, logs the push, and echoes the counts. `state` is the column id.
+    public static func registerClaudeSessions(
+        registerPost: RegisterPost,
+        store: PushClaudeSessionsService
+    ) {
+        struct SessionPayload: Decodable {
+            var id: String
+            var title: String
+            var project: String?
+            var state: String
+            var stalled: Bool?
+            var askPending: Bool?
+            var agentCount: Int?
+            var lastActivity: String?
+            var ageSeconds: Int?
+        }
+        struct ColumnPayload: Decodable {
+            var id: String
+            var label: String
+        }
+        struct Payload: Decodable {
+            var columns: [ColumnPayload]?
+            var sessions: [SessionPayload]
+        }
+
+        registerPost("/ingest/claude-sessions") { body in
+            guard let payload = try? JSONDecoder().decode(Payload.self, from: body) else {
+                let received = String(decoding: body, as: UTF8.self)
+                print("[ingest] claude-sessions <- rejected (invalid JSON); \(body.count) bytes: \(received.isEmpty ? "<empty>" : received.prefix(200))")
+                return HTTPResponse(
+                    contentType: "application/json",
+                    body: Data(#"{"error":"expected JSON {columns?, sessions}"}"#.utf8)
+                )
+            }
+
+            // Columns are optional in the payload but the reading always has
+            // some — derive them from the sessions when the producer omits them.
+            let columns = payload.columns?.map { ClaudeSessionColumn(id: $0.id, label: $0.label) }
+                ?? orderedColumnIDs(of: payload.sessions.map(\.state))
+                    .map { ClaudeSessionColumn(id: $0, label: $0.capitalized) }
+
+            store.update(
+                ClaudeSessionsReading(
+                    columns: columns,
+                    sessions: payload.sessions.map { session in
+                        ClaudeSession(
+                            id: session.id,
+                            title: session.title,
+                            project: session.project,
+                            column: session.state,
+                            stalled: session.stalled ?? false,
+                            askPending: session.askPending ?? false,
+                            agentCount: session.agentCount ?? 0,
+                            lastActivity: session.lastActivity,
+                            ageSeconds: session.ageSeconds ?? 0
+                        )
+                    },
+                    receivedAt: Date()
+                )
+            )
+
+            print("[ingest] claude-sessions <- \(payload.sessions.count) sessions in \(columns.count) columns")
+            let echo = #"{"stored":\#(payload.sessions.count)}"#
+            return HTTPResponse(
+                contentType: "application/json",
+                body: Data(echo.utf8)
+            )
+        }
+    }
+
+    /// Registers GET `/claude-focus-queue`: hands the Mac the focus taps queued
+    /// on the Pi and clears them. Exists because the Mac can always reach the
+    /// Pi, but a firewalled Mac can't accept the Pi's direct focus POSTs — the
+    /// Mac's AgentManager polls this instead.
+    public static func registerClaudeFocusQueue(
+        registerGet: RegisterGet,
+        store: PushClaudeSessionsService
+    ) {
+        registerGet("/claude-focus-queue") {
+            let drained = store.drainPendingFocus()
+            if !drained.isEmpty {
+                print("[ingest] claude-focus-queue -> \(drained.joined(separator: ", "))")
+            }
+            let ids = drained.map { #""\#($0)""# }.joined(separator: ",")
+            return HTTPResponse(
+                contentType: "application/json",
+                body: Data(#"{"focus":[\#(ids)]}"#.utf8)
+            )
+        }
+    }
+
+    /// Distinct column ids in first-seen order.
+    private static func orderedColumnIDs(of states: [String]) -> [String] {
+        var seen = Set<String>()
+        var ordered: [String] = []
+        for state in states where seen.insert(state).inserted {
+            ordered.append(state)
+        }
+        return ordered
     }
 
     // MARK: - Now playing (`/ingest/now-playing`)
