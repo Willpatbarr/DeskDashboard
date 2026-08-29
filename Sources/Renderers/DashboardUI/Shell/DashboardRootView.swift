@@ -115,12 +115,96 @@ struct DashboardRootView: View {
             // `View` struct is what makes composited chrome vanish on the GTK
             // backend, and an unconditional overlay would swallow every tap on
             // the dashboard.
+            // Records where every press lands, in THIS view's coordinates.
+            // Attached at the same point in the chain as the overlay below on
+            // purpose: the probe reports relative to the widget it sits on, so
+            // the two have to share one coordinate space or a popover placed
+            // from the point would land somewhere else entirely.
+            .touchPointProbe { model.recordTouch(x: $0, y: $1) }
             .overlay {
                 if let modal = modal(palette) {
                     let scrim = Color(hex: modal.scrimHex) ?? palette.background
                     let side = sideInset(palette)
                     let top = Double(topInset(palette))
                     let panelHeight = max(1, viewport.height - top * 2)
+                    // A popover only when the layout asked for one AND the
+                    // backend actually reported a touch. No point means the
+                    // centred branch, which is what `LayerAnchor.lastTouch`
+                    // documents as its fallback — and what the AppKit dev build
+                    // always gets.
+                    let popover: (side: LayerSide, x: Double, y: Double)? = {
+                        guard case let .lastTouch(side) = modal.anchor,
+                              let point = model.lastTouchPoint
+                        else { return nil }
+                        return (side: side, x: point.x, y: point.y)
+                    }()
+
+                    if let popover {
+                        // Placed by STRUT ARITHMETIC inside the tiling layout —
+                        // the only positioning this backend has. There is no
+                        // `.offset` or `.position` in SwiftCrossUI at all, so a
+                        // fixed-size transparent spacer is how anything gets
+                        // pushed anywhere (`.columns` does the same trick).
+                        //
+                        // Centred on the touch and clamped into the viewport
+                        // using a conservative height estimate. Centring rather
+                        // than top-aligning means a wrong estimate is wrong
+                        // symmetrically instead of dropping the menu off an edge.
+                        let menuHeight = popoverHeight(palette)
+                        let menuWidth = popoverWidth(palette)
+                        let menuTop = min(
+                            max(0, popover.y - menuHeight / 2),
+                            max(0, viewport.height - menuHeight)
+                        )
+                        let gap = Double(palette.widgetGap)
+
+                        VStack(spacing: 0) {
+                            dismissStrip(modal, scrim, width: viewport.width, height: menuTop)
+
+                            HStack(spacing: 0) {
+                                switch popover.side {
+                                case .trailing:
+                                    dismissStrip(
+                                        modal, scrim,
+                                        width: min(popover.x + gap, viewport.width),
+                                        height: menuHeight
+                                    )
+                                    // Sized EXPLICITLY. The panel is a greedy
+                                    // `TileView`, and a greedy view beside a
+                                    // `Spacer` gets starved on this backend —
+                                    // measured, the menu rendered at zero width
+                                    // and simply never appeared.
+                                    modal.panel
+                                        .frame(width: menuWidth, height: menuHeight)
+                                        .background(scrim)
+                                    Spacer()
+                                case .leading:
+                                    // Pushed from the RIGHT, precisely so the
+                                    // panel's own width never has to be known —
+                                    // nothing here can measure it.
+                                    Spacer()
+                                    modal.panel
+                                        .frame(width: menuWidth, height: menuHeight)
+                                        .background(scrim)
+                                    dismissStrip(
+                                        modal, scrim,
+                                        width: min(
+                                            max(0, viewport.width - popover.x + gap),
+                                            viewport.width
+                                        ),
+                                        height: menuHeight
+                                    )
+                                }
+                            }
+                            .frame(height: menuHeight)
+
+                            dismissStrip(
+                                modal, scrim,
+                                width: viewport.width,
+                                height: max(0, viewport.height - menuTop - menuHeight)
+                            )
+                        }
+                    } else {
 
                     // Laid out as explicitly sized pieces that TILE the
                     // screen — no overlapping full-size siblings anywhere, and
@@ -184,9 +268,26 @@ struct DashboardRootView: View {
 
                         dismissStrip(modal, scrim, width: viewport.width, height: top)
                     }
+                    }
                 }
             }
         }
+    }
+
+    /// A conservative height for a `.lastTouch` popover, used only to keep it on
+    /// screen. Two `menuRowHeight` rows plus the card's own padding and rule —
+    /// `menuRowHeight` is shared with the layout that builds those rows, which is
+    /// the only way the two can agree without measuring each other.
+    private func popoverHeight(_ palette: ThemeToSCUIPalette) -> Double {
+        (menuRowHeight * 2 + 24) * palette.scale
+    }
+
+    /// A `.lastTouch` popover's width. Chosen rather than measured: nothing here
+    /// can ask the panel how wide it wants to be, and it MUST be given a
+    /// definite frame — a greedy view beside a `Spacer` collapses on this
+    /// backend. Wide enough for the longest row a two-item menu carries.
+    private func popoverWidth(_ palette: ThemeToSCUIPalette) -> Double {
+        140 * palette.scale
     }
 
     /// One band of the modal's margin: paints the scrim and dismisses on tap.
@@ -241,13 +342,13 @@ struct DashboardRootView: View {
                   let content = snapshot.content
             else { continue }
             let layout = row.layout ?? snapshot.configuration.layout
-            guard case let .layered(_, scrimHex, dismiss, panel) = layout.makeView(content) else {
-                continue
-            }
+            guard case let .layered(_, scrimHex, dismiss, anchor, panel) = layout.makeView(content)
+            else { continue }
             return Modal(
                 widgetID: row.id,
                 scrimHex: scrimHex,
                 dismiss: dismiss,
+                anchor: anchor,
                 panel: AnyView(
                     TileView(
                         snapshot: snapshot,
@@ -294,6 +395,9 @@ struct DashboardRootView: View {
         let widgetID: String
         let scrimHex: String
         let dismiss: String?
+        /// Where the layer wants to sit — a full-screen modal or a popover
+        /// beside the touch. See `LayerAnchor`.
+        let anchor: LayerAnchor
         let panel: AnyView
     }
 

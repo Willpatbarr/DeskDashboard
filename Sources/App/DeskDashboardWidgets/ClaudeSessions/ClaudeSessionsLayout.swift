@@ -15,18 +15,22 @@ public extension WidgetLayout {
     /// nothing to be gained from padding them to a fixed count, and blank cards
     /// would only add dead space to scroll through.
     ///
-    /// A tap focuses the session on the Mac; a LONG PRESS opens the detail
-    /// panel over the board — the card is deliberately terse, and the panel is
-    /// where its truncations are undone.
+    /// A tap raises a two-item menu beside the card — **Open** focuses the
+    /// session on the Mac, **Details** opens the full panel, where the card's
+    /// truncations are undone.
     ///
     /// **On the fixed-shape rule** (`lifeCounter`'s note): that requirement
     /// exists because a node inserted mid-press makes GTK cancel the gesture on
     /// the widget being held, so a HOLD's auto-repeat never receives its release
-    /// and runs away. These cards DO hold now — but with `.once`, which starts
-    /// no repeater (see `HoldAction`), so there is nothing a missing release can
-    /// strand. That is the property `ClaudeSessionsWidgetTests` pins, so this
-    /// reasoning cannot silently stop being true; the worst case here is still
-    /// only a tap lost to a re-render.
+    /// and runs away. Nothing on this board holds at all — every region is a
+    /// plain tap — so there is no repeat for a missing release to strand. That
+    /// is stronger than the exemption this note used to claim (holds that merely
+    /// didn't repeat), and `ClaudeSessionsWidgetTests` pins it so the reasoning
+    /// cannot silently stop being true.
+    ///
+    /// Losing the hold also retires the renderer's most delicate path: with no
+    /// long press on a scrolling card there is no tap-vs-hold-vs-drag
+    /// arbitration to get right (see `TileView`'s `insideScroll` arms).
     ///
     /// Data arrives packed (see `ClaudeSessionsWidget`): metadata holds every
     /// card in column order, `secondaryText` holds
@@ -86,6 +90,11 @@ public extension WidgetLayout {
             running += rendered(index)
         }
 
+        // Filled by the card walk below: which session has a menu up, and which
+        // column it sits in. Assigned inside `map`/`compactMap`, which run
+        // eagerly, so it is settled by the time the return value is built.
+        var openMenu: (id: String, columnIndex: Int)?
+
         let columns: [WidgetView] = (0 ..< columnCount).map { columnIndex in
             let header = headers.indices.contains(columnIndex)
                 ? headers[columnIndex] : ClaudeColumnHeader("")
@@ -113,13 +122,18 @@ public extension WidgetLayout {
                 let dotHex = card[.accentHex].isEmpty
                     ? accent : ColorToken.hex(card[.accentHex])
 
+                // The one card whose menu is up, remembered with its COLUMN so
+                // the menu can open away from the edge of the strip.
+                if card[.menuOpen] == "1" {
+                    openMenu = (id: sessionID, columnIndex: columnIndex)
+                }
+
                 return .tappable(
-                    action: "claude.focus.\(sessionID)",
-                    // `.once`, never `.repeating`: opening the panel rebuilds
-                    // the widget under the finger, GTK then stops delivering
-                    // `released`, and a repeat would re-open what you just
-                    // dismissed for the next nine seconds.
-                    hold: .once("claude.detail.\(sessionID)"),
+                    // A tap raises the menu; the menu's rows carry focus and
+                    // detail. `hold: nil` everywhere on this board — see the
+                    // layout's note on why that is the stronger invariant.
+                    action: "claude.menu.\(sessionID)",
+                    hold: nil,
                     .card(CardStyle(fill: cardFace, border: line, accent: dotHex,
                                     cornerRadius: 8, padding: 5),
                           .stack(.vertical, spacing: 2, [
@@ -171,6 +185,51 @@ public extension WidgetLayout {
         // in their headers, the staleness flag in the first one), and every
         // vertical point goes to the cards.
         let board = WidgetView.columns(spacing: 10, columns)
+
+        // The tap menu, when a card has one up. Checked before the detail panel
+        // because the two are mutually exclusive by construction (see
+        // `ClaudeSessionsWidgetModel.setOpenMenu`) — this order just makes that
+        // explicit rather than relying on it.
+        if let openMenu {
+            let menu = WidgetView.card(
+                CardStyle(fill: cardFace, border: line, cornerRadius: 10, padding: 4),
+                .stack(.vertical, spacing: 0, [
+                    .tappable(action: "claude.focus.\(openMenu.id)", hold: nil,
+                              // `menuRowHeight` — the renderer needs the same
+                              // number to keep the popover on screen.
+                              .touchBand(menuRowHeight, .centered([
+                                  .coloredText("Open", role: .caption, color: textBright),
+                              ]))),
+                    .divider,
+                    .tappable(action: "claude.detail.\(openMenu.id)", hold: nil,
+                              .touchBand(menuRowHeight, .centered([
+                                  .coloredText("Details", role: .caption, color: textBright),
+                              ]))),
+                ])
+            )
+            // NO scrim at all — fully transparent. A two-item popover is not a
+            // modal moment; dimming the board for it made the whole screen
+            // flinch over a menu you might dismiss immediately.
+            //
+            // Transparent, not absent: the layer is still a real widget, and it
+            // is what catches a tap outside the menu and closes it. Two
+            // consequences worth knowing — the board behind cannot be tapped
+            // while the menu is up, so moving the menu from one card to another
+            // is two taps (dismiss, then tap), and the popover itself has to
+            // carry its own fill (its `.card` does).
+            return .layered(
+                board,
+                scrimHex: "#00000000",
+                dismiss: "claude.menu.close",
+                // Away from the edge: the rightmost column opens leftward, every
+                // other column opens to the right, so the menu never runs off
+                // the strip.
+                anchor: .lastTouch(
+                    side: openMenu.columnIndex == columnCount - 1 ? .leading : .trailing
+                ),
+                over: menu
+            )
+        }
 
         // Everything past the cards is the open session's panel: the detail
         // block, then one entry per subagent. `running` is already the total
@@ -336,6 +395,7 @@ public extension WidgetLayout {
             board,
             scrimHex: "#0b0d10ed",
             dismiss: "claude.detail.close",
+            anchor: .screenCenter,
             over: panel
         )
     }

@@ -116,6 +116,15 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
     /// tick — so the widget cannot hold it. And it is display state, not
     /// something the daemon said, so it has no business on the service either.
     var openSessionID: String?
+    /// The session whose tap MENU is up, or nil for none.
+    ///
+    /// Lives beside `openSessionID` and for the same reasons — display state, on
+    /// the retained model rather than the rebuilt-every-tick widget value.
+    ///
+    /// Never both: a menu and a detail panel are two layers competing for one
+    /// screen, so opening either clears the other (see `setOpenMenu` /
+    /// `setOpenSession`).
+    var openMenuSessionID: String?
     /// What the open session's panel draws, rebuilt on every refresh so the
     /// panel's age and activity keep ticking while it is up. Nil when nothing
     /// is open, which is also what tells the layout not to build the overlay.
@@ -156,8 +165,19 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
 
     /// Opens the detail panel for a session, or closes it when `sessionID` is
     /// nil. Refreshes immediately for the same reason `setFilters` does.
+    ///
+    /// Closes any open menu: the panel is what the menu's "Details" row asks
+    /// for, so leaving the menu up would stack two layers on one screen.
     func setOpenSession(_ sessionID: String?) {
         openSessionID = sessionID
+        if sessionID != nil { openMenuSessionID = nil }
+        refresh(at: Date())
+    }
+
+    /// Opens the tap menu beside a session, or closes it when `sessionID` is nil.
+    func setOpenMenu(_ sessionID: String?) {
+        openMenuSessionID = sessionID
+        if sessionID != nil { openSessionID = nil }
         refresh(at: Date())
     }
 
@@ -168,6 +188,7 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
             countsLine = "Waiting for Mac…"
             isStale = false
             openSessionID = nil
+            openMenuSessionID = nil
             detail = nil
             return
         }
@@ -191,6 +212,11 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
         // you — the session is still there, it just isn't drawn behind.
         if let open = openSessionID, !reading.sessions.contains(where: { $0.id == open }) {
             openSessionID = nil
+        }
+        // Same for the menu: a session that finished takes its menu with it
+        // rather than leaving one floating beside a card that is gone.
+        if let open = openMenuSessionID, !reading.sessions.contains(where: { $0.id == open }) {
+            openMenuSessionID = nil
         }
         detail = openSessionID
             .flatMap { open in reading.sessions.first { $0.id == open } }

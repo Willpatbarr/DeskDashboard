@@ -308,9 +308,15 @@ struct TileView: View {
                 )
             }
             if insideScroll, let hold {
-                // A card that BOTH scroll-arbitrates its tap and recognises a
-                // long press — the session board's cards, since the detail
-                // panel landed.
+                // A region that BOTH scroll-arbitrates its tap and recognises a
+                // long press.
+                //
+                // NOTHING reaches this arm today. The session board was its only
+                // caller, and its cards became tap-only when the tap menu
+                // replaced the long press — which is the point: this is the most
+                // delicate path in the renderer, and the board no longer walks
+                // it. Kept because it is generic capability, not board-specific,
+                // and a future scrolling layout with a hold would need it.
                 //
                 // The ordering hazard is real and is why this doesn't just
                 // combine the two arms: `tapUnlessDragged` fires the tap from
@@ -360,7 +366,7 @@ struct TileView: View {
                     .onPressRelease { ended?() }
             )
 
-        case let .layered(base, _, _, _):
+        case let .layered(base, _, _, _, _):
             // Only the BASE is drawn here. The scrim and the panel are lifted to
             // the root view (see `DashboardRootView.modal`) so they cover the
             // shell's chrome — the fullscreen rail — as well as this tile.

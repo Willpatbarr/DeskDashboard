@@ -20,9 +20,15 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
         /// so the rail's pills and this widget's filters cannot disagree — and an
         /// empty suffix is a legitimate value meaning "nothing lit".
         public static let filtersPrefix = "claude.filters."
-        /// Prefix; the held session's id follows. Raised by a LONG PRESS on a
-        /// card — a tap still focuses the session on the Mac.
+        /// Prefix; the session's id follows. Opens the detail panel — raised by
+        /// the tap menu's "Details" row, not by a gesture of its own.
         public static let detailPrefix = "claude.detail."
+        /// Prefix; the tapped session's id follows. A TAP on a card raises the
+        /// menu; tapping the same card again puts it away.
+        public static let menuPrefix = "claude.menu."
+        /// Dismisses the tap menu. Shares `menuPrefix`, so the handler tests for
+        /// it first — a session can never be called `close` (ids are `local_…`).
+        public static let closeMenu = "claude.menu.close"
         /// Dismisses the detail panel. Deliberately shares `detailPrefix`, so
         /// the handler below must test for it first — a session can never be
         /// called `close` because ids are `local_…`.
@@ -91,6 +97,8 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
                         .pullRequest: row.pullRequest,
                         .changesRequested: row.changesRequested ? "1" : "",
                         .accentHex: row.accentHex,
+                        // Marks the one card the layout should hang a menu off.
+                        .menuOpen: row.sessionID == model?.openMenuSessionID ? "1" : "",
                     ])
                 )
             }
@@ -177,7 +185,21 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
         if action.hasPrefix(Action.detailPrefix) {
             let sessionID = String(action.dropFirst(Action.detailPrefix.count))
             guard !sessionID.isEmpty else { return }
+            // `setOpenSession` closes the menu that asked for this.
             model?.setOpenSession(sessionID)
+            return
+        }
+        // Same close-before-open ordering as the detail pair above.
+        if action == Action.closeMenu {
+            model?.setOpenMenu(nil)
+            return
+        }
+        if action.hasPrefix(Action.menuPrefix) {
+            let sessionID = String(action.dropFirst(Action.menuPrefix.count))
+            guard !sessionID.isEmpty else { return }
+            // Tapping the card whose menu is already up puts it away, so a tap
+            // is a toggle rather than a one-way trip.
+            model?.setOpenMenu(model?.openMenuSessionID == sessionID ? nil : sessionID)
             return
         }
         guard action.hasPrefix(Action.focusPrefix) else { return }
@@ -186,5 +208,8 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
         // Through the service, not the widget value — and a session that
         // vanished since the snapshot just 404s on the Mac.
         (boundService ?? model?.sessionsService)?.focus(sessionID: sessionID)
+        // Focus is what the menu's "Open" row asks for, so it takes the menu
+        // down with it.
+        model?.setOpenMenu(nil)
     }
 }

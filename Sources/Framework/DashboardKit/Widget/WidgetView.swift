@@ -118,8 +118,56 @@ public indirect enum WidgetView: Equatable, Sendable {
     ///
     /// The scrim is a hex rather than a token because, like everything else the
     /// session board colours, it is data — see `ColorToken`.
-    case layered(WidgetView, scrimHex: String, dismiss: String?, over: WidgetView)
+    ///
+    /// `anchor` says WHERE the layer wants to sit. A widget can ask for a
+    /// popover beside the finger without learning anything about screens,
+    /// viewports or its own position — see `LayerAnchor`.
+    case layered(
+        WidgetView,
+        scrimHex: String,
+        dismiss: String?,
+        anchor: LayerAnchor,
+        over: WidgetView
+    )
 }
+
+/// Where a `.layered` panel sits.
+///
+/// Deliberately not a point or a rect: a layout is pure data and has no idea
+/// where anything landed on screen. It names an INTENT and the renderer resolves
+/// it against whatever it can actually measure.
+public enum LayerAnchor: Equatable, Sendable {
+    /// Take over the screen — a full modal, inset from the edges.
+    case screenCenter
+    /// A popover: small, beside the last touch, still modal.
+    ///
+    /// Beside the TOUCH rather than beside the node that raised it, because
+    /// nothing in this stack can report a node's rectangle — `WidgetView` has no
+    /// position, SwiftCrossUI's `GeometryProxy` carries size without an origin,
+    /// and a card inside a `.scroll` moves under its own slot index anyway. A
+    /// card is about a column wide and a few lines tall, so beside the finger
+    /// reads as beside the card.
+    ///
+    /// Falls back to `.screenCenter` on any backend that cannot report a touch
+    /// point, which is every one but GTK today.
+    case lastTouch(side: LayerSide)
+}
+
+/// Which side of the anchor a popover opens on. The caller picks it — a menu on
+/// the rightmost column has to open leftward or it runs off the screen.
+public enum LayerSide: Equatable, Sendable {
+    case leading
+    case trailing
+}
+
+/// Height of one row in a `.lastTouch` popover, in reference-canvas units.
+///
+/// The one number that has to cross the layer: the LAYOUT builds rows this tall
+/// (`.touchBand(menuRowHeight, …)`), and the RENDERER needs the same value to
+/// estimate the popover's height and keep it on screen. Neither can measure the
+/// other, so it lives here where both can see it rather than as a literal in
+/// each — which is how the two would drift.
+public let menuRowHeight: Double = 40
 
 /// What a long press raises, and whether it keeps raising it while held.
 ///

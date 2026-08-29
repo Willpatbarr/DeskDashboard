@@ -37,6 +37,10 @@ enum ClaudeCardField: Int, CaseIterable {
     /// rather than the column it sits in (see `ClaudeSession.attention`).
     /// Empty falls back to the column's own accent.
     case accentHex
+    /// `"1"` on the one card whose tap menu is up. Appended rather than slotted
+    /// in, because the packing is POSITIONAL — a new case belongs at the end
+    /// where it cannot shift the fields either side of it.
+    case menuOpen
 
     /// U+001F, the unit separator: never appears in any of these values.
     static let separator = "\u{1F}"

@@ -39,6 +39,25 @@ final class DashboardModel: ObservableObject {
     /// that knows, and the widget is told the whole answer each time.
     @Published private(set) var railFilterSelection: Set<String> = []
 
+    /// Where the last press landed, in the root view's coordinates, or nil on a
+    /// backend that cannot report one (everything but GTK — see
+    /// `touchPointProbe`).
+    ///
+    /// Deliberately NOT `@Published`: this is written on every touch, and
+    /// republishing would re-render the entire dashboard on contact. Nothing
+    /// observes it — it is read once, by the overlay, at the moment it builds a
+    /// popover.
+    ///
+    /// Staleness is bounded by construction rather than by policy: the probe
+    /// runs in GTK's capture phase, so the press that opens a menu is recorded
+    /// before the card's own handler runs, and the overlay that reads it is
+    /// built from that same press.
+    private(set) var lastTouchPoint: (x: Double, y: Double)?
+
+    func recordTouch(x: Double, y: Double) {
+        lastTouchPoint = (x: x, y: y)
+    }
+
     /// The fullscreen rail's filter pills, or nil when the app declared none
     /// (the rail then holds only the back pill and the clock, as before).
     let railFilters: RailFilterBar?

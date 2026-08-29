@@ -328,7 +328,7 @@ private func shape(of node: WidgetView) -> String {
         "scroll[\(shape(of: child))]"
     case let .card(style, child):
         "card(\(style.cornerRadius),\(style.padding))[\(shape(of: child))]"
-    case let .layered(base, _, _, panel):
+    case let .layered(base, _, _, _, panel):
         "layered[\(shape(of: base))|\(shape(of: panel))]"
     }
 }
@@ -344,7 +344,7 @@ private func collectHolds(_ node: WidgetView, into holds: inout [HoldAction?]) {
         for child in children { collectHolds(child, into: &holds) }
     case let .region(_, _, child):
         collectHolds(child, into: &holds)
-    case let .layered(base, _, _, panel):
+    case let .layered(base, _, _, _, panel):
         collectHolds(base, into: &holds)
         collectHolds(panel, into: &holds)
     default:

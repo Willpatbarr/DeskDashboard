@@ -221,17 +221,17 @@ private func columnCounts(_ content: WidgetContent) -> [String] {
 
 // MARK: - Layout
 
-@Test func noCardHoldRepeatsSoAReRenderCannotStrandOne() {
+@Test func noCardHoldsAtAll() {
     // This tile has VARIABLE node counts (columns scroll, so cards are not
     // padded to a fixed shape). `lifeCounter`'s fixed-shape rule exists because
     // a node inserted mid-press makes GTK cancel a HOLD's gesture, so its
     // auto-repeat never receives a release and runs away.
     //
-    // Cards DO hold now — that is how the detail panel opens — so the old
-    // "every hold is nil" form of this test is deliberately false. The reason
-    // behind it is untouched: what a missing release can strand is a REPEAT, and
-    // there are none here. Opening the panel is exactly the rebuild that makes
-    // the release go missing, so this is the property that keeps that safe.
+    // Nothing here holds, so that failure has nothing to act on. This used to
+    // assert the weaker "no hold REPEATS" — true while a long press opened the
+    // detail panel — and the tap menu retired the long press entirely. Losing it
+    // also retires the renderer's tap-vs-hold-vs-drag arbitration for this
+    // board, so the invariant is worth keeping strict.
     let service = FixedClaudeSessionsService(reading([
         ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
         ClaudeSession(id: "local_b", title: "Two", column: "needs-you", ageSeconds: 40),
@@ -244,15 +244,12 @@ private func columnCounts(_ content: WidgetContent) -> [String] {
     collectHolds(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id)), into: &holds)
 
     #expect(!holds.isEmpty)
-    // Every card offers a hold, and not one of them repeats.
-    #expect(holds.contains { $0 != nil })
-    #expect(holds.allSatisfy { $0?.repeats != true })
-    #expect(holds.compactMap { $0?.action }.allSatisfy { $0.hasPrefix("claude.detail.") })
+    #expect(holds.allSatisfy { $0 == nil })
 }
 
 // MARK: - Detail panel
 
-@Test func holdingACardPacksTheSessionsFullDetailAndItsAgents() {
+@Test func openingDetailPacksTheSessionsFullDetailAndItsAgents() {
     let service = FixedClaudeSessionsService(reading([
         ClaudeSession(
             id: "local_a", title: String(repeating: "y", count: 80),
@@ -411,8 +408,148 @@ private func isLayered(_ node: WidgetView) -> Bool {
 }
 
 private func dismissAction(of node: WidgetView) -> String? {
-    if case let .layered(_, _, dismiss, _) = node { return dismiss }
+    if case let .layered(_, _, dismiss, _, _) = node { return dismiss }
     return nil
+}
+
+private func layerAnchor(of node: WidgetView) -> LayerAnchor? {
+    if case let .layered(_, _, _, anchor, _) = node { return anchor }
+    return nil
+}
+
+/// Tap actions of the LAYER only, not the board underneath it — the board's own
+/// cards are tappable too, and this is about what the panel offers.
+private func panelActions(of node: WidgetView) -> [String] {
+    guard case let .layered(_, _, _, _, panel) = node else { return [] }
+    return tapActions(panel)
+}
+
+// MARK: - Tap menu
+
+@Test func tappingACardRaisesAMenuBesideIt() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    // No layer at rest — the untappable-board hazard applies to the menu just
+    // as it does to the detail panel.
+    #expect(!isLayered(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))))
+
+    dashboard.perform(action: "claude.menu.local_a", on: id)
+    let open = WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))
+
+    #expect(isLayered(open))
+    // A popover beside the touch, not a screen-taking modal.
+    #expect(layerAnchor(of: open) == .lastTouch(side: .trailing))
+    #expect(dismissAction(of: open) == "claude.menu.close")
+    // Exactly two rows, and they name the two things a session can do.
+    #expect(panelActions(of: open) == ["claude.focus.local_a", "claude.detail.local_a"])
+}
+
+@Test func theMenuOpensAwayFromTheEdgeOfTheStrip() {
+    // A menu on the rightmost column has to open leftward or it runs off the
+    // strip; every other column opens to the right.
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "first", title: "One", column: "working", ageSeconds: 5),
+        ClaudeSession(id: "last", title: "Two", column: "idle", ageSeconds: 5),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    dashboard.perform(action: "claude.menu.first", on: id)
+    #expect(layerAnchor(of: WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id)))
+        == .lastTouch(side: .trailing))
+
+    // `idle` is the last of the three columns this fixture declares.
+    dashboard.perform(action: "claude.menu.last", on: id)
+    #expect(layerAnchor(of: WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id)))
+        == .lastTouch(side: .leading))
+}
+
+@Test func theMenusRowsDoWhatTheySayAndTakeTheMenuWithThem() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    // Open focuses on the Mac and puts the menu away.
+    dashboard.perform(action: "claude.menu.local_a", on: id)
+    dashboard.perform(action: "claude.focus.local_a", on: id)
+    #expect(service.focused == ["local_a"])
+    #expect(!isLayered(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))))
+
+    // Details swaps the menu for the full panel — never both at once.
+    dashboard.perform(action: "claude.menu.local_a", on: id)
+    dashboard.perform(action: "claude.detail.local_a", on: id)
+    let detail = WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))
+    #expect(layerAnchor(of: detail) == .screenCenter)
+    #expect(dismissAction(of: detail) == "claude.detail.close")
+}
+
+@Test func tappingTheSameCardTwiceClosesItsMenu() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+        ClaudeSession(id: "local_b", title: "Two", column: "working", ageSeconds: 5),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    dashboard.perform(action: "claude.menu.local_a", on: id)
+    #expect(isLayered(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))))
+
+    // The same card again is a toggle, not a re-open.
+    dashboard.perform(action: "claude.menu.local_a", on: id)
+    #expect(!isLayered(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))))
+
+    // A DIFFERENT card moves the menu rather than closing it.
+    dashboard.perform(action: "claude.menu.local_a", on: id)
+    dashboard.perform(action: "claude.menu.local_b", on: id)
+    let moved = WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))
+    #expect(panelActions(of: moved) == ["claude.focus.local_b", "claude.detail.local_b"])
+}
+
+@Test func closingTheMenuIsNotReadAsASessionID() {
+    // `claude.menu.close` shares the open prefix, exactly as the detail pair
+    // does, so this pins the handler's ordering.
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    dashboard.perform(action: "claude.menu.local_a", on: id)
+    dashboard.perform(action: "claude.menu.close", on: id)
+    #expect(!isLayered(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))))
+
+    // An empty suffix names no session and must not open anything.
+    dashboard.perform(action: "claude.menu.", on: id)
+    #expect(!isLayered(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))))
+}
+
+@Test func aMenuClosesItselfWhenItsSessionLeavesTheBoard() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+        ClaudeSession(id: "local_b", title: "Two", column: "working", ageSeconds: 5),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+    dashboard.perform(action: "claude.menu.local_a", on: id)
+    #expect(isLayered(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))))
+
+    service.stored = reading([
+        ClaudeSession(id: "local_b", title: "Two", column: "working", ageSeconds: 5),
+    ])
+    dashboard.tick(at: Date(timeIntervalSinceNow: 2))
+    #expect(!isLayered(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))))
 }
 
 @Test func columnsGrowWithTheirOwnSessions() {
@@ -432,11 +569,12 @@ private func dismissAction(of node: WidgetView) -> String? {
     dashboard.tick(at: Date(timeIntervalSinceNow: 4))
     let threeCards = tapActions(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id)))
 
-    // Each card's action carries its own session, and the walk finds every
-    // column's slice of the flat metadata list (`local_c` is in column three).
-    #expect(oneCard == ["claude.focus.local_a"])
+    // Each card's action carries its own session — a tap raises that session's
+    // menu — and the walk finds every column's slice of the flat metadata list
+    // (`local_c` is in column three).
+    #expect(oneCard == ["claude.menu.local_a"])
     #expect(threeCards == [
-        "claude.focus.local_a", "claude.focus.local_b", "claude.focus.local_c",
+        "claude.menu.local_a", "claude.menu.local_b", "claude.menu.local_c",
     ])
 }
 
@@ -456,7 +594,7 @@ private func tapActions(_ node: WidgetView) -> [String] {
         tapActions(child)
     case let .scroll(_, child):
         tapActions(child)
-    case let .layered(base, _, _, panel):
+    case let .layered(base, _, _, _, panel):
         tapActions(base) + tapActions(panel)
     default:
         []
@@ -480,7 +618,7 @@ private func collectHolds(_ node: WidgetView, into holds: inout [HoldAction?]) {
         collectHolds(child, into: &holds)
     case let .scroll(_, child):
         collectHolds(child, into: &holds)
-    case let .layered(base, _, _, panel):
+    case let .layered(base, _, _, _, panel):
         collectHolds(base, into: &holds)
         collectHolds(panel, into: &holds)
     default:
