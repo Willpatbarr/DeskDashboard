@@ -42,6 +42,11 @@ extension ThemeToSCUIPalette {
             return estimatedWidth(of: child) + style.padding * scale * 2
         case let .scroll(_, child):
             return estimatedWidth(of: child)
+        case let .layered(base, _, _, _):
+            // The base's width only. The panel is an overlay drawn on top of
+            // whatever the base got — it must not widen the column, or opening
+            // a detail panel would resize the board underneath it.
+            return estimatedWidth(of: base)
         case let .columns(spacing, children):
             let gaps = spacing * scale * Double(max(0, children.count - 1))
             return children.map { estimatedWidth(of: $0) }.reduce(0, +) + gaps

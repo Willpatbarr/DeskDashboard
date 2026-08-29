@@ -103,6 +103,111 @@ private func reading(_ sessions: [ClaudeSession]) -> ClaudeSessionsReading {
     #expect(service.focused == ["local_abc"])
 }
 
+// MARK: - Rail filters
+
+@Test func bucketsAreReadOffTheProjectFolderAndTheRawTitle() {
+    // `project` is the session directory's basename, so the MemberTools family —
+    // sibling clones and per-ticket worktrees alike — is a prefix match.
+    let clone = ClaudeSession(id: "a", title: "A", project: "MemberTools-Android", column: "working")
+    let worktree = ClaudeSession(
+        id: "b", title: "B", project: "MemberTools-Android-MMA-5381", column: "working"
+    )
+    let shared = ClaudeSession(id: "c", title: "C", project: "MemberTools-Mobile-Shared", column: "working")
+    let elsewhere = ClaudeSession(id: "d", title: "D", project: "android-week-view", column: "working")
+    let homeless = ClaudeSession(id: "e", title: "E", column: "working")   // no project at all
+
+    #expect([clone, worktree, shared].allSatisfy(ClaudeSessionFilter.isMemberTools))
+    #expect(!ClaudeSessionFilter.isMemberTools(elsewhere))
+    #expect(!ClaudeSessionFilter.isMemberTools(homeless))
+
+    // A slash title is the skill signal; a bare "/" is not one.
+    let skill = ClaudeSession(id: "f", title: "/kickoff MMA-6006", column: "working")
+    #expect(ClaudeSessionFilter.isSkill(skill))
+    #expect(!ClaudeSessionFilter.isSkill(clone))
+    #expect(!ClaudeSessionFilter.isSkill(ClaudeSession(id: "g", title: "/", column: "working")))
+
+    // `...` is defined as neither of the others, so a MemberTools session that
+    // is ALSO a skill session belongs to two buckets, never to this one.
+    let both = ClaudeSession(id: "h", title: "/preflight", project: "MemberTools-Android", column: "working")
+    #expect(ClaudeSessionFilter.other.matches(elsewhere))
+    #expect(ClaudeSessionFilter.other.matches(homeless))
+    #expect(!ClaudeSessionFilter.other.matches(both))
+    #expect(ClaudeSessionFilter.memberTools.matches(both))
+    #expect(ClaudeSessionFilter.skills.matches(both))
+}
+
+@Test func noPillLitShowsEverythingAndAllThreeIsTheSameBoard() {
+    let sessions = [
+        ClaudeSession(id: "a", title: "A", project: "MemberTools-Android", column: "working"),
+        ClaudeSession(id: "b", title: "/kickoff X", project: "XMLWiki", column: "working"),
+        ClaudeSession(id: "c", title: "C", project: "DeskDashboard", column: "idle"),
+    ]
+
+    // The empty set is the RESTING state, not "show nothing" — the board can
+    // never be filtered down to blank.
+    #expect(sessions.allSatisfy { ClaudeSessionFilter.allows($0, []) })
+    // The buckets are exhaustive, so lighting all three is lighting none.
+    #expect(sessions.allSatisfy { ClaudeSessionFilter.allows($0, Set(ClaudeSessionFilter.allCases)) })
+    // Two lit is the union of the two, and nothing else.
+    let union = sessions.filter { ClaudeSessionFilter.allows($0, [.memberTools, .skills]) }
+    #expect(union.map(\.id) == ["a", "b"])
+}
+
+@Test func aFilterTapNarrowsTheGridAndEveryCountWithIt() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "mt1", title: "One", project: "MemberTools-Android", column: "working"),
+        ClaudeSession(id: "mt2", title: "Two", project: "MemberTools-Mobile-Shared", column: "idle"),
+        ClaudeSession(id: "sk", title: "/kickoff MMA-6006", project: "DeskDashboard", column: "working"),
+        ClaudeSession(id: "other", title: "Plain", project: "XMLWiki", column: "idle"),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    // Read through the SNAPSHOT rather than the model, because that is the whole
+    // trip the rail's tap actually takes: action → widget → model → repaint.
+    dashboard.perform(action: "claude.filters.MT", on: id)
+    var content = snapshotContent(dashboard, id)
+    #expect(sessionIDs(content) == ["mt1", "mt2"])
+    // Header counts and the counts line report what is ON SCREEN, not the push's
+    // totals — a header reading 2 over one visible card would be a lie.
+    #expect(columnCounts(content) == ["1", "0", "1"])
+    #expect(content.primaryText == "1 working · 0 needs you · 1 idle")
+
+    // The union of two buckets — column-major, so the idle MemberTools card is
+    // last even though it was pushed second.
+    dashboard.perform(action: "claude.filters.MT,/s", on: id)
+    content = snapshotContent(dashboard, id)
+    #expect(sessionIDs(content) == ["mt1", "sk", "mt2"])
+    #expect(content.primaryText == "2 working · 0 needs you · 1 idle")
+
+    // An empty suffix is how the rail says every pill went dark.
+    dashboard.perform(action: "claude.filters.", on: id)
+    content = snapshotContent(dashboard, id)
+    #expect(sessionIDs(content) == ["mt1", "sk", "mt2", "other"])
+    #expect(content.primaryText == "2 working · 0 needs you · 2 idle")
+}
+
+private func sessionIDs(_ content: WidgetContent) -> [String] {
+    content.metadata.map { ClaudeCard($0.value)[.sessionID] }
+}
+
+private func columnCounts(_ content: WidgetContent) -> [String] {
+    ClaudeColumnHeader.all(in: content.secondaryText ?? "").map { $0[.count] }
+}
+
+@Test func theSelectionSurvivesTheWireInAStableOrder() {
+    // Ordering comes from `allCases`, never from `Set` iteration, so the same
+    // lit pills always produce the same action string.
+    let all = Set(ClaudeSessionFilter.allCases)
+    #expect(ClaudeSessionFilter.encode(all) == "MT,/s,...")
+    #expect(ClaudeSessionFilter.encode([.other, .memberTools]) == "MT,...")
+    #expect(ClaudeSessionFilter.decode("MT,/s,...") == all)
+    #expect(ClaudeSessionFilter.decode("") == [])
+    // Junk from an older or newer rail is dropped rather than blanking the board.
+    #expect(ClaudeSessionFilter.decode("MT,nonsense") == [.memberTools])
+}
+
 // MARK: - Focus queue (the firewalled-Mac path)
 
 @Test func withNoMacURLTapsQueueUntilDrainedOnce() {
@@ -116,12 +221,17 @@ private func reading(_ sessions: [ClaudeSession]) -> ClaudeSessionsReading {
 
 // MARK: - Layout
 
-@Test func everyCardIsTapOnlySoAReRenderCannotStrandAHold() {
+@Test func noCardHoldRepeatsSoAReRenderCannotStrandOne() {
     // This tile has VARIABLE node counts (columns scroll, so cards are not
     // padded to a fixed shape). `lifeCounter`'s fixed-shape rule exists because
     // a node inserted mid-press makes GTK cancel a HOLD's gesture, so its
-    // auto-repeat never receives a release and runs away. That cannot happen
-    // while every region here is tap-only — which is what this pins.
+    // auto-repeat never receives a release and runs away.
+    //
+    // Cards DO hold now — that is how the detail panel opens — so the old
+    // "every hold is nil" form of this test is deliberately false. The reason
+    // behind it is untouched: what a missing release can strand is a REPEAT, and
+    // there are none here. Opening the panel is exactly the rebuild that makes
+    // the release go missing, so this is the property that keeps that safe.
     let service = FixedClaudeSessionsService(reading([
         ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
         ClaudeSession(id: "local_b", title: "Two", column: "needs-you", ageSeconds: 40),
@@ -130,11 +240,179 @@ private func reading(_ sessions: [ClaudeSession]) -> ClaudeSessionsReading {
     let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
     dashboard.tick(at: Date(timeIntervalSinceNow: 2))
 
-    var holds: [String?] = []
+    var holds: [HoldAction?] = []
     collectHolds(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id)), into: &holds)
 
     #expect(!holds.isEmpty)
-    #expect(holds.allSatisfy { $0 == nil })
+    // Every card offers a hold, and not one of them repeats.
+    #expect(holds.contains { $0 != nil })
+    #expect(holds.allSatisfy { $0?.repeats != true })
+    #expect(holds.compactMap { $0?.action }.allSatisfy { $0.hasPrefix("claude.detail.") })
+}
+
+// MARK: - Detail panel
+
+@Test func holdingACardPacksTheSessionsFullDetailAndItsAgents() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(
+            id: "local_a", title: String(repeating: "y", count: 80),
+            project: "MemberTools-Android", model: "claude-opus-5",
+            stage: "review", blockedOn: "changes-requested", branch: "MMA-5466",
+            prNumber: 2070, prState: "OPEN", prReviewDecision: "CHANGES_REQUESTED",
+            column: "needs-you", agentCount: 1, lastActivity: "Running gradle build",
+            ageSeconds: 30,
+            agents: [
+                ClaudeSessionAgent(label: "Explore the layout", agentType: "Explore",
+                                   running: true, seconds: 12),
+                ClaudeSessionAgent(label: "Fix the tables", agentType: "general-purpose",
+                                   running: false, seconds: 240, failed: true),
+            ],
+            repo: "org/MemberTools-Android", base: "develop", worktree: true,
+            effort: "high", permissionMode: "plan", planName: "MMA-5466-plan"
+        ),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    // Nothing open: metadata is cards only.
+    #expect(snapshotContent(dashboard, id).metadata.count == 1)
+
+    dashboard.perform(action: "claude.detail.local_a", on: id)
+    let content = snapshotContent(dashboard, id)
+    // One card, one detail block, two agents.
+    #expect(content.metadata.count == 4)
+
+    let detail = ClaudeDetail(content.metadata[1].value)
+    #expect(detail[.sessionID] == "local_a")
+    // The panel undoes the card's truncation — that is what it is for.
+    #expect(detail[.title] == String(repeating: "y", count: 80))
+    #expect(detail[.activity] == "Running gradle build")
+    #expect(detail[.repo] == "org/MemberTools-Android")
+    #expect(detail[.branch] == "MMA-5466")
+    #expect(detail[.base] == "develop")
+    #expect(detail[.worktree] == "1")
+    #expect(detail[.pullRequest] == "#2070")
+    #expect(detail[.prReviewDecision] == "CHANGES_REQUESTED")
+    // The panel's title reads `name — COLUMN`, so the column it sits in travels
+    // with it, looked up from the board's own columns rather than the id.
+    #expect(detail[.columnLabel] == "Needs You")
+    #expect(detail[.effort] == "high")
+    #expect(detail[.permissionMode] == "plan")
+    #expect(detail[.planName] == "MMA-5466-plan")
+
+    let first = ClaudeAgentRow(content.metadata[2].value)
+    #expect(first[.label] == "Explore the layout")
+    #expect(first[.agentType] == "Explore")
+    #expect(first[.running] == "1")
+    #expect(first[.seconds] == "12")
+    let second = ClaudeAgentRow(content.metadata[3].value)
+    // A FINISHED agent still travels — the whole reason `agentRuns` exists
+    // separately from the in-flight `agentCount`.
+    #expect(second[.running].isEmpty)
+    #expect(second[.failed] == "1")
+    #expect(second[.seconds] == "240")
+}
+
+@Test func openingAndClosingThePanelIsSeparateFromFocusing() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    dashboard.perform(action: "claude.detail.local_a", on: id)
+    #expect(snapshotContent(dashboard, id).metadata.count == 2)
+
+    // `claude.detail.close` shares the open prefix, so this pins that it is
+    // read as a close and never as a session id.
+    dashboard.perform(action: "claude.detail.close", on: id)
+    #expect(snapshotContent(dashboard, id).metadata.count == 1)
+
+    // A tap still focuses on the Mac, and opens nothing.
+    dashboard.perform(action: "claude.focus.local_a", on: id)
+    #expect(service.focused == ["local_a"])
+    #expect(snapshotContent(dashboard, id).metadata.count == 1)
+}
+
+@Test func aPanelClosesItselfWhenItsSessionLeavesTheBoard() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+        ClaudeSession(id: "local_b", title: "Two", column: "working", ageSeconds: 5),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+    dashboard.perform(action: "claude.detail.local_a", on: id)
+    #expect(snapshotContent(dashboard, id).metadata.count == 3) // 2 cards + detail
+
+    // The session finishes and the daemon stops sending it. The panel must go
+    // with it rather than freezing over a board that has moved on.
+    service.stored = reading([
+        ClaudeSession(id: "local_b", title: "Two", column: "working", ageSeconds: 5),
+    ])
+    dashboard.tick(at: Date(timeIntervalSinceNow: 2))
+    #expect(snapshotContent(dashboard, id).metadata.count == 1)
+}
+
+@Test func aFilterDoesNotCloseAnOpenPanel() {
+    // The panel is matched against the whole reading, not the filtered view:
+    // tapping a rail pill while a panel is up shouldn't yank it away.
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", project: "XMLWiki", column: "working"),
+        ClaudeSession(id: "mt", title: "Two", project: "MemberTools-Android", column: "working"),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    dashboard.perform(action: "claude.detail.local_a", on: id)
+    dashboard.perform(action: "claude.filters.MT", on: id)
+
+    let content = snapshotContent(dashboard, id)
+    // One card left on the board, and the panel is still the one that was open.
+    #expect(content.metadata.count == 2)
+    #expect(ClaudeDetail(content.metadata[1].value)[.sessionID] == "local_a")
+}
+
+@Test func thePanelLayersOverTheBoardOnlyWhileOneIsOpen() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    // No layer at rest. An overlay is a real widget on GTK and swallows every
+    // tap beneath it, so one that existed year-round would kill the board.
+    #expect(!isLayered(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))))
+
+    dashboard.perform(action: "claude.detail.local_a", on: id)
+    let open = WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))
+    #expect(isLayered(open))
+
+    // The way out is the node's OWN dismiss action, not a tappable buried in
+    // the panel. The renderer draws the scrim and the close control from it —
+    // the panel's tree deliberately holds neither, because a full-bleed dismiss
+    // target ate the agent list's scroll gestures and a close button placed
+    // beside the `.columns` collapsed it.
+    #expect(dismissAction(of: open) == "claude.detail.close")
+    // The panel's own tree holds NO dismiss target. The renderer draws both the
+    // scrim and the close button from the action above — a full-bleed tappable
+    // in here ate the agent list's scroll gestures, and a close button beside
+    // the `.columns` starved it.
+    #expect(!tapActions(open).contains("claude.detail.close"))
+}
+
+private func isLayered(_ node: WidgetView) -> Bool {
+    if case .layered = node { return true }
+    return false
+}
+
+private func dismissAction(of node: WidgetView) -> String? {
+    if case let .layered(_, _, dismiss, _) = node { return dismiss }
+    return nil
 }
 
 @Test func columnsGrowWithTheirOwnSessions() {
@@ -178,12 +456,14 @@ private func tapActions(_ node: WidgetView) -> [String] {
         tapActions(child)
     case let .scroll(_, child):
         tapActions(child)
+    case let .layered(base, _, _, panel):
+        tapActions(base) + tapActions(panel)
     default:
         []
     }
 }
 
-private func collectHolds(_ node: WidgetView, into holds: inout [String?]) {
+private func collectHolds(_ node: WidgetView, into holds: inout [HoldAction?]) {
     switch node {
     case let .tappable(_, hold, child):
         holds.append(hold)
@@ -200,6 +480,9 @@ private func collectHolds(_ node: WidgetView, into holds: inout [String?]) {
         collectHolds(child, into: &holds)
     case let .scroll(_, child):
         collectHolds(child, into: &holds)
+    case let .layered(base, _, _, panel):
+        collectHolds(base, into: &holds)
+        collectHolds(panel, into: &holds)
     default:
         break
     }

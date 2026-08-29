@@ -105,37 +105,227 @@ struct DashboardRootView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(background(palette, viewport))
+            // A widget's modal, drawn over the WHOLE screen — the rail included.
+            // Applied out here rather than inside the tile because that is the
+            // difference the user sees: a scrim that stopped at the tile's edge
+            // left the rail bright next to a greyed board.
+            //
+            // Same shape as `EditScrim`: a conditional `.overlay` whose first
+            // child is a greedy `Color`, built INLINE. Extracting it into a
+            // `View` struct is what makes composited chrome vanish on the GTK
+            // backend, and an unconditional overlay would swallow every tap on
+            // the dashboard.
+            .overlay {
+                if let modal = modal(palette) {
+                    let scrim = Color(hex: modal.scrimHex) ?? palette.background
+                    let side = sideInset(palette)
+                    let top = Double(topInset(palette))
+                    let panelHeight = max(1, viewport.height - top * 2)
+
+                    // Laid out as explicitly sized pieces that TILE the
+                    // screen — no overlapping full-size siblings anywhere, and
+                    // every region painted exactly ONCE.
+                    //
+                    // Both halves of that matter. A full-size scrim UNDER these
+                    // strips double-painted the margins, so they came out
+                    // visibly darker than the band showing between the panel's
+                    // two cards; the panel carries its own scrim backdrop
+                    // instead.
+                    //
+                    // And GTK picks the topmost widget under a tap without
+                    // falling through to a sibling beneath, so a scrim layer
+                    // covered by anything full-size (a `.padding` container, a
+                    // greedy `HStack` holding the close button) stops receiving
+                    // taps at all — exactly how tap-to-dismiss silently died
+                    // twice. Tiling means every pixel belongs to one widget, and
+                    // each one either dismisses or is the panel.
+                    VStack(spacing: 0) {
+                        dismissStrip(modal, scrim, width: viewport.width, height: top)
+
+                        HStack(spacing: 0) {
+                            dismissStrip(modal, scrim, width: side, height: panelHeight)
+
+                            // Inset in LINE HEIGHTS — 5 either side, 3 top
+                            // and bottom — so the panel reads as floating
+                            // clear of the screen rather than as a bordered
+                            // tile. The unit is a CAPTION line, not a body
+                            // line: on a 440px strip three body lines top and
+                            // bottom would eat 282 of them.
+                            //
+                            // Sized explicitly rather than padded, which also
+                            // hands its `.columns` the definite width and
+                            // height a GeometryReader wants.
+                            modal.panel
+                                .frame(
+                                    width: max(1, viewport.width - side * 2),
+                                    height: panelHeight
+                                )
+                                // Its own backdrop, so the gap between the
+                                // two cards is scrim rather than board.
+                                .background(scrim)
+
+                            // The close control gets the whole right margin:
+                            // its own button, clear of both cards, and a tap
+                            // anywhere in that column closes.
+                            VStack(spacing: 0) {
+                                Spacer()
+                                Text("✕")
+                                    .font(.system(
+                                        size: palette.headingSize,
+                                        weight: .semibold
+                                    ))
+                                    .foregroundColor(palette.text)
+                                Spacer()
+                            }
+                            .frame(width: side, height: panelHeight)
+                            .background(scrim)
+                            .onTapGesture { dismiss(modal) }
+                        }
+
+                        dismissStrip(modal, scrim, width: viewport.width, height: top)
+                    }
+                }
+            }
         }
+    }
+
+    /// One band of the modal's margin: paints the scrim and dismisses on tap.
+    /// Sized explicitly so it tiles with its neighbours rather than covering
+    /// them — see the overlay for why that matters on GTK.
+    private func dismissStrip(
+        _ modal: Modal,
+        _ scrim: Color,
+        width: Double,
+        height: Double
+    ) -> some View {
+        scrim
+            .frame(width: max(1, width), height: max(1, height))
+            .onTapGesture { dismiss(modal) }
+    }
+
+    /// Raises the modal's dismiss action, if it declared one.
+    private func dismiss(_ modal: Modal) {
+        guard let action = modal.dismiss else { return }
+        model.perform(widgetID: modal.widgetID, action: action, cameFromHold: false)
+    }
+
+    /// The modal's inset, in caption line heights: 5 either side, 3 top and
+    /// bottom. See the overlay for why the unit is a caption line.
+    private func sideInset(_ palette: ThemeToSCUIPalette) -> Double {
+        (palette.captionSize * 1.3 * 5).rounded()
+    }
+
+    private func topInset(_ palette: ThemeToSCUIPalette) -> Int {
+        Int((palette.captionSize * 1.3 * 3).rounded())
+    }
+
+    /// The open modal, if any widget on the current board is raising one.
+    ///
+    /// Found by rebuilding each widget's `WidgetView` and looking for `.layered`
+    /// at its root. That means `makeView` runs twice for the tile that owns it —
+    /// once here, once in its own `TileView`. Affordable and deliberate: the
+    /// alternative is state pushed up out of a view's body mid-render, and the
+    /// tree is a pure function of the snapshot, so building it twice cannot
+    /// disagree with itself.
+    ///
+    /// The panel comes back as a rendered `TileView` (bare: no surface, no
+    /// padding, no title) so it goes through the very same interpreter the tiles
+    /// do, and its taps route to the widget that raised it. `DashboardUI` never
+    /// learns what any of it means — the dismiss action is just a name.
+    private func modal(_ palette: ThemeToSCUIPalette) -> Modal? {
+        // Never during a slide: the stage owns the screen, and the arrangement
+        // underneath is mid-swap.
+        guard model.transition == nil else { return nil }
+        for row in modalCandidates {
+            guard let snapshot = model.snapshots.first(where: { $0.id.rawValue == row.id }),
+                  let content = snapshot.content
+            else { continue }
+            let layout = row.layout ?? snapshot.configuration.layout
+            guard case let .layered(_, scrimHex, dismiss, panel) = layout.makeView(content) else {
+                continue
+            }
+            return Modal(
+                widgetID: row.id,
+                scrimHex: scrimHex,
+                dismiss: dismiss,
+                panel: AnyView(
+                    TileView(
+                        snapshot: snapshot,
+                        palette: palette,
+                        // A layout of exactly this panel — the interpreter takes
+                        // a `WidgetLayout`, and the panel is already built.
+                        layoutOverride: WidgetLayout(id: "\(row.id).modal") { _ in panel },
+                        containerless: true,
+                        flush: true,
+                        hidesTitle: true,
+                        onAction: { action, isHold, isHoldable, holdRepeats in
+                            model.perform(
+                                widgetID: row.id,
+                                action: action,
+                                cameFromHold: isHold,
+                                isHoldable: isHoldable,
+                                holdRepeats: holdRepeats
+                            )
+                        },
+                        onPressEnded: { model.endPress() }
+                    )
+                )
+            )
+        }
+        return nil
+    }
+
+    /// Widgets that could be raising a modal: the current board's, or the plain
+    /// tile grid's when there is no board.
+    private var modalCandidates: [(id: String, layout: WidgetLayout?)] {
+        if let bands = model.boardBands {
+            return bands.flatMap { band in
+                band.columns.flatMap { column in
+                    column.rows.map { (id: $0.id, layout: Optional($0.layout)) }
+                }
+            }
+        }
+        return tiles.map { (id: $0.id.rawValue, layout: nil) }
+    }
+
+    /// One open modal: which widget raised it, how to dim behind it, what a tap
+    /// on the scrim means, and the panel itself already rendered.
+    private struct Modal {
+        let widgetID: String
+        let scrimHex: String
+        let dismiss: String?
+        let panel: AnyView
     }
 
     // MARK: - Fullscreen rail
 
-    /// The fullscreen rail's width: exactly the back pill plus a hair of air —
-    /// the widget gap, not the section margin, so the board gets the width back.
+    /// Widest label any rail pill carries: `"..."`, the filter bucket for
+    /// everything unclassified. Every pill in the rail is sized to it so the
+    /// column reads as one stack rather than a wide pill above narrow ones —
+    /// which costs the board ~2 glyphs of width, and it has them to spare.
+    private static let railLabelWidth = 3
+
+    /// The fullscreen rail's width: exactly one pill plus a hair of air — the
+    /// widget gap, not the section margin, so the board gets the width back.
     private func railWidth(_ chrome: ThemeToSCUIPalette) -> Double {
         Double(
-            segmentWidth(chrome, widestLabel: 1)
+            segmentWidth(chrome, widestLabel: Self.railLabelWidth)
                 + segmentInsets(chrome).track * 2
                 + chrome.widgetGap * 2
         )
     }
 
     /// The left rail of a fullscreen arrangement: the `‹` back pill on top, then
-    /// the mini clock — hours over minutes, per the mockup — and empty space.
+    /// the mini clock — hours over minutes, per the mockup — and the board's
+    /// filter pills pushed down to the bottom edge.
     private func rail(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {
         VStack(spacing: chrome.verticalWidgetGap) {
-            EditPill(
-                palette: palette,
+            railPill(
+                palette, chrome,
                 label: "‹",
                 isOn: false,
-                slotWidth: segmentWidth(chrome, widestLabel: 1),
-                slotHeight: segmentHeight(chrome),
-                trackInset: segmentInsets(chrome).track,
-                fontSize: chrome.captionSize,
                 onTap: { model.exitFullscreen() }
             )
-            .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
-            .alwaysPillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
 
             // Body-size digits (caption read as an afterthought on the panel),
             // pushed clear of the pill by a section margin's worth of air.
@@ -148,9 +338,50 @@ struct DashboardRootView: View {
                 .foregroundColor(palette.secondary)
 
             Spacer()
+
+            // Bottom edge, below the Spacer: filtering the board is a deliberate
+            // act, so it sits as far as possible from the back pill you reach for
+            // by reflex. Only drawn when the board on screen holds the widget the
+            // pills address — see `DashboardModel.activeRailFilters`.
+            if let bar = model.activeRailFilters {
+                ForEach(bar.keys, id: \.self) { key in
+                    railPill(
+                        palette, chrome,
+                        label: key,
+                        isOn: model.railFilterSelection.contains(key),
+                        onTap: { model.toggleRailFilter(key) }
+                    )
+                }
+            }
         }
         .padding(.horizontal, chrome.widgetGap)
         .padding(.vertical, chrome.verticalSectionMargin)
+    }
+
+    /// One rail pill. Every pill in the rail is built through here so they share
+    /// a width and, more importantly, the `.cornerRadius` + `.alwaysPillBorder`
+    /// pair — that pair is what draws an `EditPill` at all on the GTK backend, so
+    /// a hand-rolled copy that dropped one would render as nothing on the Pi
+    /// while still working on AppKit.
+    private func railPill(
+        _ palette: ThemeToSCUIPalette,
+        _ chrome: ThemeToSCUIPalette,
+        label: String,
+        isOn: Bool,
+        onTap: @escaping () -> Void
+    ) -> some View {
+        EditPill(
+            palette: palette,
+            label: label,
+            isOn: isOn,
+            slotWidth: segmentWidth(chrome, widestLabel: Self.railLabelWidth),
+            slotHeight: segmentHeight(chrome),
+            trackInset: segmentInsets(chrome).track,
+            fontSize: chrome.captionSize,
+            onTap: onTap
+        )
+        .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
+        .alwaysPillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
     }
 
     /// The rail clock's digits, read from the clock WIDGET's snapshot rather than
@@ -201,12 +432,13 @@ struct DashboardRootView: View {
                 isEditing: model.isEditing,
                 alignments: model.alignments,
                 onSelectAlignment: { id, index in model.setAlignment(index, for: id) },
-                onAction: { id, action, isHold, isHoldable in
+                onAction: { id, action, isHold, isHoldable, holdRepeats in
                     model.perform(
                         widgetID: id,
                         action: action,
                         cameFromHold: isHold,
-                        isHoldable: isHoldable
+                        isHoldable: isHoldable,
+                        holdRepeats: holdRepeats
                     )
                 },
                 onPressEnded: { model.endPress() }
@@ -224,12 +456,13 @@ struct DashboardRootView: View {
                         snapshot: snapshot,
                         palette: palette,
                         alignment: model.alignment(for: snapshot.id.rawValue),
-                        onAction: { action, isHold, isHoldable in
+                        onAction: { action, isHold, isHoldable, holdRepeats in
                             model.perform(
                                 widgetID: snapshot.id.rawValue,
                                 action: action,
                                 cameFromHold: isHold,
-                                isHoldable: isHoldable
+                                isHoldable: isHoldable,
+                                holdRepeats: holdRepeats
                             )
                         }
                     )

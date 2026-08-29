@@ -4,6 +4,7 @@ import DashboardHTTPServer
 import DashboardKit
 import DashboardUI
 import DeskDashboardComposition
+import DeskDashboardWidgets
 import Foundation
 
 // The REAL executable (product `deskdashboard-ui`): the graphical SwiftCrossUI
@@ -114,7 +115,15 @@ let renderer = SwiftCrossUIRenderer(
     scaleMultiplier: scaleMultiplier,
     windowSize: windowSize,
     slideMilliseconds: slideMilliseconds,
-    frameMilliseconds: frameMilliseconds
+    frameMilliseconds: frameMilliseconds,
+    // The rail's filter pills. Assembled here rather than in the renderer
+    // because the renderer is product-agnostic: it draws these labels and reports
+    // which are lit, and only `DeskDashboardWidgets` knows what "MT" means.
+    railFilters: RailFilterBar(
+        widgetID: "claude",
+        actionPrefix: ClaudeSessionsWidget.Action.filtersPrefix,
+        keys: ClaudeSessionFilter.allCases.map(\.rawValue)
+    )
 )
 
 // Input's return path: the renderer only reports `(id, action)`; routing it is the

@@ -280,9 +280,13 @@ private func content(_ dashboard: Dashboard, _ id: WidgetID) -> WidgetContent? {
     // rather than silently doing something surprising. Two of them: the total and
     // the reset glyph under it both reset the seat.
     let plus = WidgetLayout.lifeCounter.makeView(WidgetContent(primaryText: "40"))
-    var holds: [String?] = []
+    var holds: [HoldAction?] = []
     collectHolds(plus, into: &holds)
-    #expect(holds == ["life.incrementTen", nil, nil, "life.decrementTen"])
+    #expect(holds.map { $0?.action } == ["life.incrementTen", nil, nil, "life.decrementTen"])
+    // And these are the holds that SHOULD repeat — holding `+` is how you move
+    // life ten at a time. The session board's `.once` holds are the other half
+    // of that split; see `HoldAction`.
+    #expect(holds.compactMap { $0 }.allSatisfy { $0.repeats })
 }
 
 @Test func theTileHasTheSameNodesWhetherOrNotThereIsAnythingToShow() {
@@ -309,7 +313,7 @@ private func shape(of node: WidgetView) -> String {
     case .progressBar: "progress"
     case .playState: "playState"
     case let .tappable(action, hold, child):
-        "tappable(\(action),\(hold ?? "-"))[\(shape(of: child))]"
+        "tappable(\(action),\(hold.map { "\($0.action):\($0.repeats)" } ?? "-"))[\(shape(of: child))]"
     case let .centered(children):
         "centered[\(children.map(shape(of:)).joined(separator: ","))]"
     case let .stack(axis, _, children):
@@ -324,10 +328,12 @@ private func shape(of node: WidgetView) -> String {
         "scroll[\(shape(of: child))]"
     case let .card(style, child):
         "card(\(style.cornerRadius),\(style.padding))[\(shape(of: child))]"
+    case let .layered(base, _, _, panel):
+        "layered[\(shape(of: base))|\(shape(of: panel))]"
     }
 }
 
-private func collectHolds(_ node: WidgetView, into holds: inout [String?]) {
+private func collectHolds(_ node: WidgetView, into holds: inout [HoldAction?]) {
     switch node {
     case let .tappable(_, hold, child):
         holds.append(hold)
@@ -338,6 +344,9 @@ private func collectHolds(_ node: WidgetView, into holds: inout [String?]) {
         for child in children { collectHolds(child, into: &holds) }
     case let .region(_, _, child):
         collectHolds(child, into: &holds)
+    case let .layered(base, _, _, panel):
+        collectHolds(base, into: &holds)
+        collectHolds(panel, into: &holds)
     default:
         break
     }

@@ -167,6 +167,41 @@ final class HoldGate: @unchecked Sendable {
         }
     }
 
+    /// Cancels the tap this same press produced and fires the hold exactly once
+    /// — no repeater, so nothing here depends on a release ever arriving.
+    ///
+    /// That independence is the point. `holdBegan`'s repeater is written to
+    /// outlive a missing release (see `maxRepeats`), which is right for a
+    /// counter and wrong for anything that OPENS something: opening a panel
+    /// rebuilds the widget under the finger, GTK then stops delivering
+    /// `released`, and the repeat runs its full nine seconds re-opening what you
+    /// just dismissed. A hold that navigates has nothing to repeat anyway.
+    func holdOnce(_ emit: @escaping () -> Void) {
+        let time = Self.now
+        UILog.write(Self.stamp(time, "hold began (once)"))
+
+        // Same echo guard as `holdBegan`, and for the same reason: two long
+        // presses for one finger must not both fire.
+        if time - holdStartedAt < Self.echoWindow {
+            UILog.write(Self.stamp(time, "hold dropped: echo of a hold"))
+            return
+        }
+
+        // Retire a repeat whose release went missing, so a previous counter hold
+        // can't keep running underneath this one.
+        cancelRepeat()
+        holdStartedAt = time
+
+        // This press is a hold, so the tap it also produced is cancelled — both
+        // the fallback timer and the action a release would fire. Identical to
+        // `holdBegan`; only the repeater is missing.
+        pendingTap?.invalidate()
+        pendingTap = nil
+        pendingTapAction = nil
+
+        emit()
+    }
+
     /// The finger lifted. Safe to call for presses that never became holds.
     ///
     /// Kept distinct from `cancelRepeat()` so that a diagnostic run can tell a real

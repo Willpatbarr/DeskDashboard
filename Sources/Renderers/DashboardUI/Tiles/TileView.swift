@@ -68,7 +68,10 @@ struct TileView: View {
     /// name, plus whether it came from a hold. The caller pairs it with the widget
     /// id and routes it onward; this view deliberately knows nothing about the
     /// framework side.
-    var onAction: ((String, Bool, Bool) -> Void)? = nil
+    /// `(action, cameFromHold, isHoldable, holdRepeats)`. The last flag only
+    /// means anything when `cameFromHold` is set: a hold that OPENS something
+    /// must not repeat — see `HoldAction`.
+    var onAction: ((String, Bool, Bool, Bool) -> Void)? = nil
     /// Raised when a press on a hold-capable region ends, so a repeating hold can
     /// stop. Separate from `onAction` because it carries no action of its own.
     var onPressEnded: (() -> Void)? = nil
@@ -278,28 +281,95 @@ struct TileView: View {
             // A region with a hold reports `isHoldable` on its taps too, so the
             // gate knows to wait and see rather than emitting immediately.
             let isHoldable = hold != nil
+            let slop = 12 * palette.scale
             if insideScroll, hold == nil {
                 // Still `onTapGesture` first: that is what attaches the
                 // GestureClick which `tapUnlessDragged` then re-points at
                 // release. Slop scales with the panel like every other size.
+                //
+                // The real action goes in BOTH places, and it cannot
+                // double-fire: on GTK `tapUnlessDragged` REPLACES the
+                // `pressed`/`released` handlers SwiftCrossUI installed, so only
+                // its own release path survives.
+                //
+                // Off GTK the modifier is a no-op, so this closure is the only
+                // delivery there — it used to be empty, which was simply wrong.
+                // It is still not enough to make a card tappable on the AppKit
+                // dev build: measured there, a primary tap inside a `ScrollView`
+                // never reaches the gesture at all (the long press does), so a
+                // card tap has to be verified on the panel. Correct anyway, and
+                // the arm below depends on it.
                 return AnyView(
                     interpret(child, insideScroll: true)
-                        .onTapGesture {}
-                        .tapUnlessDragged(slop: 12 * palette.scale) {
-                            onAction?(action, false, false)
+                        .onTapGesture { onAction?(action, false, false, true) }
+                        .tapUnlessDragged(slop: slop) {
+                            onAction?(action, false, false, true)
                         }
                 )
             }
+            if insideScroll, let hold {
+                // A card that BOTH scroll-arbitrates its tap and recognises a
+                // long press — the session board's cards, since the detail
+                // panel landed.
+                //
+                // The ordering hazard is real and is why this doesn't just
+                // combine the two arms: `tapUnlessDragged` fires the tap from
+                // GTK's `released`, and `onPressRelease` fires `pressEnded`
+                // from that same signal, so which one `HoldGate` sees first is
+                // not determined. Left to the gate's echo window, a long press
+                // would ALSO focus the session about half a second later.
+                // `tapUnlessDraggedOrHeld` settles it locally instead: the box
+                // that owns the press knows it turned into a hold and simply
+                // doesn't fire the tap.
+                let ended = onPressEnded
+                return AnyView(
+                    interpret(child, insideScroll: true)
+                        // `isHoldable: true` — off GTK this is the only tap
+                        // delivery, and the gate has to withhold it until the
+                        // press resolves or a long press would focus as well as
+                        // open. On GTK it is replaced outright (see above).
+                        .onTapGesture { onAction?(action, false, true, true) }
+                        .onTapGesture(gesture: .longPress) {
+                            onAction?(hold.action, true, true, hold.repeats)
+                        }
+                        // `onPressRelease` is NOT chained here: it claims the
+                        // same `GestureClick.released` this modifier fires the
+                        // tap from, and would overwrite it. The callback is
+                        // handed over instead.
+                        .tapUnlessDraggedOrHeld(
+                            slop: slop,
+                            onHold: { onAction?(hold.action, true, true, hold.repeats) },
+                            // Already arbitrated by the box, so this is a plain
+                            // tap — `isHoldable: false`, no need to defer it a
+                            // second time inside the gate.
+                            onTap: { onAction?(action, false, false, true) },
+                            onRelease: { ended?() }
+                        )
+                )
+            }
             let tappable = interpret(child, insideScroll: insideScroll)
-                .onTapGesture { onAction?(action, false, isHoldable) }
+                .onTapGesture { onAction?(action, false, isHoldable, true) }
             guard let hold else { return AnyView(tappable) }
             let ended = onPressEnded
             return AnyView(
                 tappable
-                    .onTapGesture(gesture: .longPress) { onAction?(hold, true, true) }
+                    .onTapGesture(gesture: .longPress) {
+                        onAction?(hold.action, true, true, hold.repeats)
+                    }
                     // Release ends the repeat. GTK only; see `PressReleaseGTK`.
                     .onPressRelease { ended?() }
             )
+
+        case let .layered(base, _, _, _):
+            // Only the BASE is drawn here. The scrim and the panel are lifted to
+            // the root view (see `DashboardRootView.modal`) so they cover the
+            // shell's chrome — the fullscreen rail — as well as this tile.
+            // Dimming only the tile that raised the modal left the rail bright
+            // beside a greyed board, which reads as a half-finished render.
+            //
+            // The node still carries them because the WIDGET is what knows a
+            // panel is open; the root reads them back out of this same tree.
+            return interpret(base, insideScroll: insideScroll)
 
         case let .centered(children):
             let views = children.map { interpret($0, insideScroll: insideScroll) }

@@ -48,6 +48,9 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
     ///   - frameMilliseconds: gap between hand-stepped animation frames, or `nil`
     ///     for the default (~60fps). Sweep it on the target display to find the
     ///     real budget; `DD_UI_LOG=1` reports the cadence achieved.
+    ///   - railFilters: toggle pills for the fullscreen rail's bottom edge, or
+    ///     `nil` for a rail carrying only the back pill and the clock. The keys
+    ///     are opaque here — see `RailFilterBar`.
     public init(
         theme: any Theme,
         arrangements: [Arrangement] = [],
@@ -56,13 +59,15 @@ public final class SwiftCrossUIRenderer: DashboardRenderer, @unchecked Sendable 
         windowSize: (width: Int, height: Int)? = nil,
         slideMilliseconds: Double? = nil,
         frameMilliseconds: Double? = nil,
+        railFilters: RailFilterBar? = nil,
         onAction: ((String, String) -> Void)? = nil
     ) {
         let model = DashboardModel(
             theme: theme,
             arrangements: arrangements,
             showsSwitcher: showsSwitcher,
-            scaleMultiplier: scaleMultiplier
+            scaleMultiplier: scaleMultiplier,
+            railFilters: railFilters
         )
         self.model = model
         DashboardLaunch.model = model

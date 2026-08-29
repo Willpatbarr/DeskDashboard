@@ -34,6 +34,14 @@ final class DashboardModel: ObservableObject {
     /// In memory only for now — nothing here is written back to the widget's
     /// configuration or persisted across launches.
     @Published private(set) var alignments: [String: TileAlignment] = [:]
+    /// Which of `railFilters`' keys are lit. Owned HERE rather than read back
+    /// from the widget: the rail is the thing being tapped, so it is the thing
+    /// that knows, and the widget is told the whole answer each time.
+    @Published private(set) var railFilterSelection: Set<String> = []
+
+    /// The fullscreen rail's filter pills, or nil when the app declared none
+    /// (the rail then holds only the back pill and the clock, as before).
+    let railFilters: RailFilterBar?
 
     /// Whether the header shows the arrangement switcher. Cosmetic only — it does
     /// NOT change what renders, which is `arrangements[selectedIndex]` either way.
@@ -64,10 +72,12 @@ final class DashboardModel: ObservableObject {
         snapshots: [AttachedWidgetSnapshot] = [],
         arrangements: [Arrangement] = [],
         showsSwitcher: Bool = false,
-        scaleMultiplier: Double = 1
+        scaleMultiplier: Double = 1,
+        railFilters: RailFilterBar? = nil
     ) {
         self.snapshots = snapshots
         self.showsSwitcher = showsSwitcher
+        self.railFilters = railFilters
         self.dashboardTheme = theme
         self.scaleMultiplier = scaleMultiplier > 0 ? scaleMultiplier : 1
         // With none supplied, the dashboard renders the way its composition
@@ -285,15 +295,24 @@ final class DashboardModel: ObservableObject {
     /// `isHoldable` says whether this same region also has a hold action. If it
     /// does, the tap is held back briefly so a hold can cancel it — see `HoldGate`
     /// for why that can't be decided when the tap arrives.
+    /// `holdRepeats` distinguishes a counter's `+` — which should keep firing
+    /// while held — from a hold that OPENS something, which must fire once. It
+    /// defaults to true so no existing call site changes; see `HoldAction` for
+    /// why the difference isn't cosmetic.
     func perform(
         widgetID: String,
         action: String,
         cameFromHold: Bool,
-        isHoldable: Bool = false
+        isHoldable: Bool = false,
+        holdRepeats: Bool = true
     ) {
         let emit: () -> Void = { [weak self] in self?.onAction?(widgetID, action) }
         if cameFromHold {
-            holdGate.holdBegan(emit)
+            if holdRepeats {
+                holdGate.holdBegan(emit)
+            } else {
+                holdGate.holdOnce(emit)
+            }
         } else {
             holdGate.tap(deferred: isHoldable, emit)
         }
@@ -327,6 +346,41 @@ final class DashboardModel: ObservableObject {
     /// Flips edit mode. Tapping the header's Edit button both ways.
     func toggleEditing() {
         isEditing.toggle()
+    }
+
+    /// The rail's filter pills when the board on screen actually holds the widget
+    /// they address, else nil.
+    ///
+    /// The gate matters because the rail is shared by every fullscreen
+    /// arrangement: a future fullscreen board without the Claude tile would
+    /// otherwise show three pills whose taps went nowhere.
+    var activeRailFilters: RailFilterBar? {
+        guard let bar = railFilters,
+              boardBands?.contains(where: { band in
+                  band.columns.contains { column in
+                      column.rows.contains { $0.id == bar.widgetID }
+                  }
+              }) == true
+        else { return nil }
+        return bar
+    }
+
+    /// A filter pill tap: flip that key, then tell the widget the whole
+    /// selection. Ordering comes from `keys`, never from `Set` iteration, so the
+    /// same lit pills always produce the same action string.
+    func toggleRailFilter(_ key: String) {
+        guard let bar = railFilters, bar.keys.contains(key) else { return }
+        if railFilterSelection.contains(key) {
+            railFilterSelection.remove(key)
+        } else {
+            railFilterSelection.insert(key)
+        }
+        let lit = bar.keys.filter(railFilterSelection.contains)
+        perform(
+            widgetID: bar.widgetID,
+            action: bar.actionPrefix + lit.joined(separator: ","),
+            cameFromHold: false
+        )
     }
 
     /// Shows or hides the arrangement's wallpaper (the header's Image button).

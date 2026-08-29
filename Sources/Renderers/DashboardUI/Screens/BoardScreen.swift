@@ -34,7 +34,9 @@ struct BoardScreen: View {
     /// Raised as `(widget id, pill index)` when a tile's alignment pill is tapped.
     var onSelectAlignment: ((String, Int) -> Void)? = nil
     /// Raised as `(widget id, action, cameFromHold)` when a tile reports a gesture.
-    var onAction: ((String, String, Bool, Bool) -> Void)? = nil
+    /// `(widgetID, action, cameFromHold, isHoldable, holdRepeats)` — see
+    /// `TileView.onAction`.
+    var onAction: ((String, String, Bool, Bool, Bool) -> Void)? = nil
     /// Raised when a press ends, so a repeating hold can stop.
     var onPressEnded: (() -> Void)? = nil
 
@@ -195,8 +197,8 @@ struct BoardScreen: View {
                 alignment: alignments[row.id],
                 centersVertically: row.centersVertically,
                 hugsWidth: hugsWidth,
-                onAction: { action, isHold, isHoldable in
-                    onAction?(row.id, action, isHold, isHoldable)
+                onAction: { action, isHold, isHoldable, holdRepeats in
+                    onAction?(row.id, action, isHold, isHoldable, holdRepeats)
                 },
                 onPressEnded: { onPressEnded?() }
             )

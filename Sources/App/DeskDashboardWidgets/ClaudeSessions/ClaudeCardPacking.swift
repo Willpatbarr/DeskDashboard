@@ -63,6 +63,104 @@ struct ClaudeCard {
     }
 }
 
+/// The fields of the long-press DETAIL panel, packed the same positional way as
+/// a card and travelling in the same metadata list — see
+/// `ClaudeSessionsWidget.render` for how the layout tells the two apart.
+///
+/// Overlaps a card's fields on purpose rather than reusing `ClaudeCardField`:
+/// the values here are the UNTRUNCATED ones (a card's title and activity are cut
+/// to the column width, which is exactly what the panel exists to undo), and the
+/// panel carries facts no card has room for.
+enum ClaudeDetailField: Int, CaseIterable {
+    case sessionID
+    /// Full title — not `rowTitle`'s truncation, and with no `⚙n` suffix.
+    case title
+    /// Full last-activity line.
+    case activity
+    case project
+    /// `owner/name`, when the session has a PR.
+    case repo
+    case branch
+    /// The branch the work merges into.
+    case base
+    /// `"1"` when the session runs in a git worktree.
+    case worktree
+    case stage
+    /// Same kind vocabulary as `ClaudeCardField.flag`.
+    case flag
+    /// Already formatted (`#2070`), or empty.
+    case pullRequest
+    case prState
+    case prReviewDecision
+    case prIsDraft
+    case model
+    case effort
+    case permissionMode
+    case planName
+    case age
+    /// The session's attention colour, for the panel's accent bar.
+    case accentHex
+    /// The label of the column this session sits in — the panel's title reads
+    /// `Session name - COLUMN`. Appended rather than slotted in beside `stage`:
+    /// the packing is POSITIONAL, so a new case belongs at the end where it
+    /// cannot shift the fields either side of it.
+    case columnLabel
+    /// That column's own accent, so the label above is tinted like the column
+    /// header it names.
+    case columnColorHex
+
+    static func pack(_ values: [ClaudeDetailField: String]) -> String {
+        allCases.map { values[$0] ?? "" }.joined(separator: ClaudeCardField.separator)
+    }
+}
+
+/// One packed detail block, read back by field name.
+struct ClaudeDetail {
+    private let values: [String]
+
+    init(_ packed: String) {
+        values = packed
+            .split(separator: "\u{1F}", omittingEmptySubsequences: false)
+            .map(String.init)
+    }
+
+    subscript(field: ClaudeDetailField) -> String {
+        values.indices.contains(field.rawValue) ? values[field.rawValue] : ""
+    }
+}
+
+/// One subagent row inside the detail panel. Its own record because a session
+/// carries a variable number of them, one metadata pair each.
+enum ClaudeAgentField: Int, CaseIterable {
+    case label
+    case agentType
+    case model
+    /// `"1"` while the agent is still in flight.
+    case running
+    /// Duration in seconds, already computed by the daemon, or empty.
+    case seconds
+    case failed
+
+    static func pack(_ values: [ClaudeAgentField: String]) -> String {
+        allCases.map { values[$0] ?? "" }.joined(separator: ClaudeCardField.separator)
+    }
+}
+
+/// One packed agent row, read back by field name.
+struct ClaudeAgentRow {
+    private let values: [String]
+
+    init(_ packed: String) {
+        values = packed
+            .split(separator: "\u{1F}", omittingEmptySubsequences: false)
+            .map(String.init)
+    }
+
+    subscript(field: ClaudeAgentField) -> String {
+        values.indices.contains(field.rawValue) ? values[field.rawValue] : ""
+    }
+}
+
 /// The same idea for a column's header record. Columns are ⟨RS⟩-separated from
 /// each other, their fields ⟨US⟩-separated like a card's.
 enum ClaudeColumnField: Int, CaseIterable {

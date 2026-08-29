@@ -73,14 +73,14 @@ public extension WidgetLayout {
         // been drawn.
         return .stack(.vertical, spacing: 0, [
             .tappable(
-                action: "life.increment", hold: "life.incrementTen",
+                action: "life.increment", hold: .repeating("life.incrementTen"),
                 .touchBand(band, .centered([.text("+", role: .primary)]))
             ),
             .spacer,
             .centered([total]),
             .spacer,
             .tappable(
-                action: "life.decrement", hold: "life.decrementTen",
+                action: "life.decrement", hold: .repeating("life.decrementTen"),
                 .touchBand(band, .centered([.text("−", role: .primary)]))
             ),
         ])

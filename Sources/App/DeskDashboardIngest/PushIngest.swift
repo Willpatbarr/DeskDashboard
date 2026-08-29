@@ -76,6 +76,20 @@ public enum PushIngest {
         registerPost: RegisterPost,
         store: PushClaudeSessionsService
     ) {
+        /// One subagent in a session's `agents` array. Every field optional for
+        /// the same reason the session's are — see below.
+        struct AgentPayload: Decodable {
+            var label: String?
+            var agentType: String?
+            var model: String?
+            var running: Bool?
+            var seconds: Int?
+            var failed: Bool?
+        }
+        // Everything but `id`, `title` and `state` is OPTIONAL, and that is
+        // load-bearing rather than lax: the decode below is a single
+        // all-or-nothing `decode`, so one required field an older producer
+        // doesn't send yet blanks the entire board rather than dropping a fact.
         struct SessionPayload: Decodable {
             var id: String
             var title: String
@@ -97,6 +111,16 @@ public enum PushIngest {
             var agentCount: Int?
             var lastActivity: String?
             var ageSeconds: Int?
+            // Detail-panel facts. A producer that predates the panel simply
+            // omits these and the board renders exactly as it did before.
+            var agents: [AgentPayload]?
+            var repo: String?
+            var base: String?
+            var worktree: Bool?
+            var prIsDraft: Bool?
+            var effort: String?
+            var permissionMode: String?
+            var planName: String?
         }
         struct ColumnPayload: Decodable {
             var id: String
@@ -151,7 +175,27 @@ public enum PushIngest {
                             askPending: session.askPending ?? false,
                             agentCount: session.agentCount ?? 0,
                             lastActivity: session.lastActivity,
-                            ageSeconds: session.ageSeconds ?? 0
+                            ageSeconds: session.ageSeconds ?? 0,
+                            // An agent with no label is unrenderable, so it is
+                            // dropped rather than shown as a blank row.
+                            agents: (session.agents ?? []).compactMap { agent in
+                                guard let label = agent.label, !label.isEmpty else { return nil }
+                                return ClaudeSessionAgent(
+                                    label: label,
+                                    agentType: agent.agentType,
+                                    model: agent.model,
+                                    running: agent.running ?? false,
+                                    seconds: agent.seconds,
+                                    failed: agent.failed ?? false
+                                )
+                            },
+                            repo: session.repo,
+                            base: session.base,
+                            worktree: session.worktree ?? false,
+                            prIsDraft: session.prIsDraft ?? false,
+                            effort: session.effort,
+                            permissionMode: session.permissionMode,
+                            planName: session.planName
                         )
                     },
                     receivedAt: Date()

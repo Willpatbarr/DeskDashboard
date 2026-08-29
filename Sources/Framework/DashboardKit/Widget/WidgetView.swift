@@ -41,7 +41,7 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// `hold` fires on a long press instead of `action`; nil means a hold does
     /// nothing. Both are names, so a renderer without a long-press gesture can
     /// honour the tap and ignore the hold.
-    case tappable(action: String, hold: String?, WidgetView)
+    case tappable(action: String, hold: HoldAction?, WidgetView)
 
     /// Gives its child a REGION at least `minWidth`×`minHeight`, independently of the
     /// ink inside it.
@@ -95,6 +95,61 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// GTK backend (measured 116px against 80px — see `region`'s note); a
     /// kanban's columns need the split stated, not hoped for.
     case columns(spacing: Double, [WidgetView])
+
+    /// `panel` drawn over `base` behind a scrim of `scrimHex` — a MODAL.
+    ///
+    /// The renderer is free to lift the panel out of the tile and draw it over
+    /// the whole screen, and the SwiftCrossUI one does: a scrim that dimmed only
+    /// the tile that raised it, leaving the shell's chrome bright beside it, read
+    /// as a rendering bug rather than as a modal. So a widget saying `.layered`
+    /// is saying "take over the screen", not "cover me".
+    ///
+    /// Build this node ONLY while there is something to show. An overlay is a
+    /// real widget on the GTK backend and swallows every tap beneath it, which
+    /// is exactly right for a modal and exactly wrong as a permanent fixture —
+    /// a layer wrapped around an empty panel makes the whole tile untappable
+    /// (see `EditScrim`, which is conditional for the same reason).
+    ///
+    /// `dismiss` is raised when the scrim itself is tapped — the renderer insets
+    /// the panel, so the scrim is a real target around it, and a modal you can
+    /// only leave through one small glyph is a trap. nil makes the scrim inert.
+    /// It is an action NAME like every other, so the renderer never learns what
+    /// dismissing means.
+    ///
+    /// The scrim is a hex rather than a token because, like everything else the
+    /// session board colours, it is data — see `ColorToken`.
+    case layered(WidgetView, scrimHex: String, dismiss: String?, over: WidgetView)
+}
+
+/// What a long press raises, and whether it keeps raising it while held.
+///
+/// The distinction is not cosmetic. A counter's `+` SHOULD repeat — that is
+/// what holding it is for. A hold that OPENS something must fire exactly once,
+/// because `HoldGate`'s repeater deliberately outlives a missing release (GTK
+/// stops delivering `released` once the widget under the finger is rebuilt, and
+/// opening a panel rebuilds it) — so a repeating open would re-open the panel
+/// every 0.45s for up to nine seconds after it was dismissed.
+public struct HoldAction: Equatable, Sendable {
+    /// The action name handed to `InteractiveWidget.handle(action:environment:)`.
+    public var action: String
+    /// Keep firing while the finger stays down.
+    public var repeats: Bool
+
+    public init(action: String, repeats: Bool) {
+        self.action = action
+        self.repeats = repeats
+    }
+
+    /// A hold that fires until release — a counter, a scrubber.
+    public static func repeating(_ action: String) -> HoldAction {
+        HoldAction(action: action, repeats: true)
+    }
+
+    /// A hold that fires once, however long it is held — anything that opens,
+    /// toggles, or navigates.
+    public static func once(_ action: String) -> HoldAction {
+        HoldAction(action: action, repeats: false)
+    }
 }
 
 public extension WidgetView {

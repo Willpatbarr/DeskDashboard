@@ -5,6 +5,46 @@ import Foundation
 
 // MARK: - Reading
 
+/// One subagent a session spawned, as the daemon read it out of the parent's
+/// transcript.
+///
+/// `running` and `seconds` arrive already computed. That is deliberate: the
+/// daemon measures them against the Mac's clock, and the Pi's clock has no
+/// reason to agree with it — a timestamp would have to be reconciled, a
+/// duration doesn't.
+public struct ClaudeSessionAgent: Equatable, Sendable {
+    /// What the agent was asked to do — the `description` it was spawned with.
+    public var label: String
+    /// The subagent type (`Explore`, `general-purpose`, …), when it had one.
+    public var agentType: String?
+    /// Model override, when the spawn named one.
+    public var model: String?
+    /// Still in flight. A finished agent stays in the list — that history is
+    /// the reason this exists separately from `agentCount`.
+    public var running: Bool
+    /// How long it has run, or how long it took. Nil when the transcript record
+    /// carried no timestamp to measure from.
+    public var seconds: Int?
+    /// The agent returned an error.
+    public var failed: Bool
+
+    public init(
+        label: String,
+        agentType: String? = nil,
+        model: String? = nil,
+        running: Bool = false,
+        seconds: Int? = nil,
+        failed: Bool = false
+    ) {
+        self.label = label
+        self.agentType = agentType
+        self.model = model
+        self.running = running
+        self.seconds = seconds
+        self.failed = failed
+    }
+}
+
 /// One Claude Code session as the Mac's AgentManager daemon reports it.
 public struct ClaudeSession: Equatable, Sendable {
     /// The desktop app's session id (`local_…`) — also the focus key.
@@ -42,9 +82,34 @@ public struct ClaudeSession: Equatable, Sendable {
     public var column: String
     public var stalled: Bool
     public var askPending: Bool
+    /// How many subagents are in flight RIGHT NOW — what the card's `⚙n`
+    /// means. Not the length of `agents`, which also holds finished runs.
     public var agentCount: Int
     public var lastActivity: String?
     public var ageSeconds: Int
+
+    // MARK: Detail-panel facts
+    //
+    // Everything below is shown only by the long-press detail panel. The card
+    // has no room for any of it, but the daemon already knows all of it, so it
+    // rides the same push rather than needing a second request when a panel
+    // opens (the Pi cannot reach the Mac — see `PushClaudeSessionsService`).
+
+    /// Recent subagents, newest first — running and finished alike.
+    public var agents: [ClaudeSessionAgent]
+    /// `owner/name` of the GitHub repo, when the session has a PR.
+    public var repo: String?
+    /// The branch this session's work merges INTO.
+    public var base: String?
+    /// The session is running in a git worktree rather than the repo itself.
+    public var worktree: Bool
+    public var prIsDraft: Bool
+    /// Reasoning effort, when the session set one.
+    public var effort: String?
+    /// `default` | `plan` | `acceptEdits` | `bypassPermissions`.
+    public var permissionMode: String?
+    /// The plan document the session was started from, without its extension.
+    public var planName: String?
 
     public init(
         id: String,
@@ -64,7 +129,17 @@ public struct ClaudeSession: Equatable, Sendable {
         askPending: Bool = false,
         agentCount: Int = 0,
         lastActivity: String? = nil,
-        ageSeconds: Int = 0
+        ageSeconds: Int = 0,
+        // Defaulted so every existing initialiser — the tests, the simulated
+        // service, the ingest map — keeps compiling untouched.
+        agents: [ClaudeSessionAgent] = [],
+        repo: String? = nil,
+        base: String? = nil,
+        worktree: Bool = false,
+        prIsDraft: Bool = false,
+        effort: String? = nil,
+        permissionMode: String? = nil,
+        planName: String? = nil
     ) {
         self.id = id
         self.title = title
@@ -84,6 +159,14 @@ public struct ClaudeSession: Equatable, Sendable {
         self.agentCount = agentCount
         self.lastActivity = lastActivity
         self.ageSeconds = ageSeconds
+        self.agents = agents
+        self.repo = repo
+        self.base = base
+        self.worktree = worktree
+        self.prIsDraft = prIsDraft
+        self.effort = effort
+        self.permissionMode = permissionMode
+        self.planName = planName
     }
 }
 
