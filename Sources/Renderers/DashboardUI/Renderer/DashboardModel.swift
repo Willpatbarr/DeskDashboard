@@ -127,6 +127,108 @@ final class DashboardModel: ObservableObject {
     /// The current arrangement's wallpaper path, if it has one.
     var backgroundImage: String? { current.backgroundImage }
 
+    // MARK: - Fullscreen navigation
+
+    /// Whether the current arrangement owns the whole strip (no header band —
+    /// just the left rail beside the board).
+    var isFullscreen: Bool { current.isFullscreen }
+
+    /// The arrangement the header's `›` arrow enters, or nil when the app
+    /// declared none (the arrow hides).
+    var fullscreenIndex: Int? {
+        arrangements.firstIndex(where: \.isFullscreen)
+    }
+
+    /// Indices of the arrangements the switcher shows — fullscreen ones are
+    /// reached by the arrow, not a segment, so they're filtered out here and the
+    /// pill's indices are remapped through this list.
+    var switcherIndices: [Int] {
+        arrangements.indices.filter { !arrangements[$0].isFullscreen }
+    }
+
+    var switcherLabels: [String] {
+        switcherIndices.map { arrangements[$0].short }
+    }
+
+    /// The switcher slot to highlight: the current arrangement's position among
+    /// the non-fullscreen ones (while fullscreen, the pill isn't on screen, so
+    /// the stale value is never drawn).
+    var switcherSelected: Int {
+        switcherIndices.firstIndex(of: selectedIndex) ?? 0
+    }
+
+    /// A switcher segment tap, in FILTERED index space.
+    func selectSwitcher(_ filteredIndex: Int) {
+        guard switcherIndices.indices.contains(filteredIndex) else { return }
+        select(switcherIndices[filteredIndex])
+    }
+
+    /// Where `exitFullscreen` returns to — whatever board the arrow left from.
+    private var fullscreenReturnIndex = 0
+
+    /// The header's `›` arrow: slide over to the fullscreen board.
+    func enterFullscreen() {
+        guard transition == nil,
+              let destination = fullscreenIndex,
+              destination != selectedIndex else { return }
+        fullscreenReturnIndex = selectedIndex
+        beginTransition(to: destination, enteringFromRight: true)
+    }
+
+    /// The rail's `‹` pill: slide back to the board the arrow left from.
+    func exitFullscreen() {
+        guard transition == nil else { return }
+        beginTransition(to: fullscreenReturnIndex, enteringFromRight: false)
+    }
+
+    // MARK: - Slide transition
+
+    /// The in-flight screen slide, or nil when a screen is simply showing.
+    /// Published exactly twice per slide (start and end) — the per-frame progress
+    /// lives on `SlideStage`'s own animator, for the same reason `PillAnimator`
+    /// is not owned here: a publish on this model re-renders the whole dashboard.
+    @Published private(set) var transition: ScreenTransition?
+
+    /// Monotonic token so `SlideStage` can tell a new transition from a re-render
+    /// of the one already animating.
+    private var transitionCount = 0
+
+    private func beginTransition(to index: Int, enteringFromRight: Bool) {
+        guard arrangements.indices.contains(index), index != selectedIndex else { return }
+        // `DD_UI_SLIDE_MS=0` opts out of animating, same as the pill.
+        guard DashboardLaunch.slideMilliseconds > 0 else {
+            select(index)
+            return
+        }
+        transitionCount += 1
+        transition = ScreenTransition(
+            key: "slide-\(transitionCount)",
+            fromIndex: selectedIndex,
+            toIndex: index,
+            enteringFromRight: enteringFromRight
+        )
+    }
+
+    /// The stage finished its sweep: land on the destination and drop the stage.
+    /// The swap happens HERE, under the fully swept stage, so the real content
+    /// appears in one frame once the skeletons settle.
+    func completeTransition() {
+        guard let transition else { return }
+        select(transition.toIndex)
+        self.transition = nil
+    }
+
+    /// Board bands for any arrangement by index — the skeleton stage needs the
+    /// OUTGOING and INCOMING shapes, not just the current one (`boardBands`).
+    func bands(at index: Int) -> [BoardBand]? {
+        guard arrangements.indices.contains(index) else { return nil }
+        switch arrangements[index].screen {
+        case let .board(columns): return [BoardBand(columns)]
+        case let .bands(bands): return bands
+        case nil: return nil
+        }
+    }
+
     /// The wallpaper to draw when the header's Image toggle is on — the
     /// arrangement's own if it authored one, otherwise the first one any
     /// arrangement authored.
@@ -232,6 +334,18 @@ final class DashboardModel: ObservableObject {
         guard modes.indices.contains(index) else { return }
         hueMode = modes[index]
     }
+}
+
+/// One in-flight screen slide: which arrangement is leaving, which is arriving,
+/// and which way the new one comes in. `key` distinguishes runs (see
+/// `DashboardModel.transitionCount`).
+struct ScreenTransition: Equatable {
+    let key: String
+    let fromIndex: Int
+    let toIndex: Int
+    /// true = the new screen slides in from the right edge (the `›` direction);
+    /// false = from the left (the `‹` return trip).
+    let enteringFromRight: Bool
 }
 
 /// Hand-off point between the app-composition code and the SwiftCrossUI `App`.

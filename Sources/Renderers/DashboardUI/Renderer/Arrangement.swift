@@ -40,6 +40,12 @@ public struct Arrangement: Sendable {
     /// to the panel's aspect or it will draw stretched.
     public let backgroundImage: String?
 
+    /// Fullscreen arrangements drop the header band entirely: no pills, just a
+    /// slim left rail (back button + mini clock) beside the board, so one widget
+    /// can use nearly the whole strip. They are reached by the header's arrow
+    /// button rather than a switcher segment — the switcher skips them.
+    public let isFullscreen: Bool
+
     /// The screens the renderer knows how to draw.
     ///
     /// Only boards, now. There used to be a hand-built `.mtg` case for the Magic
@@ -61,12 +67,14 @@ public struct Arrangement: Sendable {
         short: String,
         theme: (any Theme)? = nil,
         screen: Screen? = nil,
-        backgroundImage: String? = nil
+        backgroundImage: String? = nil,
+        isFullscreen: Bool = false
     ) {
         self.name = name
         self.short = short
         self.theme = theme
         self.screen = screen
         self.backgroundImage = backgroundImage
+        self.isFullscreen = isFullscreen
     }
 }

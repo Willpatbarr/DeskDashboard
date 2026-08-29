@@ -34,11 +34,15 @@ let dashboardArrangements: [Arrangement] = [
                 screen: .board(BoardColumns.focusFlipped)),
     Arrangement(name: "Green · flip centered", short: "Ctr",
                 screen: .board(BoardColumns.focusFlippedCentered)),
-    // No theme of its own any more: the ruled green theme is the composition's, so
-    // naming it here would just restate the default. What still makes this
-    // arrangement distinct is its column spec.
-    Arrangement(name: "Ruled · board", short: "Ruled",
-                screen: .board(BoardColumns.ruled)),
+    // "Ruled · board" was dropped from the switcher to keep the pill row from
+    // overflowing the strip when the Claude board joined (8 pills shoved the
+    // whole surface right); `BoardColumns.ruled` itself stays, still used by
+    // the Claude board's clock column styling reference.
     Arrangement(name: "Gradient · MTG", short: "MTG",
                 theme: GradientClockTheme(), screen: .board(BoardColumns.mtg)),
+    // Fullscreen: no header, left rail only — reached by the header's `›` arrow,
+    // deliberately absent from the switcher pills (see `Arrangement.isFullscreen`).
+    Arrangement(name: "Claude · sessions", short: "Claude",
+                screen: .board(BoardColumns.claude),
+                isFullscreen: true),
 ]

@@ -46,27 +46,112 @@ struct DashboardRootView: View {
             caption=\(palette.captionSize)
             """)
 
-            VStack(spacing: 0) {
-                // Fixed band at the top for the title + pill, then the widgets
-                // take whatever is left. Previously the header only asked for a
-                // `minHeight` while the content region was greedy
-                // (`maxHeight: .infinity`), so the VStack squeezed the header to
-                // its *text* height and the taller pill overflowed — which is what
-                // clipped the pill's bottom edge.
-                header(palette, chrome, viewport)
-                    .frame(height: band)
+            Group {
+                if let transition = model.transition {
+                    // Mid-slide: the whole strip is the skeleton stage. Real
+                    // content (and its taps) is out of the tree until the model
+                    // completes the swap — a tap mid-sweep hits nothing.
+                    SlideStage(
+                        palette: palette,
+                        width: viewport.width,
+                        height: viewport.height,
+                        from: model.bands(at: transition.fromIndex) ?? [],
+                        to: model.bands(at: transition.toIndex) ?? [],
+                        enteringFromRight: transition.enteringFromRight,
+                        transitionKey: transition.key,
+                        onFinished: { model.completeTransition() }
+                    )
+                } else if model.isFullscreen {
+                    // Fullscreen arrangement: no header band at all — a slim rail
+                    // (back pill + mini clock) beside the board, per the mockup.
+                    HStack(spacing: 0) {
+                        rail(palette, chrome)
+                            .frame(width: railWidth(chrome), height: viewport.height)
+                        content(palette, height: viewport.height)
+                            .frame(
+                                width: max(1, viewport.width - railWidth(chrome)),
+                                height: viewport.height
+                            )
+                    }
+                } else {
+                    VStack(spacing: 0) {
+                        // Fixed band at the top for the title + pill, then the widgets
+                        // take whatever is left. Previously the header only asked for a
+                        // `minHeight` while the content region was greedy
+                        // (`maxHeight: .infinity`), so the VStack squeezed the header to
+                        // its *text* height and the taller pill overflowed — which is what
+                        // clipped the pill's bottom edge.
+                        header(palette, chrome, viewport)
+                            .frame(height: band)
 
-                // Exact height, not `maxHeight: .infinity`. Measured on the panel:
-                // a greedy child inside `.padding(.vertical:)` swallowed the
-                // bottom inset, so the tiles ran to y=439 of 440 — bleeding off
-                // the screen with their bottom corners cut. Sizing the region and
-                // its inset content explicitly leaves the margin intact.
-                content(palette, height: max(1, viewport.height - band))
-                    .frame(width: viewport.width, height: max(1, viewport.height - band))
+                        // Exact height, not `maxHeight: .infinity`. Measured on the panel:
+                        // a greedy child inside `.padding(.vertical:)` swallowed the
+                        // bottom inset, so the tiles ran to y=439 of 440 — bleeding off
+                        // the screen with their bottom corners cut. Sizing the region and
+                        // its inset content explicitly leaves the margin intact.
+                        content(palette, height: max(1, viewport.height - band))
+                            .frame(width: viewport.width, height: max(1, viewport.height - band))
+                    }
+                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .background(background(palette, viewport))
         }
+    }
+
+    // MARK: - Fullscreen rail
+
+    /// The fullscreen rail's width: one single-glyph pill plus the section
+    /// margins either side of it.
+    private func railWidth(_ chrome: ThemeToSCUIPalette) -> Double {
+        Double(
+            segmentWidth(chrome, widestLabel: 1)
+                + segmentInsets(chrome).track * 2
+                + chrome.sectionMargin * 2
+        )
+    }
+
+    /// The left rail of a fullscreen arrangement: the `‹` back pill on top, then
+    /// the mini clock — hours over minutes, per the mockup — and empty space.
+    private func rail(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {
+        VStack(spacing: chrome.verticalWidgetGap) {
+            EditPill(
+                palette: palette,
+                label: "‹",
+                isOn: false,
+                slotWidth: segmentWidth(chrome, widestLabel: 1),
+                slotHeight: segmentHeight(chrome),
+                trackInset: segmentInsets(chrome).track,
+                fontSize: chrome.captionSize,
+                onTap: { model.exitFullscreen() }
+            )
+            .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
+            .alwaysPillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
+
+            Text(railClock.hour)
+                .font(.system(size: chrome.captionSize, weight: .semibold))
+                .foregroundColor(palette.secondary)
+            Text(railClock.minute)
+                .font(.system(size: chrome.captionSize, weight: .semibold))
+                .foregroundColor(palette.secondary)
+
+            Spacer()
+        }
+        .padding(.horizontal, chrome.sectionMargin)
+        .padding(.vertical, chrome.verticalSectionMargin)
+    }
+
+    /// The rail clock's digits, read from the clock WIDGET's snapshot rather than
+    /// a timer of this view's own — the widget already ticks every second, and
+    /// snapshots re-render this view anyway. Empty strings when the app has no
+    /// clock widget (the rail just shows the back pill).
+    private var railClock: (hour: String, minute: String) {
+        let time = model.snapshots
+            .first { $0.id.rawValue == "clock" }?
+            .content?.primaryText ?? ""
+        let parts = time.split(separator: ":").map(String.init)
+        guard parts.count >= 2 else { return ("", "") }
+        return (parts[0], parts[1])
     }
 
     /// The screen below the header: the interactive MTG mode, or the widget-tile
@@ -201,9 +286,34 @@ struct DashboardRootView: View {
                 previewBar(palette, chrome)
                     .layoutPriority(1)
             }
+            // The `›` arrow into the fullscreen board. Outside the switcher
+            // gate on purpose: `--kiosk` hides the arrangement pills, but the
+            // fullscreen board must stay reachable on the kiosk.
+            if model.fullscreenIndex != nil {
+                arrowBar(palette, chrome)
+                    .padding(.leading, chrome.widgetGap)
+                    .layoutPriority(1)
+            }
         }
         .padding(.horizontal, chrome.sectionMargin)
         .padding(.vertical, chrome.verticalSectionMargin)
+    }
+
+    /// The header's `›` arrow: slides over to the fullscreen arrangement. Built
+    /// like `editBar` so it reads as one of the same family of controls.
+    private func arrowBar(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {
+        EditPill(
+            palette: palette,
+            label: "›",
+            isOn: false,
+            slotWidth: segmentWidth(chrome, widestLabel: 1),
+            slotHeight: segmentHeight(chrome),
+            trackInset: segmentInsets(chrome).track,
+            fontSize: chrome.captionSize,
+            onTap: { model.enterFullscreen() }
+        )
+        .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
+        .alwaysPillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
     }
 
     /// A pill-shaped segmented switcher styled after the reference HTML toggle:
@@ -242,7 +352,9 @@ struct DashboardRootView: View {
     /// showing bare numbers. SwiftCrossUI exposes no text-measurement API, so
     /// this estimates ~0.62em per glyph at semibold.
     private func segmentWidth(_ palette: ThemeToSCUIPalette) -> Int {
-        segmentWidth(palette, widestLabel: model.arrangements.map(\.short.count).max() ?? 1)
+        // Sized to the labels the pill actually SHOWS — fullscreen arrangements
+        // are filtered out, so their (often longer) names don't widen every slot.
+        segmentWidth(palette, widestLabel: model.switcherLabels.map(\.count).max() ?? 1)
     }
 
     /// Slot width for a pill whose widest label is `widestLabel` characters. Each
@@ -360,14 +472,17 @@ struct DashboardRootView: View {
     private func previewBar(_ palette: ThemeToSCUIPalette, _ chrome: ThemeToSCUIPalette) -> some View {
         SwitcherPill(
             palette: palette,
-            labels: model.arrangements.map(\.short),
-            selected: model.selectedIndex,
+            // Filtered: fullscreen arrangements have no segment — the `›` arrow
+            // is their way in — so labels, selection and taps all go through the
+            // model's switcher-index mapping.
+            labels: model.switcherLabels,
+            selected: model.switcherSelected,
             slotWidth: segmentWidth(chrome),
             slotHeight: segmentHeight(chrome),
             trackInset: segmentInsets(chrome).track,
             fontSize: chrome.captionSize,
             slideMilliseconds: DashboardLaunch.slideMilliseconds,
-            onSelect: { model.select($0) }
+            onSelect: { model.selectSwitcher($0) }
         )
         // The track's pill shape, applied HERE because corner radius only clips
         // a composited background when the parent applies it (same trap and

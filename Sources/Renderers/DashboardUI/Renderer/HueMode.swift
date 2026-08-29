@@ -35,20 +35,20 @@ import DashboardKit
 /// on its surface (see `colors`).
 enum HueMode: CaseIterable {
     case original
-    case teal
     case blue
-    case plum
     case amber
     case slate
 
     /// Switcher labels — kept to ≤5 characters, as the pill sizes every slot to the
     /// widest one and the header already carries two other pills.
+    ///
+    /// Teal and plum were retired to buy back header width when the fullscreen
+    /// arrow joined the row — the pill row was overflowing the strip's right edge
+    /// (the "white bar on the left" symptom). Their palettes are in git history.
     var label: String {
         switch self {
         case .original: "Green"
-        case .teal: "Teal"
         case .blue: "Blue"
-        case .plum: "Plum"
         case .amber: "Amber"
         case .slate: "Slate"
         }
@@ -68,23 +68,11 @@ enum HueMode: CaseIterable {
         switch self {
         case .original:
             nil
-        case .teal:
-            ThemeColors(
-                background: "#01151C", surface: "#0A2A31", primary: "#FFFFFF",
-                secondary: "#99D1CE", accent: "#A4ECE8", text: "#FFFFFF",
-                mutedText: "#99D1CE", divider: "#99D1CE", border: "#3F6761"
-            )
         case .blue:
             ThemeColors(
                 background: "#0E1012", surface: "#191C1F", primary: "#FFFFFF",
                 secondary: "#99BFD1", accent: "#77CCF5", text: "#FFFFFF",
                 mutedText: "#99BFD1", divider: "#99BFD1", border: "#3F6475"
-            )
-        case .plum:
-            ThemeColors(
-                background: "#100E12", surface: "#1C191F", primary: "#FFFFFF",
-                secondary: "#B899D1", accent: "#CFAAED", text: "#FFFFFF",
-                mutedText: "#B899D1", divider: "#B899D1", border: "#5D3F75"
             )
         case .amber:
             ThemeColors(
