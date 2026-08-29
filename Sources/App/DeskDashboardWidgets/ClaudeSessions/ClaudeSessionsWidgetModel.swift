@@ -14,10 +14,10 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
     /// Kanban shape. Also the layout's contract: the model pads/truncates to
     /// exactly `columnCount` columns of `slotCount` rows each.
     public static let columnCount = 3
-    /// Three, not five: a web-style card is three text lines tall, and five of
-    /// them outgrew the strip's tile height (the web board scrolls; the panel
-    /// cannot).
-    public static let slotCount = 3
+    /// Most cards a column will render. Not a fitting constraint any more —
+    /// the column scrolls — just a sane ceiling on how much a push can ask the
+    /// tile to build.
+    public static let slotCount = 12
 
     /// One display row, pre-formatted. `sessionID` is empty for blank slots.
     public struct Row: Equatable, Sendable {
@@ -55,11 +55,12 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
     /// `columnCount` column headers — label, count, accent — blanks for absent
     /// columns.
     private(set) var columns: [ColumnDisplay] = Array(repeating: .blank, count: columnCount)
-    /// `columnCount` columns of exactly `slotCount` rows.
-    private(set) var grid: [[Row]] = Array(
-        repeating: Array(repeating: .blank, count: slotCount),
-        count: columnCount
-    )
+    /// `columnCount` columns of up to `slotCount` rows each. Variable length:
+    /// the columns scroll, so blank slots would only add dead space to scroll
+    /// through. (Blank padding was the fixed-height era's trick for keeping the
+    /// node tree constant — see the layout's note on why that rule was about
+    /// HOLD gestures, which these tap-only cards don't use.)
+    private(set) var grid: [[Row]] = Array(repeating: [], count: columnCount)
     private(set) var countsLine: String = "Waiting for Mac…"
     private(set) var isStale = false
 
@@ -87,10 +88,7 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
     func refresh(at date: Date) {
         guard let reading = service.reading() else {
             columns = Array(repeating: .blank, count: Self.columnCount)
-            grid = Array(
-                repeating: Array(repeating: .blank, count: Self.slotCount),
-                count: Self.columnCount
-            )
+            grid = Array(repeating: [], count: Self.columnCount)
             countsLine = "Waiting for Mac…"
             isStale = false
             return
@@ -113,7 +111,7 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
                     ?? Self.fallbackColors[index % Self.fallbackColors.count],
                 compact: column.compact
             ))
-            var rows = sessions.prefix(Self.slotCount).map { session in
+            let rows = sessions.prefix(Self.slotCount).map { session in
                 Row(
                     title: Self.rowTitle(session),
                     project: session.project ?? "",
@@ -125,14 +123,11 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
                     sessionID: session.id
                 )
             }
-            while rows.count < Self.slotCount {
-                rows.append(.blank)
-            }
             cells.append(Array(rows))
         }
         while displays.count < Self.columnCount {
             displays.append(.blank)
-            cells.append(Array(repeating: .blank, count: Self.slotCount))
+            cells.append([])
         }
         columns = displays
         grid = cells

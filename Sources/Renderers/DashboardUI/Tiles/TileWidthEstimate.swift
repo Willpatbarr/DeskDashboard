@@ -40,6 +40,8 @@ extension ThemeToSCUIPalette {
             return Double(string.count) * style(for: role).size * Self.glyphWidthRatio
         case let .card(_, _, _, padding, child):
             return estimatedWidth(of: child) + padding * scale * 2
+        case let .scroll(_, child):
+            return estimatedWidth(of: child)
         case let .columns(spacing, children):
             let gaps = spacing * scale * Double(max(0, children.count - 1))
             return children.map { estimatedWidth(of: $0) }.reduce(0, +) + gaps

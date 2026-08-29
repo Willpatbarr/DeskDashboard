@@ -58,23 +58,22 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
     // MARK: - Rendering
 
     public func render(environment: DashboardEnvironment) -> WidgetContent {
-        let blankColumn = [ClaudeSessionsWidgetModel.Row](
-            repeating: .blank,
-            count: ClaudeSessionsWidgetModel.slotCount
-        )
         let grid = model?.grid
-            ?? Array(repeating: blankColumn, count: ClaudeSessionsWidgetModel.columnCount)
+            ?? Array(repeating: [], count: ClaudeSessionsWidgetModel.columnCount)
         let columns = model?.columns
             ?? Array(repeating: .blank, count: ClaudeSessionsWidgetModel.columnCount)
 
         // Header record per column: label ⟨US⟩ count ⟨US⟩ colorHex, columns
         // joined by ⟨RS⟩. Blank columns carry empty strings so the layout's
         // node count never changes.
-        let headers = columns.map { column in
+        // Columns are variable length now, so each header record carries how
+        // many cards follow it; the layout walks `metadata` by those offsets.
+        let headers = columns.enumerated().map { index, column in
             [
                 column.label,
                 column.label.isEmpty ? "" : "\(column.count)",
                 column.colorHex,
+                "\(index < grid.count ? grid[index].count : 0)",
             ].joined(separator: Self.fieldSeparator)
         }.joined(separator: Self.columnSeparator)
 

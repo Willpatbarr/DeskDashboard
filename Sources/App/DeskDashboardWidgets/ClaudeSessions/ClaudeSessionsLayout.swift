@@ -1,4 +1,4 @@
-// ClaudeSessionsLayout.swift — Tile layout: the web dashboard's kanban, drawn in its own colors.
+// ClaudeSessionsLayout.swift — Tile layout: the web dashboard's kanban, scrollable per column.
 
 import DashboardKit
 
@@ -9,17 +9,26 @@ public extension WidgetLayout {
     /// the accents the daemon pushes per column) — this tile deliberately does
     /// NOT follow the theme, which is why it leans on `.card`/`.coloredText`.
     ///
-    /// **Every node is unconditional; only the STRINGS vary** — the GTK rule
-    /// from `lifeCounter`. The grid shape is fixed by the model (columnCount ×
-    /// slotCount, blanks padded); blank slots render as cards in the column
-    /// well's own colour, i.e. invisibly, and raise the inert `claude.none`.
+    /// Each column's cards sit in a `.scroll`, so a column with more sessions
+    /// than fit is scrolled rather than clipped or overflowing. That is also
+    /// why the columns are VARIABLE length now: with a scroll region there is
+    /// nothing to be gained from padding them to a fixed count, and blank cards
+    /// would only add dead space to scroll through.
     ///
-    /// Data arrives packed (see `ClaudeSessionsWidget`): metadata slots hold
-    /// `title` + `age⟨US⟩id⟨US⟩project⟨US⟩model⟨US⟩activity⟨US⟩flag`;
-    /// `secondaryText` holds `label⟨US⟩count⟨US⟩color` per column, ⟨RS⟩-joined.
+    /// **On the fixed-shape rule** (`lifeCounter`'s note): that requirement
+    /// exists because a node inserted mid-press makes GTK cancel the gesture on
+    /// the widget being held, so a HOLD's auto-repeat never receives its
+    /// release and runs away. These cards are tap-only (`hold: nil`), so the
+    /// failure it guards against cannot occur — the worst case here is a tap
+    /// lost to a re-render, and `ClaudeSessionsWidgetTests` pins the no-hold
+    /// property so this reasoning cannot silently stop being true.
+    ///
+    /// Data arrives packed (see `ClaudeSessionsWidget`): metadata holds every
+    /// card in column order, `secondaryText` holds
+    /// `label⟨US⟩count⟨US⟩color⟨US⟩rendered` per column (⟨RS⟩-joined), and
+    /// `rendered` is how the walk below finds each column's slice.
     static let claudeSessions = Self(id: "claudeSessions") { content in
         let columnCount = 3
-        let slotCount = 3
 
         // The web dashboard's palette (public/index.html :root), verbatim.
         let columnWell = "#15181d"
@@ -36,22 +45,36 @@ public extension WidgetLayout {
                     .map(String.init)
             }
 
+        func rendered(_ columnIndex: Int) -> Int {
+            guard headers.indices.contains(columnIndex),
+                  headers[columnIndex].indices.contains(3) else { return 0 }
+            return Int(headers[columnIndex][3]) ?? 0
+        }
+
+        // Where each column's cards start in the flat metadata list.
+        var offsets: [Int] = []
+        var running = 0
+        for index in 0 ..< columnCount {
+            offsets.append(running)
+            running += rendered(index)
+        }
+
         let columns: [WidgetView] = (0 ..< columnCount).map { columnIndex in
-            let header = columnIndex < headers.count ? headers[columnIndex] : []
+            let header = headers.indices.contains(columnIndex) ? headers[columnIndex] : []
             let label = header.indices.contains(0) ? header[0] : ""
             let count = header.indices.contains(1) ? header[1] : ""
             let accent = header.indices.contains(2) && !header[2].isEmpty
                 ? header[2] : textDim
+            let start = offsets[columnIndex]
 
             // The staleness flag lives in the first column's header now that
             // the tile has no counts row of its own.
             let stale = columnIndex == 0 ? (content.accessoryText ?? "") : ""
 
-            let slots: [WidgetView] = (0 ..< slotCount).map { slotIndex in
-                let flatIndex = columnIndex * slotCount + slotIndex
-                let entry = flatIndex < content.metadata.count
-                    ? content.metadata[flatIndex]
-                    : WidgetContentMetadata(label: "", value: "")
+            let slots: [WidgetView] = (0 ..< rendered(columnIndex)).compactMap { slotIndex in
+                let flatIndex = start + slotIndex
+                guard flatIndex < content.metadata.count else { return nil }
+                let entry = content.metadata[flatIndex]
                 let fields = entry.value
                     .split(separator: "\u{1F}", omittingEmptySubsequences: false)
                     .map(String.init)
@@ -62,45 +85,46 @@ public extension WidgetLayout {
                 let activity = fields.indices.contains(4) ? fields[4] : ""
                 let flag = fields.indices.contains(5) ? fields[5] : ""
 
-                let action = sessionID.isEmpty ? "claude.none" : "claude.focus.\(sessionID)"
-                // Blank slots wear the well's own colour — present in the tree
-                // (the GTK rule) but invisible on the board.
-                let face = sessionID.isEmpty ? columnWell : cardFace
                 let meta = [project, model].filter { !$0.isEmpty }
                     .joined(separator: " · ")
 
                 return .tappable(
-                    action: action, hold: nil,
-                    .card(hex: face, borderHex: sessionID.isEmpty ? nil : line, cornerRadius: 8, padding: 5, .stack(.vertical, spacing: 2, [
-                        .stack(.horizontal, spacing: 6, [
-                            // The column accent, standing in for the web card's
-                            // coloured left border. Everything in a card is
-                            // caption-sized: `.secondary` maps to bodySize (24
-                            // → 36px on the panel), and three body-height cards
-                            // per column overflow the strip — measured, twice.
-                            .coloredText(sessionID.isEmpty ? "" : "●", role: .caption, hex: accent),
-                            .coloredText(entry.label, role: .caption, hex: textBright),
-                            .spacer,
-                            .coloredText(age, role: .caption, hex: textDim),
-                        ]),
-                        .stack(.horizontal, spacing: 6, [
-                            .coloredText(meta, role: .caption, hex: textDim),
-                            .coloredText(flag, role: .caption, hex: flagColor),
-                            .spacer,
-                        ]),
-                        .coloredText(activity, role: .caption, hex: textDim),
-                    ]))
+                    action: "claude.focus.\(sessionID)", hold: nil,
+                    .card(hex: cardFace, borderHex: line, cornerRadius: 8, padding: 5,
+                          .stack(.vertical, spacing: 2, [
+                              .stack(.horizontal, spacing: 6, [
+                                  // The column accent, standing in for the web
+                                  // card's coloured left border. Everything in a
+                                  // card is caption-sized: `.secondary` maps to
+                                  // bodySize (24 → 36px on the panel), far too
+                                  // heavy for a card this size.
+                                  .coloredText("●", role: .caption, hex: accent),
+                                  .coloredText(entry.label, role: .caption, hex: textBright),
+                                  .spacer,
+                                  .coloredText(age, role: .caption, hex: textDim),
+                              ]),
+                              .stack(.horizontal, spacing: 6, [
+                                  .coloredText(meta, role: .caption, hex: textDim),
+                                  .coloredText(flag, role: .caption, hex: flagColor),
+                                  .spacer,
+                              ]),
+                              .coloredText(activity, role: .caption, hex: textDim),
+                          ]))
                 )
             }
 
-            return .card(hex: columnWell, borderHex: line, cornerRadius: 12, padding: 6, .stack(.vertical, spacing: 4, [
-                .stack(.horizontal, spacing: 8, [
-                    .coloredText(label.uppercased(), role: .caption, hex: accent),
-                    .coloredText(stale, role: .caption, hex: flagColor),
-                    .spacer,
-                    .coloredText(count, role: .caption, hex: textDim),
-                ]),
-            ] + slots + [.spacer]))
+            return .card(hex: columnWell, borderHex: line, cornerRadius: 12, padding: 6,
+                         .stack(.vertical, spacing: 4, [
+                             .stack(.horizontal, spacing: 8, [
+                                 .coloredText(label.uppercased(), role: .caption, hex: accent),
+                                 .coloredText(stale, role: .caption, hex: flagColor),
+                                 .spacer,
+                                 .coloredText(count, role: .caption, hex: textDim),
+                             ]),
+                             // The cards scroll; the header above stays put.
+                             // Clipped cards fade into the well at each edge.
+                             .scroll(fadeHex: columnWell, .stack(.vertical, spacing: 4, slots)),
+                         ]))
         }
 
         // No tile-level header row: the columns ARE the widget (the counts live

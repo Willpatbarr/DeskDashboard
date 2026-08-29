@@ -320,6 +320,8 @@ private func shape(of node: WidgetView) -> String {
         "ctext"
     case let .columns(_, children):
         "columns[\(children.map(shape(of:)).joined(separator: ","))]"
+    case let .scroll(_, child):
+        "scroll[\(shape(of: child))]"
     case let .card(_, _, cornerRadius, padding, child):
         "card(\(cornerRadius),\(padding))[\(shape(of: child))]"
     }

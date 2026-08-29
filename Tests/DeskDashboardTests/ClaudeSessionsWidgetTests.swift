@@ -33,7 +33,7 @@ private func reading(_ sessions: [ClaudeSession]) -> ClaudeSessionsReading {
 
 // MARK: - Model
 
-@Test func modelPadsTheGridToAFixedShape() {
+@Test func modelGroupsSessionsIntoColumnsWithoutPadding() {
     let service = FixedClaudeSessionsService(reading([
         ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
         ClaudeSession(id: "local_b", title: "Two", column: "idle", ageSeconds: 9),
@@ -41,10 +41,11 @@ private func reading(_ sessions: [ClaudeSession]) -> ClaudeSessionsReading {
     let model = ClaudeSessionsWidgetModel(service: service)
     model.refresh(at: Date())
 
+    // Always `columnCount` columns, but each holds only its real sessions —
+    // the columns scroll, so blank padding would just be dead scroll space.
     #expect(model.grid.count == ClaudeSessionsWidgetModel.columnCount)
-    #expect(model.grid.allSatisfy { $0.count == ClaudeSessionsWidgetModel.slotCount })
+    #expect(model.grid.map(\.count) == [1, 0, 1])
     #expect(model.grid[0][0].sessionID == "local_a")   // working column
-    #expect(model.grid[0][1] == .blank)
     #expect(model.grid[2][0].sessionID == "local_b")   // idle column
 }
 
@@ -108,59 +109,98 @@ private func reading(_ sessions: [ClaudeSession]) -> ClaudeSessionsReading {
     #expect(store.drainPendingFocus().isEmpty)
 }
 
-// MARK: - Layout structural stability (the GTK rule — see LifeCounterLayout)
+// MARK: - Layout
 
-@Test func theSessionTileHasTheSameNodesEmptyOrFull() {
-    let service = FixedClaudeSessionsService(nil)
+@Test func everyCardIsTapOnlySoAReRenderCannotStrandAHold() {
+    // This tile has VARIABLE node counts (columns scroll, so cards are not
+    // padded to a fixed shape). `lifeCounter`'s fixed-shape rule exists because
+    // a node inserted mid-press makes GTK cancel a HOLD's gesture, so its
+    // auto-repeat never receives a release and runs away. That cannot happen
+    // while every region here is tap-only — which is what this pins.
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+        ClaudeSession(id: "local_b", title: "Two", column: "needs-you", ageSeconds: 40),
+    ]))
     var dashboard = Dashboard()
     let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date(timeIntervalSinceNow: 2))
 
-    let bare = WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))
+    var holds: [String?] = []
+    collectHolds(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id)), into: &holds)
+
+    #expect(!holds.isEmpty)
+    #expect(holds.allSatisfy { $0 == nil })
+}
+
+@Test func columnsGrowWithTheirOwnSessions() {
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date(timeIntervalSinceNow: 2))
+    let oneCard = tapActions(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id)))
 
     service.stored = reading([
-        ClaudeSession(
-            id: "local_a", title: "Busy one", project: "Repo", column: "working",
-            agentCount: 3, lastActivity: "Building", ageSeconds: 42
-        ),
-        ClaudeSession(id: "local_b", title: "Waiting one", column: "needs-you", ageSeconds: 900),
-        ClaudeSession(id: "local_c", title: "Cold one", column: "idle", ageSeconds: 9000),
+        ClaudeSession(id: "local_a", title: "One", column: "working", ageSeconds: 5),
+        ClaudeSession(id: "local_b", title: "Two", column: "working", ageSeconds: 6),
+        ClaudeSession(id: "local_c", title: "Three", column: "idle", ageSeconds: 7),
     ])
-    dashboard.tick(at: Date(timeIntervalSinceNow: 2))
-    let full = WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))
+    dashboard.tick(at: Date(timeIntervalSinceNow: 4))
+    let threeCards = tapActions(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id)))
 
-    #expect(shape(of: bare) == shape(of: full))
+    // Each card's action carries its own session, and the walk finds every
+    // column's slice of the flat metadata list (`local_c` is in column three).
+    #expect(oneCard == ["claude.focus.local_a"])
+    #expect(threeCards == [
+        "claude.focus.local_a", "claude.focus.local_b", "claude.focus.local_c",
+    ])
+}
+
+private func tapActions(_ node: WidgetView) -> [String] {
+    switch node {
+    case let .tappable(action, _, child):
+        [action] + tapActions(child)
+    case let .stack(_, _, children):
+        children.flatMap(tapActions)
+    case let .columns(_, children):
+        children.flatMap(tapActions)
+    case let .centered(children):
+        children.flatMap(tapActions)
+    case let .region(_, _, child):
+        tapActions(child)
+    case let .card(_, _, _, _, child):
+        tapActions(child)
+    case let .scroll(_, child):
+        tapActions(child)
+    default:
+        []
+    }
+}
+
+private func collectHolds(_ node: WidgetView, into holds: inout [String?]) {
+    switch node {
+    case let .tappable(_, hold, child):
+        holds.append(hold)
+        collectHolds(child, into: &holds)
+    case let .stack(_, _, children):
+        for child in children { collectHolds(child, into: &holds) }
+    case let .columns(_, children):
+        for child in children { collectHolds(child, into: &holds) }
+    case let .centered(children):
+        for child in children { collectHolds(child, into: &holds) }
+    case let .region(_, _, child):
+        collectHolds(child, into: &holds)
+    case let .card(_, _, _, _, child):
+        collectHolds(child, into: &holds)
+    case let .scroll(_, child):
+        collectHolds(child, into: &holds)
+    default:
+        break
+    }
 }
 
 private func snapshotContent(_ dashboard: Dashboard, _ id: WidgetID) -> WidgetContent {
     dashboard.attachedWidgetSnapshots.first { $0.id == id }?.content ?? WidgetContent(primaryText: "")
 }
 
-/// The node tree with every string blanked — structure only. Tap ACTIONS are
-/// deliberately excluded (unlike InteractiveWidgetTests' shape): each session
-/// row's action carries its session id, which is exactly the part allowed to
-/// change while the tree shape must not.
-private func shape(of node: WidgetView) -> String {
-    switch node {
-    case .text: "text"
-    case .badge: "badge"
-    case .spacer: "spacer"
-    case .divider: "divider"
-    case .fittedText: "fitted"
-    case .progressBar: "progress"
-    case .playState: "playState"
-    case let .tappable(_, hold, child):
-        "tappable(\(hold ?? "-"))[\(shape(of: child))]"
-    case let .centered(children):
-        "centered[\(children.map(shape(of:)).joined(separator: ","))]"
-    case let .stack(axis, _, children):
-        "stack(\(axis))[\(children.map(shape(of:)).joined(separator: ","))]"
-    case let .region(minWidth, minHeight, child):
-        "region(\(minWidth),\(minHeight))[\(shape(of: child))]"
-    case .coloredText:
-        "ctext"
-    case let .columns(_, children):
-        "columns[\(children.map(shape(of:)).joined(separator: ","))]"
-    case let .card(_, _, cornerRadius, padding, child):
-        "card(\(cornerRadius),\(padding))[\(shape(of: child))]"
-    }
-}

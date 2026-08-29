@@ -79,6 +79,19 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// the tree's shape.
     case card(hex: String, borderHex: String?, cornerRadius: Double, padding: Double, WidgetView)
 
+    /// Makes its child scrollable, clipped to the height it is given.
+    ///
+    /// The renderer must hand it a DEFINITE height — given an unconstrained
+    /// one it simply grows to its content and clips nothing (that is the
+    /// documented behaviour of the backend's scroll container, and it is how
+    /// this tile used to overflow). A renderer with no scrolling can draw the
+    /// child and let it clip however it clips.
+    ///
+    /// `fadeHex` asks the renderer to fade content out at a clipped edge, into
+    /// that colour — pass the colour of whatever sits behind the scrolling
+    /// content. nil leaves the edge hard.
+    case scroll(fadeHex: String?, WidgetView)
+
     /// A horizontal row whose children share the width EQUALLY, gaps excluded.
     /// Exists because greedy siblings do not split leftover space evenly on the
     /// GTK backend (measured 116px against 80px — see `region`'s note); a

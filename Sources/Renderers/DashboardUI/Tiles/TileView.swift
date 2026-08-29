@@ -118,7 +118,12 @@ struct TileView: View {
 
     // MARK: - Interpreter (WidgetView -> SwiftCrossUI)
 
-    private func interpret(_ node: WidgetView) -> AnyView {
+    /// - Parameter insideScroll: true once the walk has descended into a
+    ///   `.scroll`. Taps there fire on RELEASE with drag slop instead of on
+    ///   press, or every scroll gesture would activate the card it started on —
+    ///   see `tapUnlessDragged`. Threaded rather than global so the MTG tiles,
+    ///   whose hold/tap arbitration is tuned around press-to-fire, are untouched.
+    private func interpret(_ node: WidgetView, insideScroll: Bool = false) -> AnyView {
         switch node {
         case let .text(string, role):
             let style = palette.style(for: role)
@@ -155,6 +160,20 @@ struct TileView: View {
                     .foregroundColor(Color(hex: hex) ?? style.color)
             )
 
+        case let .scroll(fadeHex, child):
+            // Vertical only: a horizontal scroll inside a column would fight
+            // the board's own left-right taps. The height comes from the frame
+            // this is given — see the node's doc for why that is required.
+            if let fadeHex {
+                // Display-wide and idempotent — see `ScrollFade`.
+                ScrollFade.install(hex: fadeHex, height: 20 * palette.scale)
+            }
+            return AnyView(
+                ScrollView(.vertical) {
+                    interpret(child, insideScroll: true)
+                }
+            )
+
         case let .columns(spacing, children):
             // Equal split, stated explicitly: measure the row and give every
             // child the same slice. Same GeometryReader pattern (and the same
@@ -166,10 +185,15 @@ struct TileView: View {
                     let raw = proxy.size.width
                     let width = raw.isFinite ? max(0, raw) : 0
                     let slice = max(1, (width - gap * Double(count - 1)) / Double(count))
+                    let rawHeight = proxy.size.height
+                    // A DEFINITE height, passed down so a `.scroll` inside a
+                    // column has something to clip against; without it the
+                    // scroll container grows to its content instead.
+                    let height = rawHeight.isFinite && rawHeight > 0 ? rawHeight.rounded() : nil
                     HStack(spacing: Int(gap.rounded())) {
                         ForEach(Array(children.enumerated()), id: \.offset) { item in
-                            interpret(item.element)
-                                .frame(width: slice.rounded())
+                            interpret(item.element, insideScroll: insideScroll)
+                                .frame(width: slice.rounded(), height: height)
                         }
                     }
                 }
@@ -182,7 +206,7 @@ struct TileView: View {
             let pad = max(0, Int((padding * palette.scale).rounded()))
             let radius = max(0, Int((cornerRadius * palette.scale).rounded()))
             return AnyView(
-                interpret(child)
+                interpret(child, insideScroll: insideScroll)
                     .padding(pad)
                     .frame(
                         maxWidth: .infinity,
@@ -210,7 +234,19 @@ struct TileView: View {
             // A region with a hold reports `isHoldable` on its taps too, so the
             // gate knows to wait and see rather than emitting immediately.
             let isHoldable = hold != nil
-            let tappable = interpret(child)
+            if insideScroll, hold == nil {
+                // Still `onTapGesture` first: that is what attaches the
+                // GestureClick which `tapUnlessDragged` then re-points at
+                // release. Slop scales with the panel like every other size.
+                return AnyView(
+                    interpret(child, insideScroll: true)
+                        .onTapGesture {}
+                        .tapUnlessDragged(slop: 12 * palette.scale) {
+                            onAction?(action, false, false)
+                        }
+                )
+            }
+            let tappable = interpret(child, insideScroll: insideScroll)
                 .onTapGesture { onAction?(action, false, isHoldable) }
             guard let hold else { return AnyView(tappable) }
             let ended = onPressEnded
@@ -222,7 +258,7 @@ struct TileView: View {
             )
 
         case let .centered(children):
-            let views = children.map(interpret)
+            let views = children.map { interpret($0, insideScroll: insideScroll) }
             let indexed = Array(views.enumerated())
 
             let largest = children.reduce(0.0) { widest, child in
@@ -304,14 +340,14 @@ struct TileView: View {
             let minW = minWidth * palette.scale
             let minH = minHeight * palette.scale
             return AnyView(
-                interpret(child).frame(
+                interpret(child, insideScroll: insideScroll).frame(
                     minWidth: minW > 0 ? minW : nil,
                     minHeight: minH > 0 ? minH : nil
                 )
             )
 
         case let .stack(axis, spacing, children):
-            let views = children.map(interpret)
+            let views = children.map { interpret($0, insideScroll: insideScroll) }
             let indexed = Array(views.enumerated())
             // Layout spacings are authored against the theme's reference canvas
             // like every other size, so scale them with the palette.
