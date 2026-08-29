@@ -67,7 +67,10 @@ struct DashboardRootView: View {
                     HStack(spacing: 0) {
                         rail(palette, chrome)
                             .frame(width: railWidth(chrome), height: viewport.height)
-                        content(palette, height: viewport.height)
+                        // Slim leading margin: the rail already carries the gap,
+                        // so the board's usual section margin would double up as
+                        // dead space between the pill and the tile.
+                        content(palette, height: viewport.height, leadingMargin: chrome.widgetGap)
                             .frame(
                                 width: max(1, viewport.width - railWidth(chrome)),
                                 height: viewport.height
@@ -101,13 +104,13 @@ struct DashboardRootView: View {
 
     // MARK: - Fullscreen rail
 
-    /// The fullscreen rail's width: one single-glyph pill plus the section
-    /// margins either side of it.
+    /// The fullscreen rail's width: exactly the back pill plus a hair of air —
+    /// the widget gap, not the section margin, so the board gets the width back.
     private func railWidth(_ chrome: ThemeToSCUIPalette) -> Double {
         Double(
             segmentWidth(chrome, widestLabel: 1)
                 + segmentInsets(chrome).track * 2
-                + chrome.sectionMargin * 2
+                + chrome.widgetGap * 2
         )
     }
 
@@ -128,16 +131,19 @@ struct DashboardRootView: View {
             .cornerRadius(max(0, pillHeight(chrome) / 2 - 1))
             .alwaysPillBorder(palette, radius: Double(max(0, pillHeight(chrome) / 2 - 1)))
 
+            // Body-size digits (caption read as an afterthought on the panel),
+            // pushed clear of the pill by a section margin's worth of air.
             Text(railClock.hour)
-                .font(.system(size: chrome.captionSize, weight: .semibold))
+                .font(.system(size: chrome.bodySize, weight: .semibold))
                 .foregroundColor(palette.secondary)
+                .padding(.top, chrome.verticalSectionMargin)
             Text(railClock.minute)
-                .font(.system(size: chrome.captionSize, weight: .semibold))
+                .font(.system(size: chrome.bodySize, weight: .semibold))
                 .foregroundColor(palette.secondary)
 
             Spacer()
         }
-        .padding(.horizontal, chrome.sectionMargin)
+        .padding(.horizontal, chrome.widgetGap)
         .padding(.vertical, chrome.verticalSectionMargin)
     }
 
@@ -161,11 +167,16 @@ struct DashboardRootView: View {
     ///   definite inner size *before* its margins are added, so the margins
     ///   survive; with a greedy inner view the bottom inset was being dropped and
     ///   the tiles overran the bottom of the screen.
+    /// - Parameter leadingMargin: overrides the content's left inset. The
+    ///   fullscreen rail passes its small gap here — otherwise the board keeps
+    ///   its full section margin, which read as dead space beside the rail.
     @ViewBuilder private func content(
         _ palette: ThemeToSCUIPalette,
-        height: Double
+        height: Double,
+        leadingMargin: Int? = nil
     ) -> some View {
         let inner = max(1, height - Double(palette.verticalSectionMargin * 2))
+        let leading = leadingMargin ?? palette.sectionMargin
 
         if let bands = model.boardBands {
             BoardScreen(
@@ -187,7 +198,8 @@ struct DashboardRootView: View {
                 onPressEnded: { model.endPress() }
             )
                 .frame(height: inner)
-                .padding(.horizontal, palette.sectionMargin)
+                .padding(.leading, leading)
+                .padding(.trailing, palette.sectionMargin)
                 .padding(.vertical, palette.verticalSectionMargin)
         } else {
             HStack(spacing: palette.widgetGap) {
@@ -217,7 +229,8 @@ struct DashboardRootView: View {
                 }
             }
             .frame(height: inner)
-            .padding(.horizontal, palette.sectionMargin)
+            .padding(.leading, leading)
+            .padding(.trailing, palette.sectionMargin)
             .padding(.vertical, palette.verticalSectionMargin)
         }
     }

@@ -103,7 +103,13 @@ final class DashboardModel: ObservableObject {
     /// Whether a wallpaper is actually being drawn right now — the toggle is on
     /// AND there's an image to draw. Panels only thin out when there's something
     /// behind them to show.
-    var showsWallpaper: Bool { showsBackgroundImage && wallpaper != nil }
+    ///
+    /// Fullscreen arrangements never draw one, whatever the Image toggle says:
+    /// the session board is a working surface, and the wallpaper fallback (any
+    /// arrangement's photo) would otherwise follow you in from the main boards.
+    var showsWallpaper: Bool {
+        !current.isFullscreen && showsBackgroundImage && wallpaper != nil
+    }
     /// Palette for the app chrome (title line, switcher): geometry that must not
     /// move when the arrangement — or the app's theme — changes. Colours still
     /// come from `palette(for:)`, so the chrome matches what's on screen; only
