@@ -11,6 +11,8 @@ public struct ClaudeSession: Equatable, Sendable {
     public var id: String
     public var title: String
     public var project: String?
+    /// Model slug, e.g. `claude-opus-5`.
+    public var model: String?
     /// Column id assigned by the daemon's (user-configurable) column rules —
     /// e.g. `working` / `needs-you` / `idle`, but the set is open.
     public var column: String
@@ -24,6 +26,7 @@ public struct ClaudeSession: Equatable, Sendable {
         id: String,
         title: String,
         project: String? = nil,
+        model: String? = nil,
         column: String,
         stalled: Bool = false,
         askPending: Bool = false,
@@ -34,6 +37,7 @@ public struct ClaudeSession: Equatable, Sendable {
         self.id = id
         self.title = title
         self.project = project
+        self.model = model
         self.column = column
         self.stalled = stalled
         self.askPending = askPending
@@ -48,10 +52,18 @@ public struct ClaudeSession: Equatable, Sendable {
 public struct ClaudeSessionColumn: Equatable, Sendable {
     public var id: String
     public var label: String
+    /// The column's accent (`#RRGGBB`), as the daemon's board config states it —
+    /// the Pi board mirrors the web dashboard's colours, so colour is DATA here.
+    public var colorHex: String?
+    /// Compact columns render slimmer entries (the web board hides the activity
+    /// line for these).
+    public var compact: Bool
 
-    public init(id: String, label: String) {
+    public init(id: String, label: String, colorHex: String? = nil, compact: Bool = false) {
         self.id = id
         self.label = label
+        self.colorHex = colorHex
+        self.compact = compact
     }
 }
 

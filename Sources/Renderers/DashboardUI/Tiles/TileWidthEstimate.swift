@@ -36,6 +36,13 @@ extension ThemeToSCUIPalette {
             return captionSize * 1.4
         case let .tappable(_, _, child):
             return estimatedWidth(of: child)
+        case let .coloredText(string, role, _):
+            return Double(string.count) * style(for: role).size * Self.glyphWidthRatio
+        case let .card(_, _, _, padding, child):
+            return estimatedWidth(of: child) + padding * scale * 2
+        case let .columns(spacing, children):
+            let gaps = spacing * scale * Double(max(0, children.count - 1))
+            return children.map { estimatedWidth(of: $0) }.reduce(0, +) + gaps
         case let .region(minWidth, _, child):
             return max(minWidth * scale, estimatedWidth(of: child))
         case let .centered(children):

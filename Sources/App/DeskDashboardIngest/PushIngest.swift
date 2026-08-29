@@ -80,6 +80,7 @@ public enum PushIngest {
             var id: String
             var title: String
             var project: String?
+            var model: String?
             var state: String
             var stalled: Bool?
             var askPending: Bool?
@@ -90,6 +91,8 @@ public enum PushIngest {
         struct ColumnPayload: Decodable {
             var id: String
             var label: String
+            var color: String?
+            var compact: Bool?
         }
         struct Payload: Decodable {
             var columns: [ColumnPayload]?
@@ -108,7 +111,11 @@ public enum PushIngest {
 
             // Columns are optional in the payload but the reading always has
             // some — derive them from the sessions when the producer omits them.
-            let columns = payload.columns?.map { ClaudeSessionColumn(id: $0.id, label: $0.label) }
+            let columns = payload.columns?.map {
+                ClaudeSessionColumn(
+                    id: $0.id, label: $0.label, colorHex: $0.color, compact: $0.compact ?? false
+                )
+            }
                 ?? orderedColumnIDs(of: payload.sessions.map(\.state))
                     .map { ClaudeSessionColumn(id: $0, label: $0.capitalized) }
 
@@ -120,6 +127,7 @@ public enum PushIngest {
                             id: session.id,
                             title: session.title,
                             project: session.project,
+                            model: session.model,
                             column: session.state,
                             stalled: session.stalled ?? false,
                             askPending: session.askPending ?? false,

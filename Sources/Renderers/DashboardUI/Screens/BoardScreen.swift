@@ -166,20 +166,31 @@ struct BoardScreen: View {
         return VStack(spacing: palette.verticalWidgetGap) {
             let containerless = containerMode.isContainerless(authored: column.containerless)
             ForEach(Array(column.rows.enumerated()), id: \.offset) { item in
-                row(item.element, containerless: containerless, hugsWidth: column.hugsContent)
+                row(
+                    item.element,
+                    containerless: containerless,
+                    flush: column.flush,
+                    hugsWidth: column.hugsContent
+                )
                     .frame(height: max(1, usable * item.element.weight / totalWeight))
             }
         }
     }
 
     @ViewBuilder
-    private func row(_ row: BoardRow, containerless: Bool, hugsWidth: Bool = false) -> some View {
+    private func row(
+        _ row: BoardRow,
+        containerless: Bool,
+        flush: Bool = false,
+        hugsWidth: Bool = false
+    ) -> some View {
         if let snapshot = resolvedSnapshot(row) {
             TileView(
                 snapshot: snapshot,
                 palette: palette,
                 layoutOverride: row.layout,
                 containerless: containerless,
+                flush: flush,
                 hidesTitle: row.hidesTitle,
                 alignment: alignments[row.id],
                 centersVertically: row.centersVertically,

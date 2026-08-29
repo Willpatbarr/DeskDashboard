@@ -14,24 +14,25 @@ public final class SimulatedClaudeSessionsService: ClaudeSessionsService, @unche
         let elapsed = Int(Date().timeIntervalSince(startedAt))
         return ClaudeSessionsReading(
             columns: [
-                ClaudeSessionColumn(id: "working", label: "Working"),
-                ClaudeSessionColumn(id: "needs-you", label: "Needs You"),
-                ClaudeSessionColumn(id: "idle", label: "Idle"),
+                ClaudeSessionColumn(id: "working", label: "Working", colorHex: "#4ade80"),
+                ClaudeSessionColumn(id: "needs-you", label: "Needs You", colorHex: "#fbbf24"),
+                ClaudeSessionColumn(id: "idle", label: "Idle", colorHex: "#6b7280", compact: true),
             ],
             sessions: [
                 ClaudeSession(
                     id: "sim-1", title: "MMA-1234 directory refactor", project: "MemberTools",
-                    column: "working", agentCount: 2, lastActivity: "Running gradle build",
-                    ageSeconds: 8 + elapsed
+                    model: "claude-opus-5", column: "working", agentCount: 2,
+                    lastActivity: "Running gradle build", ageSeconds: 8 + elapsed
                 ),
                 ClaudeSession(
                     id: "sim-2", title: "Calendar zoom polish", project: "MemberTools",
-                    column: "needs-you", askPending: true, lastActivity: "Question waiting",
-                    ageSeconds: 260 + elapsed
+                    model: "claude-fable-5", column: "needs-you", askPending: true,
+                    lastActivity: "Question waiting", ageSeconds: 260 + elapsed
                 ),
                 ClaudeSession(
                     id: "sim-3", title: "XML wiki sync", project: "XMLWiki",
-                    column: "idle", lastActivity: "Done", ageSeconds: 7500 + elapsed
+                    model: "claude-opus-5", column: "idle", lastActivity: "Done",
+                    ageSeconds: 7500 + elapsed
                 ),
             ],
             receivedAt: Date()

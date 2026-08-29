@@ -28,6 +28,10 @@ public struct BoardColumn: Equatable, Sendable {
     /// Renders the tiles without their chrome — just the content, directly on
     /// the board's gradient.
     public let containerless: Bool
+    /// Drops the tile's own inner padding so the layout's content reaches the
+    /// tile bounds. For layouts that draw their own cards/wells (the Claude
+    /// kanban) — the tile inset would otherwise double the visual padding.
+    public let flush: Bool
     /// Sizes the column to its CONTENT instead of to `weight`, leaving the rest of
     /// the band to its flexible siblings.
     ///
@@ -42,6 +46,7 @@ public struct BoardColumn: Equatable, Sendable {
         _ layout: WidgetLayout,
         _ weight: Double,
         containerless: Bool = false,
+        flush: Bool = false,
         hidesTitle: Bool = false,
         hugsContent: Bool = false,
         widthSample: String? = nil,
@@ -59,6 +64,7 @@ public struct BoardColumn: Equatable, Sendable {
             ],
             weight,
             containerless: containerless,
+            flush: flush,
             hugsContent: hugsContent
         )
     }
@@ -68,11 +74,13 @@ public struct BoardColumn: Equatable, Sendable {
         rows: [BoardRow],
         _ weight: Double,
         containerless: Bool = false,
+        flush: Bool = false,
         hugsContent: Bool = false
     ) {
         self.rows = rows
         self.weight = weight
         self.containerless = containerless
+        self.flush = flush
         self.hugsContent = hugsContent
     }
 }

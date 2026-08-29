@@ -70,7 +70,13 @@ struct DashboardRootView: View {
                         // Slim leading margin: the rail already carries the gap,
                         // so the board's usual section margin would double up as
                         // dead space between the pill and the tile.
-                        content(palette, height: viewport.height, leadingMargin: chrome.widgetGap)
+                        content(
+                            palette,
+                            height: viewport.height,
+                            leadingMargin: chrome.widgetGap,
+                            verticalMargin: chrome.verticalSectionMargin,
+                            containerMode: .bare
+                        )
                             .frame(
                                 width: max(1, viewport.width - railWidth(chrome)),
                                 height: viewport.height
@@ -170,12 +176,20 @@ struct DashboardRootView: View {
     /// - Parameter leadingMargin: overrides the content's left inset. The
     ///   fullscreen rail passes its small gap here — otherwise the board keeps
     ///   its full section margin, which read as dead space beside the rail.
+    /// - Parameter verticalMargin: overrides the content's top/bottom insets.
+    ///   Fullscreen passes the CHROME margin so the tile's top edge lines up
+    ///   with the rail's back pill instead of the theme's deeper inset.
+    /// - Parameter containerMode: overrides the header pill's container mode.
+    ///   Fullscreen forces `.bare`, the way it forces the wallpaper off.
     @ViewBuilder private func content(
         _ palette: ThemeToSCUIPalette,
         height: Double,
-        leadingMargin: Int? = nil
+        leadingMargin: Int? = nil,
+        verticalMargin: Int? = nil,
+        containerMode: ContainerMode? = nil
     ) -> some View {
-        let inner = max(1, height - Double(palette.verticalSectionMargin * 2))
+        let vertical = verticalMargin ?? palette.verticalSectionMargin
+        let inner = max(1, height - Double(vertical * 2))
         let leading = leadingMargin ?? palette.sectionMargin
 
         if let bands = model.boardBands {
@@ -183,7 +197,7 @@ struct DashboardRootView: View {
                 palette: palette,
                 snapshots: model.snapshots,
                 bands: bands,
-                containerMode: model.containerMode,
+                containerMode: containerMode ?? model.containerMode,
                 isEditing: model.isEditing,
                 alignments: model.alignments,
                 onSelectAlignment: { id, index in model.setAlignment(index, for: id) },
@@ -200,7 +214,7 @@ struct DashboardRootView: View {
                 .frame(height: inner)
                 .padding(.leading, leading)
                 .padding(.trailing, palette.sectionMargin)
-                .padding(.vertical, palette.verticalSectionMargin)
+                .padding(.vertical, vertical)
         } else {
             HStack(spacing: palette.widgetGap) {
                 ForEach(tiles, id: \.id.rawValue) { snapshot in
@@ -231,7 +245,7 @@ struct DashboardRootView: View {
             .frame(height: inner)
             .padding(.leading, leading)
             .padding(.trailing, palette.sectionMargin)
-            .padding(.vertical, palette.verticalSectionMargin)
+            .padding(.vertical, vertical)
         }
     }
 

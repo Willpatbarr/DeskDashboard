@@ -30,6 +30,10 @@ struct TileView: View {
     /// the widget's own `isContainerless` — a board-level override, like
     /// `layoutOverride`.
     var containerless: Bool = false
+    /// Drops the tile's inner padding (set by a `flush` board column) so the
+    /// layout's content reaches the tile bounds — for layouts drawing their own
+    /// cards. Values only, never structure, same rule as `containerless`.
+    var flush: Bool = false
     /// Suppresses the widget's title label for this render (a board-level
     /// choice — every layout already omits an absent title).
     var hidesTitle: Bool = false
@@ -98,8 +102,8 @@ struct TileView: View {
         // on the GTK backend.
         let plain = containerless || snapshot.configuration.isContainerless
         return interpret(layout.makeView(layoutContent))
-            .padding(.horizontal, palette.tilePadding)
-            .padding(.vertical, palette.verticalTilePadding)
+            .padding(.horizontal, flush ? 0 : palette.tilePadding)
+            .padding(.vertical, flush ? 0 : palette.verticalTilePadding)
             .frame(
                 maxWidth: hugsWidth ? nil : .infinity,
                 maxHeight: .infinity,
@@ -138,6 +142,57 @@ struct TileView: View {
                 Text(string)
                     .font(.system(size: palette.captionSize, weight: .bold))
                     .foregroundColor(palette.accent)
+            )
+
+        case let .coloredText(string, role, hex):
+            // `.text` with the colour overridden by data — size and weight still
+            // come from the role, so it scales with the panel.
+            let style = palette.style(for: role)
+            let text = style.uppercased ? string.uppercased() : string
+            return AnyView(
+                Text(text)
+                    .font(.system(size: style.size, weight: style.weight))
+                    .foregroundColor(Color(hex: hex) ?? style.color)
+            )
+
+        case let .columns(spacing, children):
+            // Equal split, stated explicitly: measure the row and give every
+            // child the same slice. Same GeometryReader pattern (and the same
+            // not-yet-measured guard) as the transport progress bar.
+            let gap = spacing * palette.scale
+            let count = max(1, children.count)
+            return AnyView(
+                GeometryReader { proxy in
+                    let raw = proxy.size.width
+                    let width = raw.isFinite ? max(0, raw) : 0
+                    let slice = max(1, (width - gap * Double(count - 1)) / Double(count))
+                    HStack(spacing: Int(gap.rounded())) {
+                        ForEach(Array(children.enumerated()), id: \.offset) { item in
+                            interpret(item.element)
+                                .frame(width: slice.rounded())
+                        }
+                    }
+                }
+            )
+
+        case let .card(hex, borderHex, cornerRadius, padding, child):
+            // The `.padding` / `.background` / `.cornerRadius` chain is the same
+            // ceremony the tile chrome itself uses — a stack with no background
+            // reports no size on the GTK backend.
+            let pad = max(0, Int((padding * palette.scale).rounded()))
+            let radius = max(0, Int((cornerRadius * palette.scale).rounded()))
+            return AnyView(
+                interpret(child)
+                    .padding(pad)
+                    .frame(
+                        maxWidth: .infinity,
+                        alignment: runAlignment.aligned(centeredVertically: false)
+                    )
+                    .background(Color(hex: hex) ?? palette.surface)
+                    .cornerRadius(radius)
+                    // Always called, nil writes "none" — widgets are reused
+                    // across re-renders (see `cssBorder`'s own note).
+                    .cssBorder(hex: borderHex, width: 1, radius: Double(radius))
             )
 
         case .spacer:

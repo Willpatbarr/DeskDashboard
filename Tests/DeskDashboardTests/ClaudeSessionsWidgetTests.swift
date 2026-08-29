@@ -57,7 +57,10 @@ private func reading(_ sessions: [ClaudeSession]) -> ClaudeSessionsReading {
     let model = ClaudeSessionsWidgetModel(service: service)
     model.refresh(at: Date())
 
-    #expect(model.columnHeaders == ["Working (1)", "Needs You (0)", "Idle (2)"])
+    #expect(model.columns.map(\.label) == ["Working", "Needs You", "Idle"])
+    #expect(model.columns.map(\.count) == [1, 0, 2])
+    // Colors fall back to the web defaults when the push omits them.
+    #expect(model.columns[0].colorHex == "#4ade80")
     #expect(model.countsLine == "1 working · 0 needs you · 2 idle")
 }
 
@@ -153,5 +156,11 @@ private func shape(of node: WidgetView) -> String {
         "stack(\(axis))[\(children.map(shape(of:)).joined(separator: ","))]"
     case let .region(minWidth, minHeight, child):
         "region(\(minWidth),\(minHeight))[\(shape(of: child))]"
+    case .coloredText:
+        "ctext"
+    case let .columns(_, children):
+        "columns[\(children.map(shape(of:)).joined(separator: ","))]"
+    case let .card(_, _, cornerRadius, padding, child):
+        "card(\(cornerRadius),\(padding))[\(shape(of: child))]"
     }
 }

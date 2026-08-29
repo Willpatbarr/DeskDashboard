@@ -61,6 +61,29 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// renderer scales them. A renderer with no notion of hit areas can ignore the
     /// wrapper and draw the child.
     case region(minWidth: Double, minHeight: Double, WidgetView)
+
+    /// Text drawn in an explicit hex colour (`#RRGGBB`/`#RRGGBBAA`) instead of
+    /// the theme's role colour. The role still supplies size and weight, so the
+    /// node scales with the panel like every other text. For content whose
+    /// colours are DATA (the Claude board mirrors its web dashboard's palette,
+    /// column colours arrive in the push) rather than theming.
+    case coloredText(String, role: TextRole, hex: String)
+
+    /// A rounded, hex-coloured container — a card. `cornerRadius` and `padding`
+    /// are reference-canvas units, scaled by the renderer like every other size.
+    /// A card whose hex matches its backdrop is invisible: that is the intended
+    /// way to keep blank slots in the tree (the GTK structural-stability rule)
+    /// without showing empty boxes.
+    /// `borderHex` draws a hairline outline (nil = none); like everything else
+    /// here it is a VALUE, so blanks can drop their outline without changing
+    /// the tree's shape.
+    case card(hex: String, borderHex: String?, cornerRadius: Double, padding: Double, WidgetView)
+
+    /// A horizontal row whose children share the width EQUALLY, gaps excluded.
+    /// Exists because greedy siblings do not split leftover space evenly on the
+    /// GTK backend (measured 116px against 80px — see `region`'s note); a
+    /// kanban's columns need the split stated, not hoped for.
+    case columns(spacing: Double, [WidgetView])
 }
 
 public extension WidgetView {

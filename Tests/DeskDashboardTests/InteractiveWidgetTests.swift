@@ -316,6 +316,12 @@ private func shape(of node: WidgetView) -> String {
         "stack(\(axis))[\(children.map(shape(of:)).joined(separator: ","))]"
     case let .region(minWidth, minHeight, child):
         "region(\(minWidth),\(minHeight))[\(shape(of: child))]"
+    case .coloredText:
+        "ctext"
+    case let .columns(_, children):
+        "columns[\(children.map(shape(of:)).joined(separator: ","))]"
+    case let .card(_, _, cornerRadius, padding, child):
+        "card(\(cornerRadius),\(padding))[\(shape(of: child))]"
     }
 }
 

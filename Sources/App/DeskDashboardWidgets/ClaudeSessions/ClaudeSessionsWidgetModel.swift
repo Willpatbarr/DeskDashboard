@@ -14,24 +14,47 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
     /// Kanban shape. Also the layout's contract: the model pads/truncates to
     /// exactly `columnCount` columns of `slotCount` rows each.
     public static let columnCount = 3
-    public static let slotCount = 5
+    /// Three, not five: a web-style card is three text lines tall, and five of
+    /// them outgrew the strip's tile height (the web board scrolls; the panel
+    /// cannot).
+    public static let slotCount = 3
 
     /// One display row, pre-formatted. `sessionID` is empty for blank slots.
     public struct Row: Equatable, Sendable {
         public var title: String
+        public var project: String
+        public var model: String
+        public var activity: String
+        public var flag: String
         public var age: String
         public var sessionID: String
 
-        static let blank = Row(title: "", age: "", sessionID: "")
+        static let blank = Row(
+            title: "", project: "", model: "", activity: "", flag: "", age: "", sessionID: ""
+        )
     }
+
+    /// One column's header line, mirroring the web board: label, count, accent.
+    public struct ColumnDisplay: Equatable, Sendable {
+        public var label: String
+        public var count: Int
+        public var colorHex: String
+        public var compact: Bool
+
+        static let blank = ColumnDisplay(label: "", count: 0, colorHex: "", compact: false)
+    }
+
+    /// Accents when the daemon's push omits them — the web board's defaults.
+    static let fallbackColors = ["#4ade80", "#fbbf24", "#6b7280"]
 
     private let service: any ClaudeSessionsService
     /// Reading older than this is flagged STALE — the Mac daemon pushes every
     /// few seconds, so a quiet minute means the producer is gone.
     private let staleAfter: TimeInterval
 
-    /// `columnCount` header strings — "Working (2)" — blanks for absent columns.
-    private(set) var columnHeaders: [String] = Array(repeating: "", count: columnCount)
+    /// `columnCount` column headers — label, count, accent — blanks for absent
+    /// columns.
+    private(set) var columns: [ColumnDisplay] = Array(repeating: .blank, count: columnCount)
     /// `columnCount` columns of exactly `slotCount` rows.
     private(set) var grid: [[Row]] = Array(
         repeating: Array(repeating: .blank, count: slotCount),
@@ -63,7 +86,7 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
 
     func refresh(at date: Date) {
         guard let reading = service.reading() else {
-            columnHeaders = Array(repeating: "", count: Self.columnCount)
+            columns = Array(repeating: .blank, count: Self.columnCount)
             grid = Array(
                 repeating: Array(repeating: .blank, count: Self.slotCount),
                 count: Self.columnCount
@@ -79,14 +102,25 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
         // shows the first `columnCount` of them, in the daemon's order.
         let shown = Array(reading.columns.prefix(Self.columnCount))
 
-        var headers: [String] = []
-        var columns: [[Row]] = []
-        for column in shown {
+        var displays: [ColumnDisplay] = []
+        var cells: [[Row]] = []
+        for (index, column) in shown.enumerated() {
             let sessions = reading.sessions.filter { $0.column == column.id }
-            headers.append("\(column.label) (\(sessions.count))")
+            displays.append(ColumnDisplay(
+                label: column.label,
+                count: sessions.count,
+                colorHex: column.colorHex
+                    ?? Self.fallbackColors[index % Self.fallbackColors.count],
+                compact: column.compact
+            ))
             var rows = sessions.prefix(Self.slotCount).map { session in
                 Row(
                     title: Self.rowTitle(session),
+                    project: session.project ?? "",
+                    model: Self.modelLabel(session.model),
+                    // Compact columns drop the activity line, like the web board.
+                    activity: column.compact ? "" : Self.activityLabel(session),
+                    flag: Self.flagLabel(session),
                     age: Self.ageLabel(session.ageSeconds),
                     sessionID: session.id
                 )
@@ -94,14 +128,14 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
             while rows.count < Self.slotCount {
                 rows.append(.blank)
             }
-            columns.append(Array(rows))
+            cells.append(Array(rows))
         }
-        while headers.count < Self.columnCount {
-            headers.append("")
-            columns.append(Array(repeating: .blank, count: Self.slotCount))
+        while displays.count < Self.columnCount {
+            displays.append(.blank)
+            cells.append(Array(repeating: .blank, count: Self.slotCount))
         }
-        columnHeaders = headers
-        grid = columns
+        columns = displays
+        grid = cells
 
         var counts: [String] = []
         for column in reading.columns {
@@ -109,6 +143,27 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
             counts.append("\(n) \(column.label.lowercased())")
         }
         countsLine = counts.isEmpty ? "No sessions" : counts.joined(separator: " · ")
+    }
+
+    /// The model chip's text, shortened the way the web board shortens it.
+    static func modelLabel(_ model: String?) -> String {
+        (model ?? "").replacingOccurrences(of: "claude-", with: "")
+    }
+
+    /// The activity line, truncated to the card like the title is.
+    static func activityLabel(_ session: ClaudeSession) -> String {
+        guard let activity = session.lastActivity, !activity.isEmpty else { return "" }
+        if activity.count > maxTitleLength + 8 {
+            return String(activity.prefix(maxTitleLength + 7)) + "…"
+        }
+        return activity
+    }
+
+    /// The card's warning flag — the web board's wording.
+    static func flagLabel(_ session: ClaudeSession) -> String {
+        if session.askPending { return "question waiting" }
+        if session.stalled { return "stalled?" }
+        return ""
     }
 
     /// Longest title a slot may carry. GTK labels don't wrap or ellipsize here,

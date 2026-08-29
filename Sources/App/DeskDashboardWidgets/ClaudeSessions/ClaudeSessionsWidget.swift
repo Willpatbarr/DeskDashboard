@@ -21,9 +21,13 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
         public static let none = "claude.none"
     }
 
-    /// Separates age from session id inside a metadata value (U+001F, the unit
-    /// separator — never appears in either field).
+    /// Separates the packed fields inside a metadata value and the header
+    /// fields inside `secondaryText` (U+001F, the unit separator — never
+    /// appears in any field).
     public static let fieldSeparator = "\u{1F}"
+    /// Separates one column's header fields from the next inside
+    /// `secondaryText` (U+001E, the record separator).
+    public static let columnSeparator = "\u{1E}"
 
     public var configuration: WidgetConfiguration
     public var boundService: (any ClaudeSessionsService)?
@@ -60,19 +64,33 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
         )
         let grid = model?.grid
             ?? Array(repeating: blankColumn, count: ClaudeSessionsWidgetModel.columnCount)
-        let headers = model?.columnHeaders
-            ?? Array(repeating: "", count: ClaudeSessionsWidgetModel.columnCount)
+        let columns = model?.columns
+            ?? Array(repeating: .blank, count: ClaudeSessionsWidgetModel.columnCount)
+
+        // Header record per column: label ⟨US⟩ count ⟨US⟩ colorHex, columns
+        // joined by ⟨RS⟩. Blank columns carry empty strings so the layout's
+        // node count never changes.
+        let headers = columns.map { column in
+            [
+                column.label,
+                column.label.isEmpty ? "" : "\(column.count)",
+                column.colorHex,
+            ].joined(separator: Self.fieldSeparator)
+        }.joined(separator: Self.columnSeparator)
 
         return WidgetContent(
             title: configuration.title,
             primaryText: model?.countsLine ?? "Waiting for Mac…",
-            secondaryText: headers.joined(separator: Self.fieldSeparator),
+            secondaryText: headers,
             accessoryText: (model?.isStale ?? false) ? "STALE" : nil,
             metadata: grid.flatMap { column in
                 column.map { row in
                     WidgetContentMetadata(
                         label: row.title,
-                        value: row.age + Self.fieldSeparator + row.sessionID
+                        value: [
+                            row.age, row.sessionID, row.project,
+                            row.model, row.activity, row.flag,
+                        ].joined(separator: Self.fieldSeparator)
                     )
                 }
             }
