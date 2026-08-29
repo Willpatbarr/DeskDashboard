@@ -62,12 +62,13 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// wrapper and draw the child.
     case region(minWidth: Double, minHeight: Double, WidgetView)
 
-    /// Text drawn in an explicit hex colour (`#RRGGBB`/`#RRGGBBAA`) instead of
-    /// the theme's role colour. The role still supplies size and weight, so the
-    /// node scales with the panel like every other text. For content whose
-    /// colours are DATA (the Claude board mirrors its web dashboard's palette,
-    /// column colours arrive in the push) rather than theming.
-    case coloredText(String, role: TextRole, hex: String)
+    /// Text whose COLOUR is chosen by the layout rather than by its role. The
+    /// role still supplies size and weight, so the node scales with the panel
+    /// like any other text.
+    ///
+    /// Use a theme token for structure and `.hex` only for colour that is
+    /// information — see `ColorToken`.
+    case coloredText(String, role: TextRole, color: ColorToken)
 
     /// A rounded, hex-coloured container — a card. See `CardStyle`.
     ///
@@ -84,10 +85,10 @@ public indirect enum WidgetView: Equatable, Sendable {
     /// this tile used to overflow). A renderer with no scrolling can draw the
     /// child and let it clip however it clips.
     ///
-    /// `fadeHex` asks the renderer to fade content out at a clipped edge, into
-    /// that colour — pass the colour of whatever sits behind the scrolling
-    /// content. nil leaves the edge hard.
-    case scroll(fadeHex: String?, WidgetView)
+    /// `fade` asks the renderer to fade content out at a clipped edge, into
+    /// that colour — name whatever sits BEHIND the scrolling content, so the
+    /// fade follows the theme along with it. nil leaves the edge hard.
+    case scroll(fade: ColorToken?, WidgetView)
 
     /// A horizontal row whose children share the width EQUALLY, gaps excluded.
     /// Exists because greedy siblings do not split leftover space evenly on the
@@ -110,6 +111,32 @@ public extension WidgetView {
     }
 }
 
+/// A colour a layout can name without knowing what it resolves to.
+///
+/// Layouts are pure data — they never see a palette — so anything they colour
+/// is either a THEME colour, named here and resolved by the renderer, or a
+/// literal that carries meaning of its own. That split is the whole point:
+/// `.hex` is for colour that IS information (a session's attention state, a
+/// column's accent, "changes requested" red), and it must not move when the
+/// theme does. Everything structural should name a token so it does.
+public enum ColorToken: Equatable, Sendable {
+    /// The page behind everything.
+    case background
+    /// A panel on the page.
+    case surface
+    /// A card on a panel — see `ThemeColors.surfaceRaised`.
+    case surfaceRaised
+    case text
+    case muted
+    case secondary
+    case accent
+    case divider
+    /// The theme's outline colour, or `divider` when it names none.
+    case border
+    /// A literal. Deliberately theme-PROOF: for colour that is data.
+    case hex(String)
+}
+
 /// How a `.card` is painted. A struct rather than a pile of associated values
 /// because cards grew a border, then a leading accent bar, and a six-field
 /// enum case reads as a phone number at the call site.
@@ -117,28 +144,28 @@ public extension WidgetView {
 /// Sizes are reference-canvas units, scaled by the renderer like every other
 /// measurement here.
 public struct CardStyle: Equatable, Sendable {
-    /// Fill colour, `#rrggbb`.
-    public var hex: String
+    /// Fill colour.
+    public var fill: ColorToken
     /// Hairline outline, or nil for none.
-    public var borderHex: String?
+    public var border: ColorToken?
     /// A thicker bar down the LEADING edge — the web board's coloured card
     /// border. nil leaves the outline uniform.
-    public var accentHex: String?
+    public var accent: ColorToken?
     public var accentWidth: Double
     public var cornerRadius: Double
     public var padding: Double
 
     public init(
-        hex: String,
-        borderHex: String? = nil,
-        accentHex: String? = nil,
+        fill: ColorToken,
+        border: ColorToken? = nil,
+        accent: ColorToken? = nil,
         accentWidth: Double = 3,
         cornerRadius: Double = 8,
         padding: Double = 5
     ) {
-        self.hex = hex
-        self.borderHex = borderHex
-        self.accentHex = accentHex
+        self.fill = fill
+        self.border = border
+        self.accent = accent
         self.accentWidth = accentWidth
         self.cornerRadius = cornerRadius
         self.padding = padding

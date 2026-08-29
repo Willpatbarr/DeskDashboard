@@ -29,24 +29,29 @@ public extension WidgetLayout {
     /// `rendered` is how the walk below finds each column's slice.
     static let claudeSessions = Self(id: "claudeSessions") { content in
 
-        // The web dashboard's palette (public/index.html :root), verbatim.
-        let columnWell = "#15181d"
-        let cardFace = "#1d2229"
-        let textBright = "#e8eaed"
-        let textDim = "#9aa0a8"
-        let flagColor = "#fbbf24"
-        let planColor = "#c4b5fd"
-        let changesColor = "#f87171"
-        // PR numbers are blue whatever the review says — "there is a PR here"
-        // is the fact the number carries; the flag line below says if it needs
-        // you, in red.
-        let prColor = "#60a5fa"
-        let line = "#2a2f37"
+        // STRUCTURE follows the theme — wells, cards, rules, body text — so
+        // this board wears whatever the board is wearing. `HTMLerTheme` is the
+        // palette these were originally authored in, kept verbatim there.
+        let columnWell = ColorToken.surface
+        let cardFace = ColorToken.surfaceRaised
+        let textBright = ColorToken.text
+        let textDim = ColorToken.muted
+        let line = ColorToken.border
+
+        // MEANING does not. These stay literal on purpose: they are the same
+        // colours the web board uses to SAY something, and a session that
+        // wants you must not stop looking urgent because the theme changed.
+        let flagColor = ColorToken.hex("#fbbf24")
+        let planColor = ColorToken.hex("#c4b5fd")
+        let changesColor = ColorToken.hex("#f87171")
+        // Blue whatever the review says — "there is a PR here" is the fact the
+        // number carries; the flag line below says if it needs you, in red.
+        let prColor = ColorToken.hex("#60a5fa")
 
         /// Blocked reasons and their words, matching the web board's `.flag`
         /// rules. A blocked card says what it is blocked ON; a stalled one is
         /// only a suspicion, so it keeps its question mark.
-        func flagStyle(_ kind: String) -> (String, String) {
+        func flagStyle(_ kind: String) -> (String, ColorToken) {
             switch kind {
             case "question": ("question waiting", flagColor)
             case "plan": ("plan approval", planColor)
@@ -80,7 +85,9 @@ public extension WidgetLayout {
                 ? headers[columnIndex] : ClaudeColumnHeader("")
             let label = header[.label]
             let count = header[.count]
-            let accent = header[.colorHex].isEmpty ? textDim : header[.colorHex]
+            // The column's own accent, pushed by the daemon — data, not theme.
+            let accent = header[.colorHex].isEmpty
+                ? textDim : ColorToken.hex(header[.colorHex])
             let start = offsets[columnIndex]
 
             // The staleness flag lives in the first column's header now that
@@ -97,11 +104,12 @@ public extension WidgetLayout {
                 let (flagText, flagHex) = flagStyle(card[.flag])
                 // The BAR says what state the session is in — with stage-based
                 // columns that is a different fact from which column it's in.
-                let dotHex = card[.accentHex].isEmpty ? accent : card[.accentHex]
+                let dotHex = card[.accentHex].isEmpty
+                    ? accent : ColorToken.hex(card[.accentHex])
 
                 return .tappable(
                     action: "claude.focus.\(sessionID)", hold: nil,
-                    .card(CardStyle(hex: cardFace, borderHex: line, accentHex: dotHex,
+                    .card(CardStyle(fill: cardFace, border: line, accent: dotHex,
                                     cornerRadius: 8, padding: 5),
                           .stack(.vertical, spacing: 2, [
                               .stack(.horizontal, spacing: 6, [
@@ -112,39 +120,39 @@ public extension WidgetLayout {
                                   // (24 → 36px on the panel), far too heavy for
                                   // a card this size.
                                   .coloredText(content.metadata[flatIndex].label,
-                                               role: .caption, hex: textBright),
+                                               role: .caption, color: textBright),
                                   .spacer,
-                                  .coloredText(card[.age], role: .caption, hex: textDim),
+                                  .coloredText(card[.age], role: .caption, color: textDim),
                               ]),
                               .stack(.horizontal, spacing: 6, [
                                   // No stage token: the COLUMN names the stage,
                                   // so repeating it on every card is noise.
-                                  .coloredText(meta, role: .caption, hex: textDim),
+                                  .coloredText(meta, role: .caption, color: textDim),
                                   .spacer,
-                                  .coloredText(card[.pullRequest], role: .caption, hex: prColor),
+                                  .coloredText(card[.pullRequest], role: .caption, color: prColor),
                               ]),
                               .stack(.horizontal, spacing: 6, [
-                                  .coloredText(flagText, role: .caption, hex: flagHex),
+                                  .coloredText(flagText, role: .caption, color: flagHex),
                                   .coloredText(flagText.isEmpty ? card[.activity] : "",
-                                               role: .caption, hex: textDim),
+                                               role: .caption, color: textDim),
                                   .spacer,
                               ]),
                           ]))
                 )
             }
 
-            return .card(CardStyle(hex: columnWell, borderHex: line,
+            return .card(CardStyle(fill: columnWell, border: line,
                                    cornerRadius: 12, padding: 6),
                          .stack(.vertical, spacing: 4, [
                              .stack(.horizontal, spacing: 8, [
-                                 .coloredText(label.uppercased(), role: .caption, hex: accent),
-                                 .coloredText(stale, role: .caption, hex: flagColor),
+                                 .coloredText(label.uppercased(), role: .caption, color: accent),
+                                 .coloredText(stale, role: .caption, color: flagColor),
                                  .spacer,
-                                 .coloredText(count, role: .caption, hex: textDim),
+                                 .coloredText(count, role: .caption, color: textDim),
                              ]),
                              // The cards scroll; the header above stays put.
                              // Clipped cards fade into the well at each edge.
-                             .scroll(fadeHex: columnWell, .stack(.vertical, spacing: 4, slots)),
+                             .scroll(fade: columnWell, .stack(.vertical, spacing: 4, slots)),
                          ]))
         }
 

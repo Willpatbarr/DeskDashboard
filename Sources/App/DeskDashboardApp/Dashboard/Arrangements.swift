@@ -42,7 +42,13 @@ let dashboardArrangements: [Arrangement] = [
                 theme: GradientClockTheme(), screen: .board(BoardColumns.mtg)),
     // Fullscreen: no header, left rail only — reached by the header's `›` arrow,
     // deliberately absent from the switcher pills (see `Arrangement.isFullscreen`).
+    // HTMLer: the palette this board was authored in, so it looks the same
+    // here as it does in a browser tab. It is a THEME now rather than a pile of
+    // constants in the layout, so the hue pill restyles the board like any
+    // other — only the colours that mean something (attention, flags, PR) are
+    // held fixed.
     Arrangement(name: "Claude · sessions", short: "Claude",
+                theme: HTMLerTheme(),
                 screen: .board(BoardColumns.claude),
                 isFullscreen: true),
 ]

@@ -90,6 +90,11 @@ public struct ThemeColors: Equatable, Sendable {
     /// Outline drawn around a tile, `#RRGGBBAA` accepted. Empty means no outline,
     /// which is what every theme predating it wants.
     public var border: String
+    /// One step above `surface`: a card sitting ON a panel. Optional because
+    /// most themes have only two depths (page, panel) — when a theme doesn't
+    /// name one, the renderer lifts `surface` slightly toward `text` so a
+    /// layout that needs the third depth still gets one.
+    public var surfaceRaised: String
 
     public init(
         background: String,
@@ -101,7 +106,8 @@ public struct ThemeColors: Equatable, Sendable {
         mutedText: String,
         backgroundGradient: [String] = [],
         divider: String = "#FFFFFF24",
-        border: String = ""
+        border: String = "",
+        surfaceRaised: String = ""
     ) {
         self.background = background
         self.surface = surface
@@ -113,6 +119,7 @@ public struct ThemeColors: Equatable, Sendable {
         self.backgroundGradient = backgroundGradient
         self.divider = divider
         self.border = border
+        self.surfaceRaised = surfaceRaised
     }
 
     // Named palettes live with the themes that introduce them, under `Themes/`.

@@ -38,6 +38,7 @@ enum HueMode: CaseIterable {
     case blue
     case amber
     case slate
+    case htmler
 
     /// Switcher labels — kept to ≤5 characters, as the pill sizes every slot to the
     /// widest one and the header already carries two other pills.
@@ -51,6 +52,9 @@ enum HueMode: CaseIterable {
         case .blue: "Blue"
         case .amber: "Amber"
         case .slate: "Slate"
+        // Four characters, not "HTMLer": every slot in the pill is sized to the
+        // widest label, and this row already overflowed the strip once.
+        case .htmler: "HTML"
         }
     }
 
@@ -99,6 +103,12 @@ enum HueMode: CaseIterable {
                 secondary: "#B3BAC5", accent: "#C6CDD8", text: "#FFFFFF",
                 mutedText: "#B3BAC5", divider: "#B3BAC5", border: "#535A63"
             )
+        case .htmler:
+            // The AgentManager web dashboard's palette, kept verbatim in
+            // `ThemeColors.htmler` so the browser tab and the panel can't drift.
+            // The only variant that names `surfaceRaised`: this board draws
+            // three depths (page, column well, card) where the others draw two.
+            .htmler
         }
     }
 }

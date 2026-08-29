@@ -116,6 +116,42 @@ struct TileView: View {
         // backend; an `.overlay` here blanked every tile on the board.
     }
 
+    // MARK: - Colour tokens
+
+    /// A layout's `ColorToken` as a concrete colour from this tile's palette.
+    private func resolve(_ token: ColorToken) -> Color? {
+        switch token {
+        case .background: palette.background
+        case .surface: palette.surface
+        case .surfaceRaised: palette.surfaceRaised
+        case .text: palette.text
+        case .muted: palette.muted
+        case .secondary: palette.secondary
+        case .accent: palette.accent
+        case .divider: palette.divider
+        case .border: palette.border ?? palette.divider
+        case let .hex(value): Color(hex: value)
+        }
+    }
+
+    /// The same, as a hex string — GTK CSS (the card outline and its leading
+    /// accent) is written as text, not as a `Color`.
+    private func resolveHex(_ token: ColorToken) -> String? {
+        let colors = palette.sourceColors
+        return switch token {
+        case let .hex(value): value
+        case .background: colors.background
+        case .surface: colors.surface
+        case .surfaceRaised: colors.surfaceRaised.isEmpty ? colors.surface : colors.surfaceRaised
+        case .text: colors.text
+        case .muted: colors.mutedText
+        case .secondary: colors.secondary
+        case .accent: colors.accent
+        case .divider: colors.divider
+        case .border: colors.border.isEmpty ? colors.divider : colors.border
+        }
+    }
+
     // MARK: - Interpreter (WidgetView -> SwiftCrossUI)
 
     /// - Parameter insideScroll: true once the walk has descended into a
@@ -149,7 +185,7 @@ struct TileView: View {
                     .foregroundColor(palette.accent)
             )
 
-        case let .coloredText(string, role, hex):
+        case let .coloredText(string, role, token):
             // `.text` with the colour overridden by data — size and weight still
             // come from the role, so it scales with the panel.
             let style = palette.style(for: role)
@@ -157,16 +193,16 @@ struct TileView: View {
             return AnyView(
                 Text(text)
                     .font(.system(size: style.size, weight: style.weight))
-                    .foregroundColor(Color(hex: hex) ?? style.color)
+                    .foregroundColor(resolve(token) ?? style.color)
             )
 
-        case let .scroll(fadeHex, child):
+        case let .scroll(fade, child):
             // Vertical only: a horizontal scroll inside a column would fight
             // the board's own left-right taps. The height comes from the frame
             // this is given — see the node's doc for why that is required.
-            if let fadeHex {
+            if let hex = fade.flatMap(resolveHex) {
                 // Display-wide and idempotent — see `ScrollFade`.
-                ScrollFade.install(hex: fadeHex, height: 20 * palette.scale)
+                ScrollFade.install(hex: hex, height: 20 * palette.scale)
             }
             return AnyView(
                 ScrollView(.vertical) {
@@ -205,7 +241,7 @@ struct TileView: View {
             // reports no size on the GTK backend.
             let pad = max(0, Int((style.padding * palette.scale).rounded()))
             let radius = max(0, Int((style.cornerRadius * palette.scale).rounded()))
-            let accent = style.accentHex.map {
+            let accent = style.accent.flatMap(resolveHex).map {
                 (hex: $0, width: style.accentWidth * palette.scale)
             }
             return AnyView(
@@ -215,12 +251,12 @@ struct TileView: View {
                         maxWidth: .infinity,
                         alignment: runAlignment.aligned(centeredVertically: false)
                     )
-                    .background(Color(hex: style.hex) ?? palette.surface)
+                    .background(resolve(style.fill) ?? palette.surface)
                     .cornerRadius(radius)
                     // Always called, nil writes "none" — widgets are reused
                     // across re-renders (see `cssBorder`'s own note).
                     .cssBorder(
-                        hex: style.borderHex,
+                        hex: style.border.flatMap(resolveHex),
                         width: 1,
                         radius: Double(radius),
                         leadingAccent: accent

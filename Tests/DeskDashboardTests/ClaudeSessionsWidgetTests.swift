@@ -268,3 +268,63 @@ private func snapshotContent(_ dashboard: Dashboard, _ id: WidgetID) -> WidgetCo
     #expect(card[.changesRequested].isEmpty)
     #expect(card[.stage].isEmpty)
 }
+
+// MARK: - Theming
+
+@Test func structureFollowsTheThemeAndMeaningDoesNot() {
+    // The invariant this board is built on, and the one it originally got
+    // wrong: anything STRUCTURAL (wells, cards, rules, body text) names a
+    // theme token so the hue pill moves it, while anything that carries
+    // INFORMATION (attention bar, flags, PR, column accents) is a literal that
+    // must not move when the theme does.
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(
+            id: "local_a", title: "Under review", project: "Repo",
+            model: "claude-opus-5", blockedOn: "changes-requested",
+            prNumber: 2070, prState: "OPEN", prReviewDecision: "CHANGES_REQUESTED",
+            column: "needs-you", ageSeconds: 30
+        ),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date(timeIntervalSinceNow: 2))
+    let tree = WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id))
+
+    var fills: [ColorToken] = []
+    var inks: [ColorToken] = []
+    collectColors(tree, fills: &fills, inks: &inks)
+
+    // Every surface the board paints is the theme's.
+    #expect(!fills.isEmpty)
+    #expect(fills.allSatisfy { isThemed($0) || $0 == .surface || $0 == .surfaceRaised })
+    #expect(fills.contains(.surface))       // the column wells
+    #expect(fills.contains(.surfaceRaised)) // the cards
+
+    // Text is a mix, and both halves must be present: themed body text, and
+    // the fixed colours that mean "changes requested" and "there is a PR".
+    #expect(inks.contains { isThemed($0) })
+    #expect(inks.contains(.hex("#f87171")))  // changes requested stays red
+    #expect(inks.contains(.hex("#60a5fa")))  // a PR number stays blue
+}
+
+private func isThemed(_ token: ColorToken) -> Bool {
+    if case .hex = token { return false }
+    return true
+}
+
+/// Card/well fills and text colours, gathered separately.
+private func collectColors(_ node: WidgetView, fills: inout [ColorToken], inks: inout [ColorToken]) {
+    switch node {
+    case let .card(style, child):
+        fills.append(style.fill)
+        collectColors(child, fills: &fills, inks: &inks)
+    case let .coloredText(_, _, color):
+        inks.append(color)
+    case let .stack(_, _, children), let .columns(_, children), let .centered(children):
+        for child in children { collectColors(child, fills: &fills, inks: &inks) }
+    case let .tappable(_, _, child), let .region(_, _, child), let .scroll(_, child):
+        collectColors(child, fills: &fills, inks: &inks)
+    default:
+        break
+    }
+}

@@ -20,6 +20,9 @@ struct ThemeToSCUIPalette: Sendable {
     /// Top-to-bottom background gradient stops, or `nil` for a flat background.
     let backgroundGradient: [Color]?
     let surface: Color
+    /// A card on a panel — `surface` if the theme names one, else `surface`
+    /// lifted a little toward `text` so three depths always exist.
+    let surfaceRaised: Color
     let primary: Color
     let secondary: Color
     let accent: Color
@@ -33,6 +36,9 @@ struct ThemeToSCUIPalette: Sendable {
     /// property on the widget itself rather than as an overlaid shape — see
     /// `TileBorderGTK` for why — and that needs the hex, not a `Color`.
     let borderHex: String?
+    /// The palette's colours as authored, for the places that need a hex STRING
+    /// rather than a `Color` — GTK CSS is written as text (see `cssBorder`).
+    let sourceColors: ThemeColors
     /// The accent as a CSS colour string, for chrome that must draw an outline
     /// even when the theme defines no border (the header's Edit button).
     let accentHex: String
@@ -115,7 +121,12 @@ struct ThemeToSCUIPalette: Sendable {
         let stops = colors.backgroundGradient.compactMap { Color(hex: $0) }
         backgroundGradient = stops.count >= 2 ? stops : nil
         fillOpacity = surfaceOpacity
-        surface = (Color(hex: colors.surface) ?? Color(white: 0.1))
+        let baseSurface = (Color(hex: colors.surface) ?? Color(white: 0.1))
+        surfaceRaised = (Color(hex: colors.surfaceRaised)
+            ?? Color(hex: Self.liftedHex(colors.surface, toward: colors.text, by: 0.05))
+            ?? baseSurface)
+            .opacity(surfaceOpacity)
+        surface = baseSurface
             .opacity(surfaceOpacity)
         primary = Color(hex: colors.primary) ?? .white
         secondary = Color(hex: colors.secondary) ?? .gray
@@ -125,6 +136,7 @@ struct ThemeToSCUIPalette: Sendable {
         divider = Color(hex: colors.divider) ?? Color(white: 1, opacity: 0.14)
         border = colors.border.isEmpty ? nil : Color(hex: colors.border)
         borderHex = colors.border.isEmpty ? nil : colors.border
+        sourceColors = colors
         accentHex = colors.accent
 
         let spacing = sizes.spacing
@@ -201,5 +213,29 @@ extension Font.Weight {
         case ..<850: self = .heavy
         default: self = .black
         }
+    }
+
+}
+
+
+extension ThemeToSCUIPalette {
+    /// `base` mixed a little way toward `target`, both `#rrggbb`. Used to
+    /// invent a third surface depth for themes that only name two.
+    ///
+    /// Done on the HEX rather than on two `Color`s because this backend's
+    /// `Color` exposes no components to read back.
+    static func liftedHex(_ base: String, toward target: String, by amount: Double) -> String {
+        guard let a = rgb(base), let b = rgb(target) else { return base }
+        let mix = { (x: Int, y: Int) in
+            min(255, max(0, Int((Double(x) + (Double(y) - Double(x)) * amount).rounded())))
+        }
+        return String(format: "#%02X%02X%02X", mix(a.0, b.0), mix(a.1, b.1), mix(a.2, b.2))
+    }
+
+    private static func rgb(_ hex: String) -> (Int, Int, Int)? {
+        var digits = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
+        if digits.count == 8 { digits = String(digits.prefix(6)) }
+        guard digits.count == 6, let value = Int(digits, radix: 16) else { return nil }
+        return ((value >> 16) & 0xFF, (value >> 8) & 0xFF, value & 0xFF)
     }
 }
