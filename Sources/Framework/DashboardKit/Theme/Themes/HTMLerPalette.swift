@@ -1,4 +1,4 @@
-// HTMLerTheme.swift — The AgentManager web dashboard's palette, as a theme.
+// HTMLerPalette.swift — The AgentManager web dashboard's palette, for the HTML hue.
 
 import Foundation
 
@@ -34,14 +34,4 @@ public extension ThemeColors {
         // --card: one step up from the wells.
         surfaceRaised: "#1d2229"
     )
-}
-
-/// The web dashboard's look, for boards that want to match it.
-public struct HTMLerTheme: Theme {
-    public var name: String { "HTMLer" }
-    public var colors: ThemeColors { .htmler }
-    public var typography: ThemeTypography { .airyRuled }
-    public var shape: ThemeShape { .ruled }
-
-    public init() {}
 }
