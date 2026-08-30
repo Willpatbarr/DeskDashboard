@@ -108,7 +108,10 @@ public struct ClaudeSessionsWidget: ServiceBackedWidget, InteractiveWidget {
             title: configuration.title,
             primaryText: model?.countsLine ?? "Waiting for Mac…",
             secondaryText: headers,
-            accessoryText: (model?.isStale ?? false) ? "STALE" : nil,
+            // "STALE" (no push lately) or "OLD MAC" (the daemon is behind on
+            // the wire shape). The model picks which; the layout draws it
+            // verbatim in the first column's header.
+            accessoryText: model?.statusFlag,
             // Cards first, then the open session's detail block, then one entry
             // per subagent. No sentinel is needed to tell them apart: the layout
             // already sums every column's `rendered` to walk the cards, so

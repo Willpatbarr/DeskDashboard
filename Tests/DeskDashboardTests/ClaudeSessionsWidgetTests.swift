@@ -733,6 +733,130 @@ private func isThemed(_ token: ColorToken) -> Bool {
     return true
 }
 
+// MARK: - Attention colour and producer staleness
+
+@Test func theAccentBarFallsBackToTheAttentionPaletteNotTheColumnAccent() {
+    // The fallback used to look `attention` up among COLUMN ids. On a
+    // stage-based board those sets are disjoint, so it always resolved to ""
+    // and every card in a column came out the column's own colour. This pins
+    // the local palette instead — a push that omits `attentionColor` must still
+    // paint a running session green.
+    let stageBoard = ClaudeSessionsReading(
+        columns: [
+            ClaudeSessionColumn(id: "scratch", label: "Scratch", colorHex: "#8b929c"),
+            ClaudeSessionColumn(id: "planning", label: "Planning", colorHex: "#c4b5fd"),
+            ClaudeSessionColumn(id: "building", label: "In Worktree", colorHex: "#5eead4"),
+        ],
+        sessions: [
+            ClaudeSession(
+                id: "local_a", title: "One", attention: "working",
+                column: "planning", ageSeconds: 5
+            ),
+        ],
+        receivedAt: Date()
+    )
+    let service = FixedClaudeSessionsService(stageBoard)
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    dashboard.perform(action: "claude.detail.local_a", on: id)
+    let card = ClaudeCard(snapshotContent(dashboard, id).metadata[0].value)
+    #expect(card[.accentHex] == "#4ade80")
+    // Not the column it happens to sit in.
+    #expect(card[.accentHex] != "#c4b5fd")
+}
+
+@Test func aProducerBehindOnTheWireShapeOutranksAStaleReading() {
+    // Absent/old `wireVersion` means the Mac is running pre-restart code and
+    // silently omitting fields. That degrades gracefully by design, which is
+    // exactly what makes it invisible — so it gets the louder word, even when
+    // the reading is ALSO old.
+    var behind = reading([])
+    behind.wireVersion = ClaudeSessionsReading.currentWireVersion - 1
+    behind.receivedAt = Date(timeIntervalSinceNow: -300)
+    let service = FixedClaudeSessionsService(behind)
+    let model = ClaudeSessionsWidgetModel(service: service)
+    model.refresh(at: Date())
+    #expect(model.statusFlag == "OLD MAC")
+
+    // Current producer, nothing pushed lately: the symptom, not the cause.
+    var quiet = reading([])
+    quiet.receivedAt = Date(timeIntervalSinceNow: -300)
+    service.stored = quiet
+    model.refresh(at: Date())
+    #expect(model.statusFlag == "STALE")
+    #expect(model.isStale)
+
+    // Healthy on both counts: no badge at all.
+    service.stored = reading([])
+    model.refresh(at: Date())
+    #expect(model.statusFlag == nil)
+}
+
+@Test func theHeaderBadgeShowsWhateverTheModelFlagged() {
+    // Pins the wiring: the widget hands `statusFlag` straight to
+    // `accessoryText`, which the layout draws in the first column's header.
+    var behind = reading([])
+    behind.wireVersion = ClaudeSessionsReading.currentWireVersion - 1
+    let service = FixedClaudeSessionsService(behind)
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+
+    #expect(snapshotContent(dashboard, id).accessoryText == "OLD MAC")
+}
+
+@Test func aFinishedAgentsBarIsNotTheRunningGreen() {
+    // The bar is the state signal, so it must come from the theme-independent
+    // attention palette. "Done" once used the theme's `muted`, which under the
+    // Green theme is #9cd09d — near enough to the in-flight #4ade80 that every
+    // finished agent read as still running.
+    let service = FixedClaudeSessionsService(reading([
+        ClaudeSession(
+            id: "local_a", title: "One", column: "working", agentCount: 1, ageSeconds: 5,
+            agents: [
+                ClaudeSessionAgent(label: "Still going", agentType: "Explore",
+                                   running: true, seconds: 12),
+                ClaudeSessionAgent(label: "All done", agentType: "Explore",
+                                   running: false, seconds: 240),
+            ]
+        ),
+    ]))
+    var dashboard = Dashboard()
+    let id = dashboard.add(ClaudeSessionsWidget().id("claude").service(service))
+    dashboard.tick(at: Date())
+    dashboard.perform(action: "claude.detail.local_a", on: id)
+
+    var accents: [ColorToken] = []
+    collectAccents(WidgetLayout.claudeSessions.makeView(snapshotContent(dashboard, id)), into: &accents)
+    let hexes = accents.compactMap { token -> String? in
+        if case let .hex(value) = token { return value }
+        return nil
+    }
+    #expect(hexes.contains("#4ade80"))   // the running one
+    #expect(hexes.contains("#6b7280"))   // the finished one, grey not green
+}
+
+/// Every card accent in the tree, for state-colour assertions.
+private func collectAccents(_ node: WidgetView, into accents: inout [ColorToken]) {
+    switch node {
+    case let .card(style, child):
+        if let accent = style.accent { accents.append(accent) }
+        collectAccents(child, into: &accents)
+    case let .stack(_, _, children), let .columns(_, children), let .centered(children):
+        for child in children { collectAccents(child, into: &accents) }
+    case let .tappable(_, _, child), let .region(_, _, child), let .scroll(_, child):
+        collectAccents(child, into: &accents)
+    case let .layered(base, _, _, _, panel):
+        // The agent cards live in the PANEL, not the board underneath.
+        collectAccents(base, into: &accents)
+        collectAccents(panel, into: &accents)
+    default:
+        break
+    }
+}
+
 /// Card/well fills and text colours, gathered separately.
 private func collectColors(_ node: WidgetView, fills: inout [ColorToken], inks: inout [ColorToken]) {
     switch node {

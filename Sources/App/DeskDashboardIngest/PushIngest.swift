@@ -131,6 +131,11 @@ public enum PushIngest {
         struct Payload: Decodable {
             var columns: [ColumnPayload]?
             var sessions: [SessionPayload]
+            /// Shape version of the push body, from the daemon's own
+            /// `WIRE_VERSION`. Optional because a producer old enough to
+            /// predate the field is exactly the case being detected — see the
+            /// `?? 1` below.
+            var wireVersion: Int?
         }
 
         registerPost("/ingest/claude-sessions") { body in
@@ -198,11 +203,15 @@ public enum PushIngest {
                             planName: session.planName
                         )
                     },
-                    receivedAt: Date()
+                    receivedAt: Date(),
+                    // Absent means OLD: a producer that predates the field is
+                    // precisely the stale-Mac case the flag exists to surface,
+                    // so it must not inherit the current-version default.
+                    wireVersion: payload.wireVersion ?? 1
                 )
             )
 
-            print("[ingest] claude-sessions <- \(payload.sessions.count) sessions in \(columns.count) columns")
+            print("[ingest] claude-sessions <- \(payload.sessions.count) sessions in \(columns.count) columns (wire v\(payload.wireVersion ?? 1))")
             let echo = #"{"stored":\#(payload.sessions.count)}"#
             return HTTPResponse(
                 contentType: "application/json",

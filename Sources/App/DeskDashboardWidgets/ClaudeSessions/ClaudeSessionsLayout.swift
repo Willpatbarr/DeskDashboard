@@ -314,10 +314,20 @@ public extension WidgetLayout {
             let inFlight = agent[.running] == "1"
             let failed = agent[.failed] == "1"
             let seconds = Int(agent[.seconds])
-            // Green while in flight, dim once done, red if it errored — the same
-            // three-way reading the cards use. It is the card's accent bar AND
-            // the type's tint, so state is carried by the same treatment the
-            // session cards use rather than by a glyph of its own.
+            // Green while in flight, grey once done, red if it errored — the
+            // same three-way reading the cards use, and for the same reason
+            // drawn from the theme-INDEPENDENT attention palette.
+            //
+            // "Done" used to borrow the theme's `muted`, which under the Green
+            // theme resolves to #9cd09d — a green a hair off the in-flight
+            // #4ade80. Two greens differing only in saturation read as one, so
+            // every finished agent looked like it was still running. The bar is
+            // the state signal, so it can't be a colour the theme gets to pick.
+            let accent: ColorToken = failed
+                ? changesColor
+                : ColorToken.hex(ClaudeSessionsWidgetModel.attentionColors[inFlight ? "working" : "idle"] ?? "#6b7280")
+            // The type label keeps the themed dim so it stays readable as TEXT;
+            // only the bar carries state.
             let color: ColorToken = failed
                 ? changesColor : (inFlight ? ColorToken.hex("#4ade80") : textDim)
             let kind = agent[.agentType]
@@ -327,7 +337,7 @@ public extension WidgetLayout {
                 inFlight ? "running" : (failed ? "failed" : ""),
                 seconds.map(ClaudeSessionsWidgetModel.ageLabel) ?? "",
             ].filter { !$0.isEmpty }.joined(separator: " · ")
-            return .card(CardStyle(fill: cardFace, border: line, accent: color,
+            return .card(CardStyle(fill: cardFace, border: line, accent: accent,
                                    accentWidth: 4, cornerRadius: 12, padding: 8),
                          .stack(.horizontal, spacing: 6, [
                              .coloredText(agent[.label], role: .secondary, color: textBright),

@@ -78,7 +78,9 @@ public struct ClaudeSession: Equatable, Sendable {
     /// comes from `gh`; everything else above is local metadata.
     public var prReviewDecision: String?
     /// Column id assigned by the daemon's (user-configurable) column rules —
-    /// e.g. `working` / `needs-you` / `idle`, but the set is open.
+    /// on the current stage-based board `scratch` / `planning` / `building` /
+    /// `pr-open`, but the set is open and user-configurable. Deliberately NOT
+    /// the same vocabulary as `attention` above; don't look one up by the other.
     public var column: String
     public var stalled: Bool
     public var askPending: Bool
@@ -193,14 +195,33 @@ public struct ClaudeSessionColumn: Equatable, Sendable {
 /// One full push from the daemon: the column set plus every session, already
 /// sorted column-major by the daemon.
 public struct ClaudeSessionsReading: Equatable, Sendable {
+    /// The push-body shape this build of the Pi expects, mirroring the daemon's
+    /// `WIRE_VERSION` in `AgentManager/src/push.js`. The two constants live in
+    /// two repos on purpose — them disagreeing is how a stale producer is
+    /// detected, so they cannot be shared. Bump both together.
+    public static let currentWireVersion = 2
+
     public var columns: [ClaudeSessionColumn]
     public var sessions: [ClaudeSession]
     public var receivedAt: Date
+    /// Shape version the producer claimed. Anything below
+    /// `currentWireVersion` means the Mac is running old code and is quietly
+    /// omitting fields — see `ClaudeSessionsWidgetModel.statusFlag`.
+    public var wireVersion: Int
 
-    public init(columns: [ClaudeSessionColumn], sessions: [ClaudeSession], receivedAt: Date) {
+    /// `wireVersion` defaults to current so simulated readings and existing
+    /// tests don't flag themselves; only a real push carrying an absent or
+    /// older version trips the check.
+    public init(
+        columns: [ClaudeSessionColumn],
+        sessions: [ClaudeSession],
+        receivedAt: Date,
+        wireVersion: Int = ClaudeSessionsReading.currentWireVersion
+    ) {
         self.columns = columns
         self.sessions = sessions
         self.receivedAt = receivedAt
+        self.wireVersion = wireVersion
     }
 }
 

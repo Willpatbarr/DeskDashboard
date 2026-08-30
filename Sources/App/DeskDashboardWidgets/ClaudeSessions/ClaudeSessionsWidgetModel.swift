@@ -16,6 +16,11 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
     /// user-configurable (`columns.js`) and adding one shouldn't need a Pi
     /// rebuild. Beyond this they'd be too narrow to read on the strip.
     public static let maxColumns = 5
+    /// Push-body shape this build expects. A reading below it means the Mac's
+    /// daemon is running pre-restart code and silently omitting fields — see
+    /// `ClaudeSessionsReading.currentWireVersion` for why the constant is a
+    /// hand-bumped integer rather than a SHA.
+    public static let expectedWireVersion = ClaudeSessionsReading.currentWireVersion
     /// Most cards a column will render. Not a fitting constraint any more —
     /// the column scrolls — just a sane ceiling on how much a push can ask the
     /// tile to build.
@@ -104,6 +109,14 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
     private(set) var grid: [[Row]] = []
     private(set) var countsLine: String = "Waiting for Mac…"
     private(set) var isStale = false
+    /// The one word the header badge shows, or nil for a healthy board.
+    ///
+    /// Producer-behind outranks reading-old on purpose: "your Mac is running
+    /// old code" is the actionable fact, while "no push for a minute" is a
+    /// symptom you can't do anything with. A stale producer would otherwise be
+    /// invisible — it degrades gracefully by design, which is what made this
+    /// class of bug read as a Pi rendering fault.
+    private(set) var statusFlag: String?
     /// Which buckets the fullscreen rail's pills have lit. Empty is the resting
     /// state and means unfiltered — see `ClaudeSessionFilter.allows`.
     private(set) var filters: Set<ClaudeSessionFilter> = []
@@ -187,6 +200,7 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
             grid = []
             countsLine = "Waiting for Mac…"
             isStale = false
+            statusFlag = nil
             openSessionID = nil
             openMenuSessionID = nil
             detail = nil
@@ -194,6 +208,13 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
         }
 
         isStale = date.timeIntervalSince(reading.receivedAt) > staleAfter
+        if reading.wireVersion < Self.expectedWireVersion {
+            statusFlag = "OLD MAC"
+        } else if isStale {
+            statusFlag = "STALE"
+        } else {
+            statusFlag = nil
+        }
 
         // The daemon's column set is user-configurable and open-ended; the tile
         // draws them all, in the daemon's order, up to what fits.
@@ -297,15 +318,31 @@ public final class ClaudeSessionsWidgetModel: WidgetModel {
         )
     }
 
-    /// The colour for a card's dot: the accent of the column named by the
-    /// session's `attention`, or nothing when the daemon didn't say (older
-    /// daemon) — the layout then falls back to the card's own column.
+    /// Bar colours by attention state, mirroring the daemon's ATTENTION_COLORS.
+    /// Kept here as well so a stage-based board — whose columns carry none of
+    /// these hues — still paints an honest bar if the push omits the colour.
+    static let attentionColors = [
+        "working": "#4ade80",
+        "needs-you": "#fbbf24",
+        "idle": "#6b7280",
+    ]
+
+    /// The colour for a card's accent bar: what the daemon resolved, else this
+    /// file's own copy of the attention palette. Empty only when the session
+    /// carries no attention state at all — the layout then falls back to the
+    /// card's own column.
+    ///
+    /// The fallback used to look `attention` (`working|needs-you|idle`) up among
+    /// COLUMN ids, which on a stage-based board are `scratch|planning|building|
+    /// pr-open`. Those sets are disjoint, so it always returned "" and every
+    /// card in a column came out identically coloured; it survived only because
+    /// the daemon happens to send the colour pre-resolved.
     static func attentionColor(_ session: ClaudeSession, in reading: ClaudeSessionsReading) -> String {
-        // What the daemon resolved, when it did — a stage-based board has no
-        // attention column to look one up from.
+        // What the daemon resolved, when it did — it stays the source of truth
+        // whenever it speaks.
         if let pushed = session.attentionColor, !pushed.isEmpty { return pushed }
         guard let attention = session.attention, !attention.isEmpty else { return "" }
-        return reading.columns.first { $0.id == attention }?.colorHex ?? ""
+        return attentionColors[attention] ?? ""
     }
 
     /// The model chip's text, shortened the way the web board shortens it.
